@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
-import { addDays, startOfMonth, startOfWeek } from '@/lib/calendar';
+import { addDays, startOfWeek } from '@/lib/calendar';
 import { byDay } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { MonthDayCell } from './MonthDayCell';
@@ -17,6 +17,8 @@ interface Props {
   onSelectEvent: (event: CalendarEvent) => void;
   /** Meldet den Monat, der oben im Bild steht – die Kopfzeile folgt ihm. */
   onAnchorChange: (day: string) => void;
+  /** Erzwingt einen Sprung zum Anker, auch wenn der Monat gleich bleibt. */
+  focusKey?: number;
 }
 
 /** Feste Zeilenhöhe: nur damit lässt sich beim Nachladen exakt nachscrollen. */
@@ -53,6 +55,7 @@ export function MonthScrollView({
   onSelectDay,
   onSelectEvent,
   onAnchorChange,
+  focusKey = 0,
 }: Props) {
   const { format } = useSettings();
   const grouped = useMemo(() => byDay(events, format), [events, format]);
@@ -60,7 +63,7 @@ export function MonthScrollView({
 
   const scroller = useRef<HTMLDivElement>(null);
   const [window_, setWindow] = useState(() => ({
-    first: addDays(startOfWeek(startOfMonth(anchor)), -INITIAL_BEFORE * 7),
+    first: addDays(startOfWeek(anchor), -INITIAL_BEFORE * 7),
     count: INITIAL_BEFORE + INITIAL_AFTER,
   }));
 
@@ -68,6 +71,8 @@ export function MonthScrollView({
   const pending = useRef<{ top?: number; delta?: number }>({ top: INITIAL_BEFORE * ROW_HEIGHT });
   /** Monat, den wir zuletzt selbst gemeldet haben – verhindert Rückkopplung. */
   const reported = useRef(anchor.slice(0, 7));
+  /** Letzter ausdrücklicher Fokusauftrag von aussen. */
+  const focused = useRef(focusKey);
   /** Während eines eigenen Sprungs keine Scroll-Ereignisse auswerten. */
   const suppress = useRef(false);
 
@@ -106,10 +111,12 @@ export function MonthScrollView({
     if (!element) return;
     const month = anchor.slice(0, 7);
     // Kam die Änderung aus unserem eigenen Scrollen, ist nichts zu tun.
-    if (month === reported.current) return;
+    const shouldFocus = focusKey !== focused.current;
+    if (month === reported.current && !shouldFocus) return;
     reported.current = month;
+    focused.current = focusKey;
 
-    const target = weekIndex(window_.first, startOfMonth(anchor));
+    const target = weekIndex(window_.first, anchor);
     if (target >= 1 && target <= window_.count - 6) {
       suppress.current = true;
       element.scrollTop = target * ROW_HEIGHT;
@@ -122,10 +129,10 @@ export function MonthScrollView({
     pending.current = { top: INITIAL_BEFORE * ROW_HEIGHT };
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setWindow({
-      first: addDays(startOfWeek(startOfMonth(anchor)), -INITIAL_BEFORE * 7),
+      first: addDays(startOfWeek(anchor), -INITIAL_BEFORE * 7),
       count: INITIAL_BEFORE + INITIAL_AFTER,
     });
-  }, [anchor, window_]);
+  }, [anchor, focusKey, window_]);
 
   const onScroll = () => {
     const element = scroller.current;
@@ -160,7 +167,10 @@ export function MonthScrollView({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="grid shrink-0 grid-cols-7 hairline-b">
+      <div
+        className="grid shrink-0 grid-cols-7 overflow-y-auto scroll-quiet hairline-b"
+        style={{ scrollbarGutter: 'stable' }}
+      >
         {weeks[0] &&
           Array.from({ length: 7 }, (_, i) => addDays(weeks[0], i)).map((day) => (
             <div
@@ -172,7 +182,12 @@ export function MonthScrollView({
           ))}
       </div>
 
-      <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
+      <div
+        ref={scroller}
+        onScroll={onScroll}
+        className="min-h-0 flex-1 overflow-y-auto scroll-quiet"
+        style={{ scrollbarGutter: 'stable' }}
+      >
         {weeks.map((weekStart) => {
           const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
           // Zeilen, in denen ein Monat beginnt, bekommen eine kräftigere Linie.

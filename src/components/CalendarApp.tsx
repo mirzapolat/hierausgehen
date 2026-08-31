@@ -6,21 +6,16 @@ import {
   type ViewMode,
   addDays,
   addMonths,
-  daysBetween,
   loadRange,
-  startOfWeek,
-  visibleRange,
 } from '@/lib/calendar';
 import { useSettings } from '@/lib/settings/context';
 import { AgendaList } from './AgendaList';
-import { DayView } from './DayView';
 import { DetailPanel } from './DetailPanel';
-import { MobileAgenda } from './MobileAgenda';
+import { HorizontalCalendar } from './HorizontalCalendar';
 import { MonthScrollView } from './MonthScrollView';
 import { MonthView } from './MonthView';
 import { ResizeHandle } from './ResizeHandle';
 import { Sidebar } from './Sidebar';
-import { TimeGrid } from './TimeGrid';
 import { Toolbar } from './Toolbar';
 import { Close } from './icons';
 
@@ -28,6 +23,7 @@ interface Props {
   initialData: AggregateResult;
   initialRange: { from: string; to: string };
   initialCityId: string;
+  initialAnchor: string;
 }
 
 const LAYOUT_STORAGE_KEY = 'hierausgehen.layout.v1';
@@ -54,13 +50,15 @@ const defaultLayout: LayoutPrefs = {
   detailCollapsed: false,
 };
 
-export function CalendarApp({ initialData, initialRange, initialCityId }: Props) {
+export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
   const { settings, update, format, t } = useSettings();
 
   const [view, setView] = useState<ViewMode>(defaultLayout.view);
-  const [anchor, setAnchor] = useState<string>(() => initialRange.from.slice(0, 8) + '01');
+  const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [selectedDay, setSelectedDay] = useState<string>(anchor);
   const [selectedEventId, setSelectedEventId] = useState<string>();
+  /** Erzwingt bei erneutem „Heute" ein Zentrieren, auch wenn das Datum gleich bleibt. */
+  const [calendarFocusKey, setCalendarFocusKey] = useState(0);
 
   const [disabled, setDisabled] = useState<Set<string>>(new Set());
   const [availableOnly, setAvailableOnly] = useState(false);
@@ -240,15 +238,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
     settings.locale,
   ]);
 
-  const visible = useMemo(() => visibleRange(view, anchor), [view, anchor]);
   const dayEvents = useMemo(
     () => events.filter((event) => format.localDay(event.start) === selectedDay),
     [events, selectedDay, format],
-  );
-  /** Termine des angezeigten Tages – in der Tagesansicht unabhängig von der Auswahl. */
-  const anchorDayEvents = useMemo(
-    () => events.filter((event) => format.localDay(event.start) === anchor),
-    [events, anchor, format],
   );
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId),
@@ -259,11 +251,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
 
   const step = useCallback(
     (direction: -1 | 1) => {
+      const amount = view === 'day' ? direction : view === 'week' ? direction * 7 : 0;
       setAnchor((current) => {
         if (view === 'day') return addDays(current, direction);
         if (view === 'week') return addDays(current, direction * 7);
         return addMonths(current, direction);
       });
+      if (amount) setSelectedDay((current) => addDays(current, amount));
     },
     [view],
   );
@@ -273,16 +267,20 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
     setAnchor(now);
     setSelectedDay(now);
     setSelectedEventId(undefined);
+    setCalendarFocusKey((current) => current + 1);
   }, [format]);
 
   const selectDay = useCallback((day: string) => {
+    setAnchor(day);
     setSelectedDay(day);
     setSelectedEventId(undefined);
   }, []);
 
   const selectEvent = useCallback(
     (event: CalendarEvent) => {
-      setSelectedDay(format.localDay(event.start));
+      const day = format.localDay(event.start);
+      setAnchor(day);
+      setSelectedDay(day);
       setSelectedEventId(event.id);
       setSheetOpen(true);
       setLayout((current) => ({ ...current, detailCollapsed: false }));
@@ -314,11 +312,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [step, goToday]);
-
-  const weekDays = useMemo(
-    () => daysBetween(startOfWeek(anchor), addDays(startOfWeek(anchor), 6)),
-    [anchor],
-  );
 
   const sidebar = (
     <Sidebar
@@ -432,8 +425,23 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
 
         {/* Kalender */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <div className="hidden min-h-0 flex-1 lg:flex lg:flex-col">
-            {view === 'month' && (
+          {view !== 'month' && (
+            <HorizontalCalendar
+              key={calendarFocusKey}
+              mode={view}
+              anchor={anchor}
+              events={events}
+              definitions={data.definitions}
+              selectedDay={selectedDay}
+              selectedEventId={selectedEventId}
+              onSelectDay={selectDay}
+              onSelectEvent={selectEvent}
+              onStep={step}
+            />
+          )}
+
+          {view === 'month' && (
+            <div className="hidden min-h-0 flex-1 lg:flex lg:flex-col">
               <MonthScrollView
                 anchor={anchor}
                 events={events}
@@ -443,36 +451,18 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
                 onSelectDay={selectDay}
                 onSelectEvent={selectEvent}
                 onAnchorChange={setAnchor}
+                focusKey={calendarFocusKey}
               />
-            )}
-            {view === 'week' && (
-              <TimeGrid
-                days={weekDays}
-                events={events}
-                definitions={data.definitions}
-                selectedDay={selectedDay}
-                selectedEventId={selectedEventId}
-                onSelectDay={selectDay}
-                onSelectEvent={selectEvent}
-              />
-            )}
-            {view === 'day' && (
-              <DayView
-                day={anchor}
-                events={anchorDayEvents}
-                definitions={data.definitions}
-                selectedEventId={selectedEventId}
-                onSelectEvent={selectEvent}
-              />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Mobile */}
-          <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-            {view === 'month' && (
+          {view === 'month' && (
+            <div className="flex min-h-0 flex-1 flex-col lg:hidden">
               <div className="h-[288px] shrink-0 hairline-b">
                 <MonthView
                   compact
+                  currentWeekFirst
                   anchor={anchor}
                   events={events}
                   definitions={data.definitions}
@@ -482,9 +472,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
                   onSelectEvent={selectEvent}
                 />
               </div>
-            )}
-            <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
-              {view === 'month' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
                 <AgendaList
                   events={dayEvents}
                   definitions={data.definitions}
@@ -492,19 +480,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId }: Props)
                   onSelect={selectEvent}
                   emptyLabel={t('noEventsDay')}
                 />
-              ) : (
-                <MobileAgenda
-                  from={visible.from}
-                  to={visible.to}
-                  events={events}
-                  definitions={data.definitions}
-                  selectedEventId={selectedEventId}
-                  onSelectEvent={selectEvent}
-                  hideEmptyDays={view === 'week'}
-                />
-              )}
+              </div>
             </div>
-          </div>
+          )}
         </main>
 
         {/* Details – rechts */}

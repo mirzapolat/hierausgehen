@@ -31,7 +31,12 @@ export default async function Page({ searchParams }: PageProps<'/'>) {
   return (
     <>
       <StructuredData events={data.events} definitions={data.definitions} />
-      <CalendarApp initialData={data} initialRange={range} initialCityId={cityId} />
+      <CalendarApp
+        initialData={data}
+        initialRange={range}
+        initialCityId={cityId}
+        initialAnchor={today}
+      />
     </>
   );
 }

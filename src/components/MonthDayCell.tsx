@@ -68,9 +68,6 @@ export function MonthDayCell({
             {format.monthName(day)}
           </span>
         )}
-        {compact && events.length > 0 && (
-          <span className="text-[10px] text-faint">{events.length}</span>
-        )}
       </div>
 
       {compact ? (
