@@ -1,11 +1,39 @@
 import type { Metadata, Viewport } from 'next';
 import { SettingsProvider } from '@/lib/settings/context';
+import { ServiceWorker } from '@/components/ServiceWorker';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
+
 export const metadata: Metadata = {
-  title: 'Hier ausgehen — Veranstaltungen in München',
-  description:
-    'Ein Kalender für alle Veranstaltungen in München: Oper, Theater, Konzert und Kultur an einem Ort.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    // Unterseiten hängen sich an, statt den Namen zu wiederholen.
+    template: `%s — ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  authors: [{ name: 'Mirza Polat' }],
+  creator: 'Mirza Polat',
+  alternates: { canonical: '/' },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'de_DE',
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: { card: 'summary_large_image', title: SITE_TITLE, description: SITE_DESCRIPTION },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: 'default' },
+  formatDetection: { telephone: false, date: false, address: false, email: false },
 };
 
 export const viewport: Viewport = {
@@ -34,6 +62,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       </head>
       <body className="h-full">
         <SettingsProvider>{children}</SettingsProvider>
+        <ServiceWorker />
       </body>
     </html>
   );

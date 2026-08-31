@@ -1,4 +1,5 @@
 import { CalendarApp } from '@/components/CalendarApp';
+import { StructuredData } from '@/components/StructuredData';
 import { aggregateEvents } from '@/lib/events/aggregate';
 import { loadRange } from '@/lib/calendar';
 import { DEFAULT_CITY_ID, cities, cityById } from '@/lib/cities';
@@ -27,5 +28,10 @@ export default async function Page({ searchParams }: PageProps<'/'>) {
   const range = loadRange('month', today);
   const data = await aggregateEvents(range, { cityId });
 
-  return <CalendarApp initialData={data} initialRange={range} initialCityId={cityId} />;
+  return (
+    <>
+      <StructuredData events={data.events} definitions={data.definitions} />
+      <CalendarApp initialData={data} initialRange={range} initialCityId={cityId} />
+    </>
+  );
 }

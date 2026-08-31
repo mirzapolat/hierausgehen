@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
@@ -60,7 +61,9 @@ export function Sidebar({
   const statusById = useMemo(() => new Map(status.map((s) => [s.sourceId, s])), [status]);
 
   return (
-    <div className="flex h-full flex-col gap-5 overflow-y-auto scroll-quiet px-4 py-4">
+    <div className="flex h-full flex-col">
+      {/* Nur die Filter scrollen; Stand und Impressum bleiben unten sichtbar. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto scroll-quiet px-4 py-4">
       <div
         className={`rounded-[5px] p-[1.5px] ${
           query ? 'rainbow-ring' : 'bg-transparent'
@@ -251,6 +254,8 @@ export function Sidebar({
           <span className="text-[13px]">{t('onlyAvailable')}</span>
         </div>
       </section>
+
+      </div>
 
       <SourceFootnote status={status} />
     </div>
@@ -453,11 +458,19 @@ function SourceFootnote({ status }: { status: SourceResult[] }) {
   );
 
   return (
-    <p className="mt-auto shrink-0 pt-4 text-[11px] leading-relaxed text-faint hairline-t">
-      {newest ? t('asOf', { time: format.stamp(newest) }) : t('noDataYet')}
-      {problems.length === 1 && ` ${t('sourceUnavailableOne')}`}
-      {problems.length > 1 && ` ${t('sourceUnavailableMany', { count: problems.length })}`}
-    </p>
+    <div className="shrink-0 bg-[var(--chrome)] px-4 py-3 hairline-t">
+      <p className="text-[11px] leading-relaxed text-faint">
+        {newest ? t('asOf', { time: format.stamp(newest) }) : t('noDataYet')}
+        {problems.length === 1 && ` ${t('sourceUnavailableOne')}`}
+        {problems.length > 1 && ` ${t('sourceUnavailableMany', { count: problems.length })}`}
+      </p>
+      <Link
+        href="/impressum"
+        className="mt-1.5 inline-block text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
+      >
+        {t('imprint')}
+      </Link>
+    </div>
   );
 }
 

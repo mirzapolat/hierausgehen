@@ -44,6 +44,11 @@ src/
   app/
     page.tsx               Serverseitige Erstansicht
     settings/page.tsx      Einstellungen
+    impressum/page.tsx     Impressum
+    offline/page.tsx       Rückfallseite ohne Verbindung
+    manifest.ts            Web-App-Manifest (installierbar)
+    robots.ts, sitemap.ts  Angaben für Suchmaschinen
+    opengraph-image.tsx    Vorschaubild für geteilte Links
     api/events/            aggregierte Termine
     api/source-icon/[id]/  Favicon einer Quelle
 ```
@@ -186,6 +191,24 @@ Drei Eigenheiten:
 - **Die Gattungsnamen stehen nicht in den Fragmenten**, sondern als
   Beschriftung der Filter auf der Spielplanseite. Sie werden einmal je Abruf
   mitgelesen, damit keine Tabelle im Code veraltet.
+
+## Suchmaschinen und Installation
+
+- **Metadaten** zentral in `src/lib/site.ts` und `app/layout.tsx`: Titelvorlage,
+  Beschreibung, Canonical, Open Graph und Twitter-Card. Das Vorschaubild
+  erzeugt `opengraph-image.tsx` beim Bauen.
+- **Strukturierte Daten** (`components/StructuredData.tsx`): die kommenden
+  Termine der Erstansicht als schema.org `Event`, dazu die Seite als `WebSite`.
+  Angegeben wird nur, was die Quellen hergeben – fehlt eine Angabe, bleibt das
+  Feld weg. Adressen führen die Quellen bislang nicht, deshalb hat `Place` nur
+  einen Namen; für Googles Event-Rich-Results wäre eine Adresse nötig.
+- **`robots.txt` und `sitemap.xml`** kommen aus `app/robots.ts` und
+  `app/sitemap.ts`. Die API ist ausgenommen.
+- **Installierbar** über `app/manifest.ts` samt Icons in 192, 512 und einer
+  maskierbaren Fassung mit Rand. Der Service Worker (`public/sw.js`) hält sich
+  bewusst zurück: er speichert nur das Gerüst und die Offline-Seite,
+  **Termine kommen immer aus dem Netz** – ein Kalender aus dem Cache wäre
+  schlimmer als keiner. Angemeldet wird er nur im Produktionsbetrieb.
 
 ## Verhalten bei Störungen
 

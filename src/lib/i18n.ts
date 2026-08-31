@@ -7,7 +7,7 @@ export const locales = ['de', 'en'] as const;
 export type Locale = (typeof locales)[number];
 
 const de = {
-  appName: 'Hier ausgehen',
+  appName: 'HIERAUSGEHEN.DE',
   search: 'Suchen',
   searchAria: 'Veranstaltungen durchsuchen',
   clearSearch: 'Suche zurücksetzen',
@@ -32,6 +32,17 @@ const de = {
   closeFilters: 'Filter schliessen',
   close: 'Schliessen',
   settings: 'Einstellungen',
+  imprint: 'Impressum',
+  imprintHeading: 'Angaben gemäß § 5 DDG',
+  imprintName: 'Verantwortlich',
+  imprintContact: 'Kontakt',
+  imprintContentTitle: 'Zu den Inhalten',
+  imprintContent:
+    'Dieser Kalender führt öffentlich zugängliche Spielpläne Münchner Häuser zusammen. Die Termine stammen von den jeweiligen Veranstaltern; verbindlich ist immer deren eigene Ankündigung. Für Karten, Preise und Änderungen sind die Veranstalter zuständig.',
+  imprintLinksTitle: 'Links',
+  imprintLinks:
+    'Für die Inhalte verlinkter Seiten sind deren Betreiber verantwortlich. Zum Zeitpunkt der Verlinkung waren dort keine Rechtsverstöße erkennbar.',
+  imprintSources: 'Eingebundene Quellen',
   backToCalendar: 'Zurück zum Kalender',
   city: 'Stadt',
   selectCity: 'Stadt wählen',
@@ -93,7 +104,7 @@ const de = {
 export type MessageKey = keyof typeof de;
 
 const en: Record<MessageKey, string> = {
-  appName: 'Hier ausgehen',
+  appName: 'HIERAUSGEHEN.DE',
   search: 'Search',
   searchAria: 'Search events',
   clearSearch: 'Clear search',
@@ -118,6 +129,17 @@ const en: Record<MessageKey, string> = {
   closeFilters: 'Close filters',
   close: 'Close',
   settings: 'Settings',
+  imprint: 'Imprint',
+  imprintHeading: 'Information pursuant to § 5 DDG',
+  imprintName: 'Responsible',
+  imprintContact: 'Contact',
+  imprintContentTitle: 'About the content',
+  imprintContent:
+    'This calendar brings together publicly available programmes of Munich venues. The events come from the respective organisers; their own announcement is always the binding one. Tickets, prices and changes are the organisers\u2019 responsibility.',
+  imprintLinksTitle: 'Links',
+  imprintLinks:
+    'The operators of linked pages are responsible for their content. No infringements were apparent at the time of linking.',
+  imprintSources: 'Included sources',
   backToCalendar: 'Back to calendar',
   city: 'City',
   selectCity: 'Select city',

@@ -1,6 +1,6 @@
 import { SettingsScreen } from '@/components/SettingsScreen';
 
-export const metadata = { title: 'Einstellungen — Hier ausgehen' };
+export const metadata = { title: 'Einstellungen' };
 
 export default function SettingsPage() {
   return <SettingsScreen />;

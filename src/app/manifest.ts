@@ -1,0 +1,30 @@
+import type { MetadataRoute } from 'next';
+
+/**
+ * Web-App-Manifest. Damit lässt sich der Kalender auf dem Startbildschirm
+ * ablegen und öffnet ohne Browserleiste.
+ */
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'HIERAUSGEHEN.DE',
+    short_name: 'HIERAUSGEHEN.DE',
+    description:
+      'Ein Kalender für alle Veranstaltungen in München: Oper, Ballett, Theater und Konzert an einem Ort.',
+    id: '/',
+    start_url: '/',
+    scope: '/',
+    display: 'standalone',
+    orientation: 'any',
+    lang: 'de',
+    dir: 'ltr',
+    categories: ['events', 'entertainment', 'lifestyle'],
+    background_color: '#ffffff',
+    theme_color: '#ffffff',
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      // Eigene Fassung mit Rand, damit Android sie beschneiden kann.
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  };
+}
