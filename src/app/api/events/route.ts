@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 /** Obergrenze, damit ein manipulierter Request nicht 100 Monate abruft. */
 const MAX_DAYS = 400;
+/** Mehr Zeit nur fuer explizite Einzelquellen-Retry aus der UI. */
+const SOURCE_RETRY_DEADLINE_MS = 30_000;
+const SOURCE_RETRY_REQUEST_MS = 15_000;
+const SOURCE_RETRY_DESCRIPTION_MS = 18_000;
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -30,8 +34,23 @@ export async function GET(request: Request) {
 
   const sourceIds = params.get('sources')?.split(',').filter(Boolean);
   const force = params.get('refresh') === '1';
+  const sourceRetry = force && sourceIds?.length === 1 && params.get('retry') === 'source';
 
-  const result = await aggregateEvents({ from, to }, { cityId: requestedCity, sourceIds, force });
+  const result = await aggregateEvents(
+    { from, to },
+    {
+      cityId: requestedCity,
+      sourceIds,
+      force,
+      fetchOptions: sourceRetry
+        ? {
+            deadlineMs: SOURCE_RETRY_DEADLINE_MS,
+            requestTimeoutMs: SOURCE_RETRY_REQUEST_MS,
+            descriptionBudgetMs: SOURCE_RETRY_DESCRIPTION_MS,
+          }
+        : undefined,
+    },
+  );
 
   // Eine Auffrischung im Hintergrund ist kein Ausfall; nur echte Probleme
   // sollen die Antwort vom Zwischenspeichern ausnehmen.

@@ -6,7 +6,7 @@ import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
-import { ChevronDown, Close, MoreHorizontal, Warning } from './icons';
+import { ChevronDown, Close, MoreHorizontal, Refresh, Warning } from './icons';
 
 interface Props {
   definitions: SourceDefinition[];
@@ -17,6 +17,8 @@ interface Props {
   /** Leer = kein Solo. Sonst sind ausschliesslich diese Quellen sichtbar. */
   solo: Set<string>;
   onSolo: (ids: string[]) => void;
+  reloadingSources: Set<string>;
+  onReloadSource: (id: string) => void;
   /** Gattungen, die im geladenen Zeitraum tatsächlich vorkommen, mit Anzahl. */
   categories: { name: string; count: number }[];
   /** Tatsächlich sichtbare Arten – bei aktivem Solo nur die solierte. */
@@ -44,6 +46,8 @@ export function Sidebar({
   onToggleGroup,
   solo,
   onSolo,
+  reloadingSources,
+  onReloadSource,
   categories,
   enabledCategories,
   onToggleCategory,
@@ -163,6 +167,8 @@ export function Sidebar({
                     {group.sources.map((source) => {
                       const info = statusById.get(source.id);
                       const isEnabled = enabled.has(source.id);
+                      const retryable = info?.status === 'stale' || info?.status === 'error';
+                      const reloading = reloadingSources.has(source.id);
                       return (
                         <li key={source.id}>
                           <div
@@ -189,9 +195,26 @@ export function Sidebar({
                               label={isSolo(solo, [source.id]) ? t('soloOff') : t('soloOn')}
                               text={t('solo')}
                             />
+                            {retryable && (
+                              <button
+                                type="button"
+                                disabled={reloading}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onReloadSource(source.id);
+                                }}
+                                aria-label={reloading ? t('sourceReloading') : t('sourceReload')}
+                                title={reloading ? t('sourceReloading') : t('sourceReload')}
+                                className="grid h-5 w-5 shrink-0 place-items-center rounded-[var(--radius-xs)]
+                                           text-muted hover:bg-[var(--chrome)] hover:text-text
+                                           disabled:pointer-events-none disabled:opacity-70"
+                              >
+                                <Refresh className={`h-3.5 w-3.5 ${reloading ? 'animate-spin' : ''}`} />
+                              </button>
+                            )}
                             {/* Eine laufende Auffrischung ist kein Problem –
                                 gewarnt wird nur bei echten Ausfällen. */}
-                            {(info?.status === 'stale' || info?.status === 'error') && (
+                            {retryable && (
                               <span
                                 title={
                                   info.status === 'stale'

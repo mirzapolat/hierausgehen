@@ -29,7 +29,9 @@ export interface CalendarEvent {
   title: string;
   /** Untertitel/Komponist/Ensemble – was die Quelle als zweite Zeile führt. */
   subtitle?: string;
-  /** Gattung der Quelle, unverändert übernommen ("Oper", "Konzert", "Schauspiel", …). */
+  /** Programm-/Kurzinfo-Text der Quelle. */
+  description?: string;
+  /** Gattung der Quelle ("Oper", "Konzert", "Schauspiel", …). */
   category?: string;
 
   /** Beginn als ISO-8601 mit Offset, z. B. "2026-07-02T19:00:00+02:00". */
@@ -65,6 +67,11 @@ export interface SourceDefinition {
   cityId: string;
   /** Gruppe/Ordner in der Sidebar, z. B. "Oper & Ballett". */
   group: string;
+  /**
+   * Veranstaltungsart, falls einzelne Termine keine eigene Gattung liefern.
+   * Adapter dürfen das Feld am Termin leer lassen; die Aggregation ergänzt es.
+   */
+  defaultCategory?: string;
   /** Farbe als CSS-Farbwert; identifiziert die Quelle im Kalender. */
   color: string;
   /** Startseite der Quelle. */
@@ -86,6 +93,15 @@ export interface FetchRange {
   to: string;
 }
 
+export interface EventFetchOptions {
+  /** Frist fuer den gesamten Quellenabruf. */
+  deadlineMs?: number;
+  /** Frist fuer einzelne HTTP-Anfragen innerhalb eines Adapters. */
+  requestTimeoutMs?: number;
+  /** Zeitbudget fuer optionale Detailseiten-Texte. */
+  descriptionBudgetMs?: number;
+}
+
 /**
  * Ein Adapter ist die einzige Stelle, die eine konkrete Website kennt.
  *
@@ -98,7 +114,11 @@ export interface EventSource {
    * Liefert alle Events im Zeitraum. Darf werfen – die Aggregation isoliert
    * Fehler pro Quelle und fällt auf den Cache zurück.
    */
-  fetchEvents(range: FetchRange, signal?: AbortSignal): Promise<CalendarEvent[]>;
+  fetchEvents(
+    range: FetchRange,
+    signal?: AbortSignal,
+    options?: EventFetchOptions,
+  ): Promise<CalendarEvent[]>;
   /**
    * Wie lange Ergebnisse als frisch gelten (Sekunden). Ticketverfügbarkeit
    * veraltet schneller als der Spielplan selbst.

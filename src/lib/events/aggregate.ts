@@ -1,6 +1,7 @@
 import type {
   AggregateResult,
   CalendarEvent,
+  EventFetchOptions,
   EventSource,
   FetchRange,
   SourceResult,
@@ -15,6 +16,7 @@ import {
   recordSuccess,
   writeCache,
 } from './cache.ts';
+import { dedupeEvents, normalizeSourceEvents } from './normalize.ts';
 
 const DEFAULT_TTL = 30 * 60;
 /** Wie lange ein veralteter Cache noch besser ist als gar nichts. */
@@ -47,6 +49,7 @@ export async function aggregateEvents(
     cityId: string;
     sourceIds?: string[];
     force?: boolean;
+    fetchOptions?: EventFetchOptions;
     /** Nur für Tests: ersetzt die Quellen aus der Registry. */
     sources?: EventSource[];
   },
@@ -57,11 +60,12 @@ export async function aggregateEvents(
     : cited;
 
   const settled = await Promise.all(
-    selected.map((source) => loadSource(source, range, options.force ?? false)),
+    selected.map((source) =>
+      loadSource(source, range, options.force ?? false, options.fetchOptions ?? {}),
+    ),
   );
 
-  const events = settled
-    .flatMap((entry) => entry.events)
+  const events = dedupeEvents(settled.flatMap((entry) => entry.events))
     .sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title, 'de'));
 
   return {
@@ -75,6 +79,7 @@ async function loadSource(
   source: EventSource,
   range: FetchRange,
   force: boolean,
+  fetchOptions: EventFetchOptions,
 ): Promise<{ events: CalendarEvent[]; status: SourceResult }> {
   const id = source.definition.id;
   const key = `${id}_${range.from}_${range.to}`;
@@ -83,7 +88,7 @@ async function loadSource(
   const cached = await readCache<CalendarEvent[]>(key);
   if (!force && isFresh(cached)) {
     return {
-      events: cached!.value,
+      events: normalizeSourceEvents(cached!.value, source.definition),
       status: {
         sourceId: id,
         status: 'ok',
@@ -100,9 +105,9 @@ async function loadSource(
   // Veraltete Daten sofort ausliefern und im Hintergrund auffrischen. Der
   // Besucher wartet dadurch nie auf eine langsame oder tote Quelle.
   if (usable && !force) {
-    if (!paused) refreshInBackground(source, range, key, ttl);
+    if (!paused) refreshInBackground(source, range, key, ttl, fetchOptions);
     return {
-      events: cached!.value,
+      events: normalizeSourceEvents(cached!.value, source.definition),
       status: {
         sourceId: id,
         // Solange die letzte Abfrage geklappt hat, ist das kein Problem,
@@ -131,7 +136,10 @@ async function loadSource(
   }
 
   try {
-    const events = await dedupe(key, () => fetchWithDeadline(source, range));
+    const events = normalizeSourceEvents(
+      await dedupe(key, () => fetchWithDeadline(source, range, fetchOptions)),
+      source.definition,
+    );
     const entry = await writeCache(key, events, ttl);
     await recordSuccess(id);
     return {
@@ -146,7 +154,7 @@ async function loadSource(
     // Lieber leicht veraltete Daten als eine leere Ansicht.
     if (usable) {
       return {
-        events: cached!.value,
+        events: normalizeSourceEvents(cached!.value, source.definition),
         status: {
           sourceId: id,
           status: 'stale',
@@ -174,11 +182,20 @@ async function loadSource(
  * Auffrischung neben dem Seitenaufruf. `dedupe` sorgt dafür, dass mehrere
  * gleichzeitige Besucher nur eine einzige Abfrage auslösen.
  */
-function refreshInBackground(source: EventSource, range: FetchRange, key: string, ttl: number): void {
+function refreshInBackground(
+  source: EventSource,
+  range: FetchRange,
+  key: string,
+  ttl: number,
+  fetchOptions: EventFetchOptions,
+): void {
   const id = source.definition.id;
   void dedupe(`refresh_${key}`, async () => {
     try {
-      const events = await fetchWithDeadline(source, range);
+      const events = normalizeSourceEvents(
+        await fetchWithDeadline(source, range, fetchOptions),
+        source.definition,
+      );
       await writeCache(key, events, ttl);
       await recordSuccess(id);
     } catch (error) {
@@ -192,18 +209,23 @@ function refreshInBackground(source: EventSource, range: FetchRange, key: string
 }
 
 /** Bricht ab, sobald die Frist abgelaufen ist – auch bei hängenden Adaptern. */
-async function fetchWithDeadline(source: EventSource, range: FetchRange): Promise<CalendarEvent[]> {
+async function fetchWithDeadline(
+  source: EventSource,
+  range: FetchRange,
+  options: EventFetchOptions,
+): Promise<CalendarEvent[]> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SOURCE_DEADLINE_MS);
+  const deadlineMs = options.deadlineMs ?? SOURCE_DEADLINE_MS;
+  const timer = setTimeout(() => controller.abort(), deadlineMs);
 
   const deadline = new Promise<never>((_, reject) => {
     controller.signal.addEventListener('abort', () =>
-      reject(new Error(`Zeitlimit von ${SOURCE_DEADLINE_MS / 1000} s überschritten`)),
+      reject(new Error(`Zeitlimit von ${deadlineMs / 1000} s überschritten`)),
     );
   });
 
   try {
-    return await Promise.race([source.fetchEvents(range, controller.signal), deadline]);
+    return await Promise.race([source.fetchEvents(range, controller.signal, options), deadline]);
   } finally {
     clearTimeout(timer);
   }

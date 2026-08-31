@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseScheduleFragment, parseSparten } from './parse.ts';
+import { parseDetailDescription, parseScheduleFragment, parseSparten } from './parse.ts';
 
 const fixture = (name: string) =>
   readFileSync(path.join(import.meta.dirname, `__fixtures__/${name}`), 'utf8');
@@ -86,6 +86,29 @@ test('liest verlinkte und unverlinkte Spielstätten', () => {
     [...new Set(october().events.map((e) => e.venue.name))].sort(),
     ['Foyer', 'Probebühne', 'Staatstheater am Gärtnerplatz', 'Studiobühne'],
   );
+});
+
+test('liest vorhandenen Programmtext getrennt von Hinweisen', () => {
+  const workshop = november().events.find((e) => e.id === 'gaertnerplatz:5440');
+  assert.ok(workshop);
+  assert.equal(workshop.description, 'Tanz-Workshop');
+  assert.ok(!workshop.notes?.includes('Tanz-Workshop'));
+});
+
+test('liest langen Programmtext von der Produktionsseite', () => {
+  const description = parseDetailDescription(`<main>
+    <nav><p>Spielplan Tickets Service</p></nav>
+    <article>
+      <div class="ce-bodytext">
+        <p>Ein langer Programmtext der Produktionsseite erzählt die Handlung und ordnet die Inszenierung ein, statt nur eine knappe Zeile aus dem Spielplanfragment zu wiederholen.</p>
+        <p>Weitere Absätze bleiben erhalten, damit Suche und Detailansicht nicht nur Titel, Datum und Kartenstatus kennen.</p>
+      </div>
+    </article>
+  </main>`);
+
+  assert.match(description!, /^Ein langer Programmtext/);
+  assert.match(description!, /Weitere Absätze bleiben erhalten/);
+  assert.ok(!description!.includes('Spielplan Tickets Service'));
 });
 
 test('vergibt eindeutige IDs und gültige Zeitstempel', () => {

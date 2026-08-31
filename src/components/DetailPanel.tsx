@@ -103,6 +103,17 @@ function EventDetail({ event, definitions }: { event: CalendarEvent; definitions
       <h3 className="mt-2 text-[19px] font-semibold leading-snug tracking-[-0.015em]">{event.title}</h3>
       {event.subtitle && <p className="mt-1 text-[13px] text-muted">{event.subtitle}</p>}
 
+      {event.description && (
+        <section className="mt-4 border-t border-line pt-3">
+          <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {t('program')}
+          </h4>
+          <p className="mt-1 whitespace-pre-line text-[13px] leading-relaxed text-muted">
+            {event.description}
+          </p>
+        </section>
+      )}
+
       <dl className="mt-5 flex flex-col">
         <Row label={t('date')} value={format.dayNoWeekday(day)} />
         <Row label={t('weekday')} value={format.weekdayLong(day)} />

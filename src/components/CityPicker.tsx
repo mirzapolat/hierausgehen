@@ -19,6 +19,7 @@ export function CityPicker({
   const { t } = useSettings();
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
+  const city = cityById(cityId);
 
   useEffect(() => {
     if (!open) return;
@@ -44,11 +45,14 @@ export function CityPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t('selectCity')}
-        className="flex h-7 items-center gap-1 rounded-[var(--radius-sm)] px-1.5 text-[12px] text-muted
-                   hover:bg-[var(--canvas)] hover:text-text"
+        title={city.name}
+        className="flex h-7 min-w-8 items-center justify-center rounded-[var(--radius-sm)] border border-line
+                   px-1.5 text-[11px] font-medium text-muted hover:bg-[var(--canvas)] hover:text-text
+                   sm:min-w-0 sm:justify-start sm:gap-1 sm:border-transparent sm:text-[12px] sm:font-normal"
       >
-        {cityById(cityId).name}
-        <ChevronDown className="h-3.5 w-3.5 text-faint" />
+        <span className="sm:hidden">{city.shortName}</span>
+        <span className="hidden sm:inline">{city.name}</span>
+        <ChevronDown className="hidden h-3.5 w-3.5 text-faint sm:block" />
       </button>
 
       {open && (

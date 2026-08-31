@@ -64,7 +64,7 @@ function eventSchema(event: CalendarEvent, definitions: SourceDefinition[]) {
     '@type': 'Event',
     '@id': `${SITE_URL}/#event-${event.id}`,
     name: event.title,
-    ...(event.subtitle ? { description: event.subtitle } : {}),
+    ...(eventDescription(event) ? { description: eventDescription(event) } : {}),
     startDate: event.start,
     ...(event.end ? { endDate: event.end } : {}),
     eventStatus: 'https://schema.org/EventScheduled',
@@ -83,4 +83,8 @@ function eventSchema(event: CalendarEvent, definitions: SourceDefinition[]) {
       ? { offers: { '@type': 'Offer', url: event.ticketUrl, availability } }
       : {}),
   };
+}
+
+function eventDescription(event: CalendarEvent): string | undefined {
+  return [event.subtitle, event.description].filter(Boolean).join('\n\n') || undefined;
 }

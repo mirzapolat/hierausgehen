@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AggregateResult, CalendarEvent } from '@/lib/events/types';
+import { dedupeEvents } from '@/lib/events/normalize';
 import {
   type ViewMode,
   addDays,
@@ -72,6 +73,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(false);
+  const [loadingSources, setLoadingSources] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -184,6 +186,40 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     void load(range, cityId);
   }, [range, cityId, load]);
 
+  const reloadSource = useCallback(
+    async (sourceId: string) => {
+      setLoadingSources((current) => new Set(current).add(sourceId));
+      try {
+        const params = new URLSearchParams({
+          from: range.from,
+          to: range.to,
+          city: cityId,
+          sources: sourceId,
+          refresh: '1',
+          retry: 'source',
+        });
+        const res = await fetch(`/api/events?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const next = (await res.json()) as AggregateResult;
+
+        setData((current) => {
+          const merged = mergeSourceResult(current, next);
+          cache.current.set(key(cityId, range), merged);
+          return merged;
+        });
+      } catch (error) {
+        console.error(`[calendar] Quelle "${sourceId}" neu laden fehlgeschlagen`, error);
+      } finally {
+        setLoadingSources((current) => {
+          const next = new Set(current);
+          next.delete(sourceId);
+          return next;
+        });
+      }
+    },
+    [cityId, range],
+  );
+
   /* ------------------------------ Filtern ------------------------------- */
 
   // Solo hat Vorrang vor der dauerhaften Auswahl, verändert sie aber nicht.
@@ -224,7 +260,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         return false;
       if (availableOnly && !['available', 'limited'].includes(event.availability)) return false;
       if (!needle) return true;
-      return [event.title, event.subtitle, event.venue.name, event.category]
+      return [event.title, event.subtitle, event.description, event.venue.name, event.category]
         .filter(Boolean)
         .some((field) => field!.toLocaleLowerCase(settings.locale).includes(needle));
     });
@@ -343,6 +379,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           return same || ids.length === 0 ? new Set() : new Set(ids);
         })
       }
+      reloadingSources={loadingSources}
+      onReloadSource={reloadSource}
       categories={categories}
       enabledCategories={enabledCategories}
       onToggleCategory={(name) => {
@@ -582,4 +620,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
 function key(cityId: string, range: { from: string; to: string }): string {
   return `${cityId}_${range.from}_${range.to}`;
+}
+
+function mergeSourceResult(current: AggregateResult, next: AggregateResult): AggregateResult {
+  const sourceIds = new Set(next.sources.map((source) => source.sourceId));
+  const statuses = new Map(current.sources.map((source) => [source.sourceId, source]));
+  for (const source of next.sources) statuses.set(source.sourceId, source);
+
+  return {
+    definitions: current.definitions,
+    sources: current.sources.map((source) => statuses.get(source.sourceId) ?? source),
+    events: dedupeEvents([
+      ...current.events.filter((event) => !sourceIds.has(event.sourceId)),
+      ...next.events,
+    ]).sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title, 'de')),
+  };
 }

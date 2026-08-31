@@ -15,9 +15,10 @@
  *  4. Hier drumherum das Laden, den Zeitraum und die Fehlerfälle regeln.
  */
 
-import type { CalendarEvent, EventSource, FetchRange } from '../types.ts';
+import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../types.ts';
 import { fetchText } from '../http.ts';
 import { berlinIso } from '../time.ts';
+import { enrichEventDescriptions } from './detail.ts';
 
 const BASE = 'https://example.com';
 
@@ -27,6 +28,7 @@ export const templateSource: EventSource = {
     name: 'Beispielhaus',
     cityId: 'muenchen', // muss in `src/lib/cities.ts` existieren
     group: 'Theater', // Ordner in der Sidebar
+    defaultCategory: 'Theater', // Fallback, wenn ein Termin keine eigene Gattung liefert
     color: '#4A6FA5', // erkennbar, aber gedeckt
     homepage: BASE,
     enabledByDefault: true,
@@ -34,8 +36,15 @@ export const templateSource: EventSource = {
 
   ttlSeconds: 30 * 60,
 
-  async fetchEvents(range: FetchRange, signal?: AbortSignal): Promise<CalendarEvent[]> {
-    const html = await fetchText(`${BASE}/spielplan?from=${range.from}&to=${range.to}`, { signal });
+  async fetchEvents(
+    range: FetchRange,
+    signal?: AbortSignal,
+    options?: EventFetchOptions,
+  ): Promise<CalendarEvent[]> {
+    const html = await fetchText(`${BASE}/spielplan?from=${range.from}&to=${range.to}`, {
+      signal,
+      timeoutMs: options?.requestTimeoutMs,
+    });
 
     const events = parse(html);
 
@@ -46,7 +55,19 @@ export const templateSource: EventSource = {
       throw new Error('Kein Termin erkannt (Layout geändert?)');
     }
 
-    return events.filter((e) => e.start.slice(0, 10) >= range.from && e.start.slice(0, 10) <= range.to);
+    const filtered = events.filter(
+      (e) => e.start.slice(0, 10) >= range.from && e.start.slice(0, 10) <= range.to,
+    );
+    return enrichEventDescriptions({
+      sourceId: 'template',
+      events: filtered,
+      signal,
+      fetchOptions: options,
+      parseDescription: parseDetailDescription,
+      // Falls Termin-URLs eine Vorstellungs-ID enthalten, hier auf die
+      // Produktionsseite normalisieren, damit dieselbe Seite nur einmal lädt.
+      cacheKey: (event) => event.url,
+    });
   },
 };
 
@@ -58,6 +79,7 @@ function parse(html: string): CalendarEvent[] {
     sourceId: 'template',
     title: 'Titel',
     subtitle: 'Autor oder Ensemble',
+    description: 'Kurzinfo oder Programmtext aus der Quelle.',
     category: 'Schauspiel',
     start: berlinIso('2026-09-01', 19, 30),
     allDay: false,
@@ -69,4 +91,9 @@ function parse(html: string): CalendarEvent[] {
     notes: ['Preise: 15–65 €'],
   };
   return [example];
+}
+
+function parseDetailDescription(html: string): string | undefined {
+  void html;
+  return undefined;
 }

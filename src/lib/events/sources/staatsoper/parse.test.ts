@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseCalendarFragment } from './parse.ts';
+import { parseCalendarFragment, parseDetailDescription } from './parse.ts';
 import { displayAvailability, isPast } from '../../display.ts';
 
 const fixture = (name: string) =>
@@ -79,6 +79,26 @@ test('glättet geschriene Titel wortweise', () => {
   // Gastspiele finden ausserhalb Münchens statt – keine erfundene Stadt.
   assert.equal(gastspiel.venue.name, 'Baden-Baden');
   assert.equal(gastspiel.venue.city, undefined);
+});
+
+test('liest langen Programmtext aus den Detailseiten-Tabs', () => {
+  const description = parseDetailDescription(`<main>
+    <div class="tabs__content">
+      <article class="text text--wide">
+        <p>In den schönsten Tönen offenbaren uns Macbeth und Lady Macbeth ihre dunkelsten Gedanken.</p>
+      </article>
+    </div>
+    <div class="tabs__content">
+      <article class="text text--wide">
+        <p>1. Akt Macbeth und Banco begegnen den Hexen, deren Weissagungen die politische Ordnung ins Wanken bringen und den Weg in eine blutige Machtfantasie öffnen.</p>
+      </article>
+    </div>
+    <section><p>Kommende Vorstellungen</p></section>
+  </main>`);
+
+  assert.match(description!, /^In den schönsten Tönen/);
+  assert.match(description!, /blutige Machtfantasie/);
+  assert.ok(!description!.includes('Kommende Vorstellungen'));
 });
 
 test('leeres oder kaputtes HTML wirft nicht', () => {

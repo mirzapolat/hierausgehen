@@ -68,12 +68,14 @@ export function parseCalendarFragment(html: string): ParseResult {
     const detailUrl = link ? absolute(link) : `${BASE}/spielplan`;
     const notes = [...metaNotes, ...collectNotes($, row)];
     const subtitle = clean(row.find('.activity-list--toggle__content p').first().text());
+    const description = collectDescription($, row);
 
     events.push({
       id: `${SOURCE_ID}:${eventKey(link, date, hour, minute, title)}`,
       sourceId: SOURCE_ID,
       title: softenShouted(title),
       subtitle: subtitle || undefined,
+      description,
       category:
         first(filter.filter?.type) ?? (clean(row.find('.activity-list__col--genre').text()) || undefined),
       start: berlinIso(date, hour, minute),
@@ -91,6 +93,15 @@ export function parseCalendarFragment(html: string): ParseResult {
   });
 
   return { events, skipped, empty };
+}
+
+export function parseDetailDescription(html: string): string | undefined {
+  const $ = cheerio.load(html);
+  const paragraphs = uniqueParagraphs($, '.tabs__content article.text p').filter(
+    (text) => text.length > 80,
+  );
+
+  return paragraphs.length ? paragraphs.join('\n\n') : undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -153,12 +164,36 @@ function collectNotes($: cheerio.CheerioAPI, row: Row): string[] {
       if (tags) notes.push(tags);
       return;
     }
-
-    const text = clean(paragraph.text());
-    if (text) notes.push(text);
   });
 
   return notes;
+}
+
+function collectDescription($: cheerio.CheerioAPI, row: Row): string | undefined {
+  const paragraphs: string[] = [];
+  row.find('.activity-list--toggle__content p').each((i, element) => {
+    if (i === 0) return; // erste Zeile ist der Untertitel
+
+    const paragraph = $(element);
+    if (paragraph.hasClass('activity-list-price-info')) return;
+
+    const text = clean(paragraph.text());
+    if (text) paragraphs.push(text);
+  });
+
+  return paragraphs.length ? paragraphs.join('\n\n') : undefined;
+}
+
+function uniqueParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
+  const seen = new Set<string>();
+  const paragraphs: string[] = [];
+  $(selector).each((_, element) => {
+    const text = clean($(element).text());
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    paragraphs.push(text);
+  });
+  return paragraphs;
 }
 
 /**

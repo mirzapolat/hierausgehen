@@ -8,7 +8,7 @@ process.env.EVENT_SOURCE_DEADLINE_MS = '300';
 
 const { aggregateEvents } = await import('./aggregate.ts');
 const { writeCache } = await import('./cache.ts');
-import type { CalendarEvent, EventSource } from './types.ts';
+import type { CalendarEvent, EventFetchOptions, EventSource } from './types.ts';
 
 const RANGE = { from: '2026-10-01', to: '2026-10-31' };
 
@@ -35,7 +35,7 @@ function hangingSource(id: string): EventSource & { calls: number } {
   return source;
 }
 
-function sampleEvent(sourceId: string): CalendarEvent {
+function sampleEvent(sourceId: string, overrides: Partial<CalendarEvent> = {}): CalendarEvent {
   return {
     id: `${sourceId}:1`,
     sourceId,
@@ -45,6 +45,7 @@ function sampleEvent(sourceId: string): CalendarEvent {
     venue: { name: 'Testbühne' },
     availability: 'available',
     url: 'https://example.invalid/termin',
+    ...overrides,
   };
 }
 
@@ -106,4 +107,107 @@ test('eine gesunde Quelle liefert normal und ohne Warnung', async () => {
   const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
   assert.equal(result.sources[0].status, 'ok');
   assert.equal(result.events.length, 1);
+});
+
+test('ergänzt fehlende Veranstaltungsarten aus der Quelle', async () => {
+  const id = `category-${counter++}`;
+  const source: EventSource = {
+    definition: {
+      id,
+      name: id,
+      cityId: 'muenchen',
+      group: 'Theater',
+      defaultCategory: 'Schauspiel',
+      color: '#000',
+      homepage: 'https://example.invalid',
+    },
+    ttlSeconds: 60,
+    async fetchEvents() {
+      return [sampleEvent(id, { category: undefined })];
+    },
+  };
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
+
+  assert.equal(result.events[0].category, 'Schauspiel');
+});
+
+test('filtert dopplungen über quellen hinweg und behält die reichere fassung', async () => {
+  const plain = `duplicate-plain-${counter++}`;
+  const rich = `duplicate-rich-${counter++}`;
+  const sources: EventSource[] = [
+    {
+      definition: {
+        id: plain,
+        name: plain,
+        cityId: 'muenchen',
+        group: 'Theater',
+        color: '#000',
+        homepage: 'https://example.invalid',
+      },
+      async fetchEvents() {
+        return [
+          sampleEvent(plain, {
+            title: ' Macbeth ',
+            venue: { name: ' Nationaltheater ' },
+            availability: 'unknown',
+          }),
+        ];
+      },
+    },
+    {
+      definition: {
+        id: rich,
+        name: rich,
+        cityId: 'muenchen',
+        group: 'Oper',
+        color: '#111',
+        homepage: 'https://example.invalid',
+      },
+      async fetchEvents() {
+        return [
+          sampleEvent(rich, {
+            title: 'Macbeth',
+            venue: { name: 'Nationaltheater München' },
+            availability: 'available',
+            ticketUrl: 'https://tickets.example.invalid/macbeth',
+          }),
+        ];
+      },
+    },
+  ];
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources });
+
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].sourceId, rich);
+  assert.equal(result.events[0].ticketUrl, 'https://tickets.example.invalid/macbeth');
+});
+
+test('reicht längere Fristen an explizite Quellenabrufe weiter', async () => {
+  const id = `retry-options-${counter++}`;
+  let received: EventFetchOptions | undefined;
+  const source: EventSource = {
+    definition: {
+      id,
+      name: id,
+      cityId: 'muenchen',
+      group: 'Test',
+      color: '#000',
+      homepage: 'https://example.invalid',
+    },
+    async fetchEvents(_range, _signal, options) {
+      received = options;
+      return [sampleEvent(id)];
+    },
+  };
+
+  await aggregateEvents(RANGE, {
+    cityId: 'muenchen',
+    force: true,
+    sources: [source],
+    fetchOptions: { deadlineMs: 1_000, requestTimeoutMs: 900 },
+  });
+
+  assert.deepEqual(received, { deadlineMs: 1_000, requestTimeoutMs: 900 });
 });

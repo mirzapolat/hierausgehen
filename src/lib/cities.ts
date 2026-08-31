@@ -9,13 +9,14 @@
 export interface City {
   id: string;
   name: string;
+  shortName: string;
   /** IANA-Zeitzone, in der die Termine der Stadt stattfinden. */
   timeZone: string;
   country: string;
 }
 
 export const cities: City[] = [
-  { id: 'muenchen', name: 'München', timeZone: 'Europe/Berlin', country: 'DE' },
+  { id: 'muenchen', name: 'München', shortName: 'MUC', timeZone: 'Europe/Berlin', country: 'DE' },
 ];
 
 export const DEFAULT_CITY_ID = 'muenchen';

@@ -26,6 +26,7 @@ export interface Formatter extends FormatOptions {
   dayMedium: (day: string) => string;
   dayNoWeekday: (day: string) => string;
   monthYear: (day: string) => string;
+  monthYearShort: (day: string) => string;
   /** Nur der Monatsname – für enge Stellen wie den Monatswechsel im Raster. */
   monthName: (day: string) => string;
   weekdayShort: (day: string) => string;
@@ -53,6 +54,7 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
   const dayMedium = dateFmt({ weekday: 'short', day: 'numeric', month: 'long' });
   const dayNoWeekday = dateFmt({ day: 'numeric', month: 'long', year: 'numeric' });
   const monthYear = dateFmt({ month: 'long', year: 'numeric' });
+  const monthYearShort = dateFmt({ month: 'short', year: 'numeric' });
   const monthName = dateFmt({ month: 'long' });
   const weekdayShort = dateFmt({ weekday: 'short' });
   const weekdayLong = dateFmt({ weekday: 'long' });
@@ -107,6 +109,7 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
     dayMedium: (day) => dayMedium.format(noon(day)),
     dayNoWeekday: (day) => dayNoWeekday.format(noon(day)),
     monthYear: (day) => monthYear.format(noon(day)),
+    monthYearShort: (day) => monthYearShort.format(noon(day)).replace(/\./g, ''),
     monthName: (day) => monthName.format(noon(day)),
     weekdayShort: (day) => weekdayShort.format(noon(day)).replace('.', ''),
     weekdayLong: (day) => weekdayLong.format(noon(day)),

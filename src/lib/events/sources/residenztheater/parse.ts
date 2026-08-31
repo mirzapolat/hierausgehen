@@ -62,6 +62,7 @@ export function parseSchedulePage(html: string, month: string): ParseResult {
       sourceId: SOURCE_ID,
       title: softenShouted(title),
       subtitle: clean(act.find('.schedule-act__author').first().text()) || undefined,
+      description: readDescription(act),
       // Die Quelle führt keine Gattung – lieber nichts als eine erfundene.
       start: berlinIso(date, start?.hour ?? 0, start?.minute ?? 0),
       end: end ? berlinIso(date, end.hour, end.minute) : undefined,
@@ -78,6 +79,20 @@ export function parseSchedulePage(html: string, month: string): ParseResult {
   });
 
   return { events, skipped, empty: events.length === 0 };
+}
+
+export function parseDetailDescription(html: string): string | undefined {
+  const $ = cheerio.load(html);
+  const paragraphs = uniqueParagraphs(
+    $,
+    [
+      '.component-container.reduced-width p',
+      '.show-more__content p',
+      '.accordion__body p',
+    ].join(', '),
+  ).filter((text) => text.length > 80);
+
+  return paragraphs.length ? paragraphs.join('\n\n') : undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -187,6 +202,27 @@ function collectNotes(act: Act, extraSegments: string[]): string[] | undefined {
   }
 
   return notes.length ? [...new Set(notes)] : undefined;
+}
+
+function readDescription(act: Act): string | undefined {
+  const paragraphs = act
+    .find('.schedule-act__description-text p')
+    .toArray()
+    .map((element) => clean(act.find(element).text()))
+    .filter(Boolean);
+  return paragraphs.length ? paragraphs.join('\n\n') : undefined;
+}
+
+function uniqueParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
+  const seen = new Set<string>();
+  const paragraphs: string[] = [];
+  $(selector).each((_, element) => {
+    const text = clean($(element).text());
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    paragraphs.push(text);
+  });
+  return paragraphs;
 }
 
 /**

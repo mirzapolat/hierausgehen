@@ -5,9 +5,10 @@ description: Add a new event source (venue, theatre, concert hall, club) to the 
 
 # Neue Veranstaltungsquelle hinzufügen
 
-Ziel: aus einer Veranstalter-Website einen Adapter machen, der `CalendarEvent[]`
-liefert. Kalender, Datenmodell und UI werden dabei **nicht** angefasst — nur ein
-neuer Ordner unter `sources/` plus eine Zeile in der Registry.
+Ziel: aus einer Veranstalter-Website einen Adapter machen, der konsistente
+`CalendarEvent[]` liefert. Kalender, Datenmodell und UI werden dabei **nicht**
+angefasst — nur ein neuer Ordner unter `sources/` plus eine Zeile in der
+Registry.
 
 Muss dafür am Datenmodell oder an der UI etwas geändert werden, ist das ein
 Befund über den Entwurf: ansprechen, nicht still umbauen.
@@ -128,7 +129,33 @@ Nie umdatieren, nie von Hand nachbessern.
 
 ## 3. Felder zuordnen
 
-Pflicht: Titel, Beginn, Spielstätte, Ticketlage, Link zur Veranstaltung.
+Pflicht: Titel, Beginn, Spielstätte, Veranstaltungsart, Ticketlage, Link zur
+Veranstaltung. Wenn die Listen- oder Fragmentantwort einen Kurzinfo-,
+Programm- oder Beschreibungstext enthält, gehört er nach `description`, nicht in
+`notes`.
+
+Zusätzlich prüfen, ob die verlinkte Event-/Produktionsseite einen längeren
+Programmtext enthält. Viele Listen liefern nur einen Teaser; die App soll aber
+den langen Text durchsuchen und im Detail anzeigen können. Der Parser für diese
+Seite bleibt eine reine Funktion in `parse.ts`, z. B.
+`parseDetailDescription(html)`. Das Laden läuft in `index.ts` über
+`enrichEventDescriptions` aus `src/lib/events/sources/detail.ts`.
+
+Dabei gilt:
+
+- Detailseiten nach Produktion deduplizieren, nicht nach Vorstellung. Enthält
+  die Termin-URL eine Vorstellungs-ID, den Cache-Key auf die Produktionsseite
+  normalisieren, damit mehrere Abende desselben Stücks nur einen Detailabruf
+  kosten.
+- Detailtexte cachen. Ein fehlgeschlagener Detailabruf darf nie die Quelle als
+  kaputt markieren; der Termin bleibt mit Kurztext oder ohne `description`
+  erhalten.
+- Detailabrufe haben ein eigenes Zeitbudget und begrenzte Parallelität. Normale
+  Seitenaufrufe bleiben knapp; ein expliziter Quellen-Reload darf mehr Zeit
+  bekommen.
+- Der lange Text ersetzt den Kurztext nur, wenn er wirklich informativer ist.
+  Keine Navigations-, Footer-, Cast-, Abo- oder Ticketshop-Texte in
+  `description` übernehmen.
 
 | Befund auf der Seite | `availability` |
 | --- | --- |
@@ -167,8 +194,14 @@ Weitere Regeln:
 - **Taxonomien aus der Seite lesen statt im Code pflegen.** Gattungen, Orte und
   Merkmale stehen oft nur als `sparte-14`, `ort-57` im Markup – die Namen dazu
   in den Beschriftungen der Filter. Die einmal je Abruf mitzulesen ist besser
-  als eine Tabelle im Code, die bei einer neuen Gattung still veraltet. Fehlt
-  ein Eintrag, bleibt das Feld leer.
+  als eine Tabelle im Code, die bei einer neuen Gattung still veraltet.
+- **Jeder Termin braucht in der API eine Veranstaltungsart.** Liefert die Quelle
+  pro Termin eine Gattung, kommt sie in `event.category`. Liefert sie keine oder
+  nur teilweise Gattungen, setze in `definition.defaultCategory` einen ehrlichen
+  Quellen-Fallback wie „Theater", „Konzert", „Clubnacht" oder „Oper & Ballett".
+  Die Parser dürfen fehlende Einzelwerte leer lassen; die Aggregation ergänzt
+  daraus die Kategorie. In der App soll dadurch keine Kategorie-Pille „Ohne
+  Angabe" entstehen.
 - **`venue.city` nicht hart setzen.** Häuser führen Gastspiele in anderen Städten
   im selben Spielplan. Lieber weglassen als erfinden.
 - **Versalien wortweise glätten** mit `softenShouted` aus `../../text.ts` –
@@ -179,13 +212,18 @@ Weitere Regeln:
   „Do. 1 Okt"), nimmt der Parser den angefragten Monat entgegen und wählt das
   Jahr so, dass der Termin ihm am nächsten liegt. Damit stimmt auch ein
   Januartermin auf einer Dezemberseite.
-- **Führt die Quelle keine Gattung, keine erfinden.** `category` bleibt leer und
-  die Oberfläche zeigt „Ohne Angabe" – das ist richtiger als alles pauschal
-  „Schauspiel" zu nennen, wenn auch Führungen und Gespräche darunter fallen.
+- **Nicht zu eng klassifizieren.** Wenn ein Theater auch Führungen, Gespräche
+  oder Gastspiele führt, ist „Theater" als `defaultCategory` besser als alles
+  pauschal „Schauspiel" zu nennen.
 - **Preise und Schlagworte trennen** und lesbar machen. Rohtext wie
   `Preise M , € 193 /168 /- /- /- /14` gehört als `Preise M: 193 / 168 / 14 €`
   in `notes`, Platzhalter `-` fallen weg.
-- Nichts erfinden: fehlt eine Angabe, bleibt das Feld leer bzw. `unknown`.
+- **Programmtext getrennt halten.** Inhaltsangaben, Kurzinfos und
+  Beschreibungstexte gehören in `description`. `notes` ist für Preise,
+  Festivals, Premierenhinweise, Abo-Reihen und praktische Zusatzinfos.
+- Nichts erfinden: fehlt eine konkrete Einzelangabe, bleibt dieses Feld leer
+  bzw. `unknown`; nur die Veranstaltungsart bekommt über `defaultCategory`
+  einen Quellen-Fallback.
 
 ## 4. Adapter schreiben
 
@@ -210,6 +248,13 @@ In `index.ts`:
 - `definition.group` ist der Ordner in der Sidebar — vorhandene Gruppen
   wiederverwenden („Oper & Ballett", „Theater", „Konzert", „Club"), nicht je
   Haus eine neue anlegen.
+- `definition.defaultCategory` setzen, wenn nicht garantiert jeder Termin eine
+  eigene Gattung liefert. Das ist der Quellen-Fallback für konsistente
+  Veranstaltungsarten.
+- Nach dem Filtern der Termine optional `enrichEventDescriptions` aufrufen, wenn
+  Detailseiten längere Programmtexte liefern. Dafür `parseDetailDescription`
+  aus `parse.ts` importieren und bei mehreren Vorstellungen pro Produktion
+  einen normalisierten `cacheKey` übergeben.
 - `iconUrl` nur setzen, wenn die Favicon-Erkennung über die Startseite nichts
   findet; die Erkennung hat Vorrang, damit ein Icon-Wechsel sich selbst heilt.
 - `ttlSeconds` so wählen, dass die Quelle höchstens ein paar Mal pro Stunde
@@ -243,7 +288,12 @@ npm test && npx tsc --noEmit && npx eslint src scripts && npm run build
 Der Parser-Test deckt mindestens ab: Gesamtzahl der Termine, ein vollständig
 normalisierter Termin mit allen Feldern, die Verteilung der
 Verfügbarkeitszustände, Eindeutigkeit der IDs, den ausdrücklich leeren Monat
-sowie leeres und kaputtes HTML.
+sowie leeres und kaputtes HTML. Wenn die Quelle Programmtext im Listenformat
+liefert, muss ein Test `description` abdecken. Wenn Detailseiten längere
+Programmtexte liefern, muss `parseDetailDescription` mit einem kleinen
+HTML-Schnipsel getestet werden. Zusätzlich gegen die Aggregation prüfen: Alle
+ausgelieferten Events haben `category`, `availability`, `title`, `start`,
+`venue.name` und `url`.
 
 Dann live, und zwar **mit leerem Cache und über mehrere Monate**:
 
@@ -254,9 +304,13 @@ for r in 2026-09-01:2026-09-30 2026-10-01:2026-10-31 2026-12-01:2027-01-31 2026-
   curl -sS "http://localhost:3000/api/events?from=${r%%:*}&to=${r##*:}" | python3 -c "
 import json,sys,collections
 d=json.load(sys.stdin)
+missing=[e['id'] for e in d['events'] if not e.get('category') or not e.get('venue',{}).get('name') or not e.get('url')]
+dupes=[k for k,c in collections.Counter((e['start'], e['title'].casefold(), e['venue']['name'].casefold()) for e in d['events']).items() if c>1]
+assert not missing, missing[:10]
+assert not dupes, dupes[:10]
 for s in d['sources']:
     ev=[e for e in d['events'] if e['sourceId']==s['sourceId']]
-    print(s['sourceId'], s['status'], len(ev), dict(collections.Counter(e['availability'] for e in ev)))"
+    print(s['sourceId'], s['status'], len(ev), dict(collections.Counter(e['availability'] for e in ev)), dict(collections.Counter(e['category'] for e in ev)))"
 done
 ```
 
@@ -276,9 +330,12 @@ Zwei Fallen beim Prüfen:
 
 ## 7. Berichten
 
-Kurz und konkret: welcher Endpunkt, wie die Ticketlage erkannt wird, was der
-Adapter **nicht** liefert (z. B. keine Endzeiten), wie viele Termine je Monat im
-Vergleich zur Website, und woran auffällt, dass die Quelle sich geändert hat.
+Kurz und konkret: welcher Endpunkt, wie die Ticketlage erkannt wird, welche
+Veranstaltungsart-Felder direkt aus der Quelle kommen und welcher
+`defaultCategory` greift, was der Adapter **nicht** liefert (z. B. keine
+Endzeiten oder keinen langen Programmtext auf Detailseiten), wie viele Termine je Monat
+im Vergleich zur Website, ob in der API Dopplungen auffallen, und woran
+auffällt, dass die Quelle sich geändert hat.
 
 ## Grenzen
 

@@ -1,7 +1,8 @@
-import type { CalendarEvent, EventSource, FetchRange } from '../../types.ts';
+import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
 import { TZ, monthsInRange } from '../../time.ts';
-import { parseScheduleFragment, parseSparten } from './parse.ts';
+import { enrichEventDescriptions } from '../detail.ts';
+import { parseDetailDescription, parseScheduleFragment, parseSparten } from './parse.ts';
 
 /**
  * Staatstheater am Gärtnerplatz.
@@ -33,6 +34,7 @@ export const gaertnerplatz: EventSource = {
     name: 'Staatstheater am Gärtnerplatz',
     cityId: 'muenchen',
     group: 'Oper & Ballett',
+    defaultCategory: 'Oper & Ballett',
     color: '#7A4FA0',
     homepage: BASE,
     enabledByDefault: true,
@@ -40,7 +42,11 @@ export const gaertnerplatz: EventSource = {
 
   ttlSeconds: 30 * 60,
 
-  async fetchEvents(range: FetchRange, signal?: AbortSignal): Promise<CalendarEvent[]> {
+  async fetchEvents(
+    range: FetchRange,
+    signal?: AbortSignal,
+    options?: EventFetchOptions,
+  ): Promise<CalendarEvent[]> {
     const current = currentMonth();
     const offsets = monthsInRange(range.from.slice(0, 7), range.to.slice(0, 7))
       .map((month) => ({ month, offset: monthIndex(month) - monthIndex(current) }))
@@ -49,11 +55,14 @@ export const gaertnerplatz: EventSource = {
 
     if (offsets.length === 0) return [];
 
-    const sparten = await loadSparten(signal);
+    const sparten = await loadSparten(signal, options);
 
     const results = await Promise.allSettled(
       offsets.map(async ({ month, offset }) => {
-        const html = await fetchText(`${SCHEDULE}?ajax=1&offset=${offset}&letzterTermin=0`, { signal });
+        const html = await fetchText(`${SCHEDULE}?ajax=1&offset=${offset}&letzterTermin=0`, {
+          signal,
+          timeoutMs: options?.requestTimeoutMs,
+        });
         const { events, skipped, end, empty, blocks } = parseScheduleFragment(html, sparten);
 
         // Leere Antwort und „ende erreicht." sind gültige Auskünfte. Inhalt
@@ -79,7 +88,15 @@ export const gaertnerplatz: EventSource = {
     if (failures.length === offsets.length) throw new Error(failures.join('; '));
     if (failures.length) console.warn(`[gaertnerplatz] Teilausfall – ${failures.join('; ')}`);
 
-    return dedupeById(events).filter((event) => withinRange(event.start, range));
+    const filtered = dedupeById(events).filter((event) => withinRange(event.start, range));
+    return enrichEventDescriptions({
+      sourceId: 'gaertnerplatz',
+      events: filtered,
+      signal,
+      fetchOptions: options,
+      parseDescription: parseDetailDescription,
+      cacheKey: productionKey,
+    });
   },
 };
 
@@ -87,9 +104,14 @@ export const gaertnerplatz: EventSource = {
  * Gattungsnamen von der Spielplanseite lesen. Schlägt das fehl, laufen die
  * Termine ohne Gattung weiter – das ist besser als der ganze Monat.
  */
-async function loadSparten(signal?: AbortSignal): Promise<Record<string, string>> {
+async function loadSparten(
+  signal?: AbortSignal,
+  options?: EventFetchOptions,
+): Promise<Record<string, string>> {
   try {
-    return parseSparten(await fetchText(SCHEDULE, { signal, retries: 1 }));
+    return parseSparten(
+      await fetchText(SCHEDULE, { signal, retries: 1, timeoutMs: options?.requestTimeoutMs }),
+    );
   } catch (error) {
     console.warn(`[gaertnerplatz] Gattungen nicht lesbar: ${errorMessage(error)}`);
     return {};
@@ -117,6 +139,15 @@ function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
   const map = new Map<string, CalendarEvent>();
   for (const event of events) map.set(event.id, event);
   return [...map.values()];
+}
+
+function productionKey(event: CalendarEvent): string | undefined {
+  try {
+    const url = new URL(event.url);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return event.url;
+  }
 }
 
 function errorMessage(error: unknown): string {

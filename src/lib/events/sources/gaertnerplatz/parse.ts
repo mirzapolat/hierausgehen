@@ -83,6 +83,7 @@ export function parseScheduleFragment(
       sourceId: SOURCE_ID,
       title: softenShouted(title),
       subtitle: tagline && tagline !== category ? softenShouted(tagline) : undefined,
+      description: readDescription(block),
       category,
       start: berlinIso(date, start?.hour ?? 0, start?.minute ?? 0),
       end: end ? berlinIso(date, end.hour, end.minute) : undefined,
@@ -120,6 +121,29 @@ export function parseSparten(indexHtml: string): Record<string, string> {
   });
 
   return sparten;
+}
+
+export function parseDetailDescription(html: string): string | undefined {
+  const $ = cheerio.load(html);
+  $('script, style, noscript, header, nav, footer').remove();
+
+  const paragraphs = uniqueParagraphs(
+    $,
+    [
+      '.children-without-margin p',
+      '.ce-bodytext p',
+      '.text-content p',
+      'main article p',
+      'main .container p',
+    ].join(', '),
+  ).filter((text) => text.length > 80);
+
+  if (paragraphs.length) return paragraphs.join('\n\n');
+
+  const fallback = uniqueParagraphs($, '.children-without-margin, .ce-bodytext').filter(
+    (text) => text.length > 80,
+  );
+  return fallback.length ? fallback.join('\n\n') : undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,10 +220,23 @@ function collectNotes($: cheerio.CheerioAPI, block: Block): string[] | undefined
     if (name) notes.push(name);
   });
 
-  const description = clean(block.find('.children-without-margin').first().text());
-  if (description) notes.push(description);
-
   return notes.length ? [...new Set(notes)] : undefined;
+}
+
+function readDescription(block: Block): string | undefined {
+  return clean(block.find('.children-without-margin').first().text()) || undefined;
+}
+
+function uniqueParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
+  const seen = new Set<string>();
+  const paragraphs: string[] = [];
+  $(selector).each((_, element) => {
+    const text = clean($(element).text());
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    paragraphs.push(text);
+  });
+  return paragraphs;
 }
 
 function absolute(href: string): string {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseSchedulePage } from './parse.ts';
+import { parseDetailDescription, parseSchedulePage } from './parse.ts';
 
 const fixture = (name: string) =>
   readFileSync(path.join(import.meta.dirname, `__fixtures__/${name}`), 'utf8');
@@ -24,6 +24,8 @@ test('normalisiert eine Premiere vollständig', () => {
   assert.ok(lolita, 'Bye Bye Lolita am 1.10. gefunden');
   assert.equal(lolita.title, 'Bye Bye Lolita');
   assert.match(lolita.subtitle!, /^nach dem gleichnamigen Roman von Lea Ruckpaul/);
+  assert.match(lolita.description!, /^Vladimir Nabokovs Roman/);
+  assert.match(lolita.description!, /Dolores Haze/);
   assert.equal(lolita.start, '2026-10-01T19:30:00+02:00');
   assert.equal(lolita.allDay, false);
   assert.equal(lolita.venue.name, 'Cuvilliéstheater');
@@ -97,6 +99,21 @@ test('leitet das Jahr aus dem angefragten Monat ab', () => {
   </article></div>`;
   assert.equal(parseSchedulePage(html, '2026-12').events[0].start, '2027-01-22T19:30:00+01:00');
   assert.equal(parseSchedulePage(html, '2027-01').events[0].start, '2027-01-22T19:30:00+01:00');
+});
+
+test('liest langen Programmtext von der Stückseite', () => {
+  const description = parseDetailDescription(`<main>
+    <div class="component-container reduced-width">
+      <p>Vladimir Nabokovs Roman war und ist einer der meistdiskutierten Texte des 20. Jahrhunderts.</p>
+    </div>
+    <div class="show-more__content">
+      <p>Dies ist ein deutlich längerer Programmtext aus der Detailseite, der nicht nur die kurze Inhaltsangabe aus dem Spielplan wiederholt, sondern Kontext und Motive der Inszenierung genauer beschreibt.</p>
+    </div>
+    <footer><p>Newsletter Anmeldung und andere Seitentexte</p></footer>
+  </main>`);
+
+  assert.match(description!, /^Vladimir Nabokovs Roman/);
+  assert.match(description!, /Kontext und Motive der Inszenierung/);
 });
 
 test('erkennt einen leeren Monat und meldet ihn nicht als Fehler', () => {

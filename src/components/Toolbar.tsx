@@ -50,6 +50,8 @@ export function Toolbar({
   onToggleDetail,
 }: Props) {
   const { format, t } = useSettings();
+  const title = format.rangeLabel(view, anchor);
+  const mobileTitle = view === 'month' ? format.monthYearShort(anchor) : title;
 
   const views: { id: ViewMode; label: string; short: string }[] = [
     { id: 'day', label: t('day'), short: t('dayShort') },
@@ -104,7 +106,8 @@ export function Toolbar({
             title={t('today')}
             className="truncate rounded-[var(--radius-sm)] px-1 py-0.5 hover:bg-[var(--canvas)]"
           >
-            {format.rangeLabel(view, anchor)}
+            <span className="sm:hidden">{mobileTitle}</span>
+            <span className="hidden sm:inline">{title}</span>
           </button>
         </h1>
       </div>
