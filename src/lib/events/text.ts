@@ -13,15 +13,31 @@ export function clean(text: string): string {
  * wie BR oder TV bleiben stehen.
  */
 export function softenShouted(text: string): string {
-  return text
-    .split(/(\s+)/)
-    .map((word) => (isShouted(word) ? soften(word) : word))
+  const parts = text.split(/(\s+)/);
+  const shouted = parts.map(isShouted);
+  return parts
+    .map((word, index) =>
+      shouted[index] || (isUpper(word) && (shouted[index - 2] || shouted[index + 2]))
+        ? soften(word)
+        : word,
+    )
     .join('');
 }
 
 function isShouted(word: string): boolean {
-  const letters = word.replace(/\P{L}/gu, '');
-  return letters.length >= 3 && word === word.toLocaleUpperCase('de-DE');
+  return letterCount(word) >= 3 && isUpper(word);
+}
+
+/**
+ * Kurze Grossschreibungen bleiben für sich stehen (BR, TV) – innerhalb einer
+ * schreienden Zeile gehören sie aber dazu ("FACK JU GÖHTE").
+ */
+function isUpper(word: string): boolean {
+  return letterCount(word) > 0 && word === word.toLocaleUpperCase('de-DE');
+}
+
+function letterCount(word: string): number {
+  return word.replace(/\P{L}/gu, '').length;
 }
 
 function soften(word: string): string {

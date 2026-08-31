@@ -6,7 +6,7 @@ import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
-import { ChevronDown, Close, MoreHorizontal, Refresh, Warning } from './icons';
+import { ChevronDown, Close, MoreHorizontal, Refresh, Ticket, Warning } from './icons';
 
 interface Props {
   definitions: SourceDefinition[];
@@ -98,6 +98,21 @@ export function Sidebar({
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        aria-pressed={availableOnly}
+        onClick={() => onAvailableOnlyChange(!availableOnly)}
+        className={`-mt-2 flex items-center gap-1.5 self-start rounded-full border py-[3px] pl-2 pr-2.5
+                    text-[12px] transition-colors ${
+                      availableOnly
+                        ? 'border-transparent bg-[var(--accent-soft)] text-accent'
+                        : 'border-line text-faint hover:border-line-strong hover:text-muted'
+                    }`}
+      >
+        <Ticket className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{t('onlyAvailable')}</span>
+      </button>
 
       <section>
         <div className="mb-2 flex items-center gap-2 px-0.5">
@@ -259,24 +274,6 @@ export function Sidebar({
           </div>
         </section>
       )}
-
-      <section>
-        <h2 className="mb-2 px-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
-          {t('tickets')}
-        </h2>
-        <div
-          onClick={() => onAvailableOnlyChange(!availableOnly)}
-          className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] py-1 pl-1 pr-1.5
-                     hover:bg-[var(--canvas)]"
-        >
-          <Checkbox
-            state={availableOnly ? 'on' : 'off'}
-            label={t('onlyAvailable')}
-            onChange={() => onAvailableOnlyChange(!availableOnly)}
-          />
-          <span className="text-[13px]">{t('onlyAvailable')}</span>
-        </div>
-      </section>
 
       </div>
 

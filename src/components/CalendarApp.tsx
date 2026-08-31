@@ -15,6 +15,7 @@ import { DetailPanel } from './DetailPanel';
 import { HorizontalCalendar } from './HorizontalCalendar';
 import { MonthScrollView } from './MonthScrollView';
 import { MonthView } from './MonthView';
+import { PullToRefresh } from './PullToRefresh';
 import { ResizeHandle } from './ResizeHandle';
 import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
@@ -349,6 +350,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     return () => window.removeEventListener('keydown', handler);
   }, [step, goToday]);
 
+  const refresh = useCallback(() => load(range, cityId, true), [load, range, cityId]);
+
   const sidebar = (
     <Sidebar
       definitions={data.definitions}
@@ -414,73 +417,60 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <Toolbar
-        view={view}
-        anchor={anchor}
-        loading={loading}
-        cityId={cityId}
-        onCityChange={(id) => update({ cityId: id })}
-        onViewChange={setView}
-        onStep={step}
-        onToday={goToday}
-        onRefresh={() => void load(range, cityId, true)}
-        onOpenFilters={() => setFiltersOpen(true)}
-        activeFilterCount={
-          disabled.size +
-          solo.size +
-          categorySolo.size +
-          disabledCategories.size +
-          (availableOnly ? 1 : 0) +
-          (query ? 1 : 0)
-        }
-        sidebarCollapsed={layout.sidebarCollapsed}
-        detailCollapsed={layout.detailCollapsed}
-        onToggleSidebar={() =>
-          setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }))
-        }
-        onToggleDetail={() => setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }))}
-      />
+    <PullToRefresh disabled={filtersOpen || sheetOpen} refreshing={loading} onRefresh={refresh}>
+      <div className="flex h-full flex-col overflow-hidden">
+        <Toolbar
+          view={view}
+          anchor={anchor}
+          loading={loading}
+          cityId={cityId}
+          onCityChange={(id) => update({ cityId: id })}
+          onViewChange={setView}
+          onStep={step}
+          onToday={goToday}
+          onRefresh={() => void refresh()}
+          onOpenFilters={() => setFiltersOpen(true)}
+          activeFilterCount={
+            disabled.size +
+            solo.size +
+            categorySolo.size +
+            disabledCategories.size +
+            (availableOnly ? 1 : 0) +
+            (query ? 1 : 0)
+          }
+          sidebarCollapsed={layout.sidebarCollapsed}
+          detailCollapsed={layout.detailCollapsed}
+          onToggleSidebar={() =>
+            setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }))
+          }
+          onToggleDetail={() => setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }))}
+        />
 
-      <div className="flex min-h-0 flex-1">
-        {/* Filter – links, ab lg dauerhaft sichtbar und in der Breite verstellbar */}
-        {!layout.sidebarCollapsed && (
-          <>
-            <aside
-              className="hidden min-h-0 shrink-0 bg-[var(--chrome)] hairline-r lg:block"
-              style={{ width: layout.sidebarWidth }}
-            >
-              {sidebar}
-            </aside>
-            <ResizeHandle
-              side="left"
-              className="hidden lg:block"
-              width={layout.sidebarWidth}
-              onChange={(width) => setLayout((c) => ({ ...c, sidebarWidth: width }))}
-            />
-          </>
-        )}
-
-        {/* Kalender */}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {view !== 'month' && (
-            <HorizontalCalendar
-              key={calendarFocusKey}
-              mode={view}
-              anchor={anchor}
-              events={events}
-              definitions={data.definitions}
-              selectedDay={selectedDay}
-              selectedEventId={selectedEventId}
-              onSelectDay={selectDay}
-              onSelectEvent={selectEvent}
-              onStep={step}
-            />
+        <div className="flex min-h-0 flex-1">
+          {/* Filter – links, ab lg dauerhaft sichtbar und in der Breite verstellbar */}
+          {!layout.sidebarCollapsed && (
+            <>
+              <aside
+                className="hidden min-h-0 shrink-0 bg-[var(--chrome)] hairline-r lg:block"
+                style={{ width: layout.sidebarWidth }}
+              >
+                {sidebar}
+              </aside>
+              <ResizeHandle
+                side="left"
+                className="hidden lg:block"
+                width={layout.sidebarWidth}
+                onChange={(width) => setLayout((c) => ({ ...c, sidebarWidth: width }))}
+              />
+            </>
           )}
 
-          {view === 'month' && (
-            <div className="hidden min-h-0 flex-1 lg:flex lg:flex-col">
-              <MonthScrollView
+          {/* Kalender */}
+          <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {view !== 'month' && (
+              <HorizontalCalendar
+                key={calendarFocusKey}
+                mode={view}
                 anchor={anchor}
                 events={events}
                 definitions={data.definitions}
@@ -488,19 +478,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 selectedEventId={selectedEventId}
                 onSelectDay={selectDay}
                 onSelectEvent={selectEvent}
-                onAnchorChange={setAnchor}
-                focusKey={calendarFocusKey}
+                onStep={step}
               />
-            </div>
-          )}
+            )}
 
-          {/* Mobile */}
-          {view === 'month' && (
-            <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-              <div className="h-[288px] shrink-0 hairline-b">
-                <MonthView
-                  compact
-                  currentWeekFirst
+            {view === 'month' && (
+              <div className="hidden min-h-0 flex-1 lg:flex lg:flex-col">
+                <MonthScrollView
                   anchor={anchor}
                   events={events}
                   definitions={data.definitions}
@@ -508,48 +492,68 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   selectedEventId={selectedEventId}
                   onSelectDay={selectDay}
                   onSelectEvent={selectEvent}
+                  onAnchorChange={setAnchor}
+                  focusKey={calendarFocusKey}
                 />
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
-                <AgendaList
-                  events={dayEvents}
-                  definitions={data.definitions}
-                  selectedId={selectedEventId}
-                  onSelect={selectEvent}
-                  emptyLabel={t('noEventsDay')}
-                />
-              </div>
-            </div>
-          )}
-        </main>
+            )}
 
-        {/* Details – rechts */}
-        {!layout.detailCollapsed && (
-          <>
-            <ResizeHandle
-              side="right"
-              className="hidden lg:block"
-              width={layout.detailWidth}
-              min={260}
-              max={520}
-              onChange={(width) => setLayout((c) => ({ ...c, detailWidth: width }))}
-            />
-            <aside
-              className="hidden min-h-0 shrink-0 hairline-l lg:block"
-              style={{ width: layout.detailWidth }}
-            >
-              <DetailPanel
-                day={selectedDay}
-                dayEvents={dayEvents}
-                event={selectedEvent}
-                definitions={data.definitions}
-                onSelectEvent={selectEvent}
-                onBackToDay={() => setSelectedEventId(undefined)}
+            {/* Mobile */}
+            {view === 'month' && (
+              <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+                <div className="h-[288px] shrink-0 hairline-b">
+                  <MonthView
+                    compact
+                    currentWeekFirst
+                    anchor={anchor}
+                    events={events}
+                    definitions={data.definitions}
+                    selectedDay={selectedDay}
+                    selectedEventId={selectedEventId}
+                    onSelectDay={selectDay}
+                    onSelectEvent={selectEvent}
+                  />
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
+                  <AgendaList
+                    events={dayEvents}
+                    definitions={data.definitions}
+                    selectedId={selectedEventId}
+                    onSelect={selectEvent}
+                    emptyLabel={t('noEventsDay')}
+                  />
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* Details – rechts */}
+          {!layout.detailCollapsed && (
+            <>
+              <ResizeHandle
+                side="right"
+                className="hidden lg:block"
+                width={layout.detailWidth}
+                min={260}
+                max={520}
+                onChange={(width) => setLayout((c) => ({ ...c, detailWidth: width }))}
               />
-            </aside>
-          </>
-        )}
-      </div>
+              <aside
+                className="hidden min-h-0 shrink-0 hairline-l lg:block"
+                style={{ width: layout.detailWidth }}
+              >
+                <DetailPanel
+                  day={selectedDay}
+                  dayEvents={dayEvents}
+                  event={selectedEvent}
+                  definitions={data.definitions}
+                  onSelectEvent={selectEvent}
+                  onBackToDay={() => setSelectedEventId(undefined)}
+                />
+              </aside>
+            </>
+          )}
+        </div>
 
       {/* Mobile: Filter als Overlay */}
       {filtersOpen && (
@@ -592,12 +596,16 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             style={{ background: 'var(--overlay)' }}
           />
           <div
-            className="absolute inset-x-0 bottom-0 flex max-h-[88%] flex-col overflow-hidden
+            className="absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
                        rounded-t-[var(--radius-lg)] bg-[var(--chrome)]"
-            style={{ boxShadow: 'var(--shadow-overlay)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            style={{
+              boxShadow: 'var(--shadow-overlay)',
+              height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }}
           >
             <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[var(--line-strong)]" />
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 flex-1 overflow-hidden">
               <DetailPanel
                 day={selectedDay}
                 dayEvents={dayEvents}
@@ -614,7 +622,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   );
 }
 

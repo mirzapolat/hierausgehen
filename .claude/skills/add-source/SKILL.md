@@ -8,113 +8,75 @@ description: Add a new event source (venue, theatre, concert hall, club) to the 
 Ziel: aus einer Veranstalter-Website einen Adapter machen, der konsistente
 `CalendarEvent[]` liefert. Kalender, Datenmodell und UI werden dabei **nicht**
 angefasst — nur ein neuer Ordner unter `sources/` plus eine Zeile in der
-Registry.
+Registry. Muss dafür am Datenmodell oder an der UI etwas geändert werden, ist
+das ein Befund über den Entwurf: ansprechen, nicht still umbauen.
 
-Muss dafür am Datenmodell oder an der UI etwas geändert werden, ist das ein
-Befund über den Entwurf: ansprechen, nicht still umbauen.
+```bash
+npm run probe -- <url> <url-anderer-monat>     # 1. Endpunkt und Zeitraum-Parameter
+npm run probe -- --anatomie <url|.probe/datei> # 2. Terminblock, Felder, Signale
+#  … Fixtures ablegen, parse.ts + index.ts + parse.test.ts schreiben …
+npm test && npx tsc --noEmit && npx eslint src scripts && npm run build
+npm run check -- <quellen-id>                  # live, mehrere Monate, kalter Cache
+```
+
+Grenzen: nur öffentlich zugängliche Seiten, keine Logins, Paywalls, Captchas,
+kein Umgehen von Sperren oder Ratenbegrenzungen. `robots.txt` der Quelle ansehen
+und gesperrte Pfade respektieren. Dass `fetchText` sich wie ein Browser verhält,
+ist kein Umgehen eines Zugangsschutzes — abgerufen wird genau die Seite, die
+jeder Browser ohne Anmeldung bekommt. Was bleibt, ist Zurückhaltung: grosszügige
+TTL, keine parallelen Massenabrufe.
 
 ## 0. Was der Nutzer mitgibt
 
-Meistens kommt ein Link, manchmal ein Hinweis auf das Muster („die Monate hängen
-hinten dran"). Solche Hinweise sind wertvoll und sparen die halbe Suche —
-trotzdem immer selbst gegenprüfen, statt sie zu übernehmen.
-
-Fehlt etwas Entscheidendes, das sich nicht aus der Seite ablesen lässt (welche
+Meistens ein Link, manchmal ein Hinweis auf das Muster („die Monate hängen
+hinten dran"). Solche Hinweise sparen die halbe Suche — trotzdem selbst
+gegenprüfen. Fehlt etwas Entscheidendes, das nicht auf der Seite steht (welche
 Spielstätten dazugehören, ob Nebenreihen mit sollen), einmal nachfragen. Alles
 andere selbst herausfinden.
 
-## 1. Endpunkt finden — der wichtigste Schritt
+## 1. Endpunkt finden
 
 Nicht die gerenderte Seite parsen, solange es etwas Besseres gibt:
 
 1. **JSON-API** — `/api/…`, `/graphql`, `?format=json`.
-2. **HTML-Fragment zum Nachladen** — bei der Staatsoper
-   `/spielplan/{YYYY-MM}/calendar.ajax`. Enthält oft den ganzen Monat ohne
-   JavaScript und ohne Paging, bei einem Fünftel der Übertragung.
+2. **HTML-Fragment zum Nachladen** — Staatsoper:
+   `/spielplan/{YYYY-MM}/calendar.ajax`. Oft der ganze Monat ohne JavaScript
+   und ohne Paging, bei einem Fünftel der Übertragung.
 3. **ICS-Feed** — `/calendar.ics`, `/termine.ics`. Selten, aber am stabilsten.
-4. **`<script type="application/ld+json">`** mit `@type: Event` — sehr gut
-   normalisierbar.
+4. **`<script type="application/ld+json">`** mit `@type: Event`.
 5. **Gerendertes HTML** — letzte Wahl.
 
-Startpunkt ist immer das Aufklärungsskript. Es benutzt denselben HTTP-Client wie
-die Adapter, legt die Antwort unter `.probe/` ab und zeigt Endpunkte,
-strukturierte Daten, wiederkehrende Container, Datums- und Ticketmuster:
+`npm run probe` benutzt denselben HTTP-Client wie die Adapter, legt die Antwort
+unter `.probe/` ab und zeigt Endpunkte, strukturierte Daten, wiederkehrende
+Container sowie Datums- und Ticketmuster. **Zwei URLs mit verschiedenen Monaten
+nebeneinander** beantworten die wichtigste Frage: gibt es einen Parameter für
+den Zeitraum? Ohne den muss der Adapter blättern oder alles auf einmal holen.
+
+Wenn das Skript keine Datumsmuster findet, 403 kommt oder ein Token nötig ist:
+**`referenzen/endpunkt-finden.md`** (XHR aufzeichnen, TLS-Fingerabdruck,
+Web-Archiv, Spielzeit-am-Stück-Seiten).
+
+## 2. Struktur lesen
 
 ```bash
-npm run probe -- "https://beispiel.de/spielplan" "https://beispiel.de/spielplan/2026-11"
+npm run probe -- --anatomie .probe/<datei>.html [--auswahl "li.termin"]
 ```
 
-Zwei URLs mit verschiedenen Monaten nebeneinander zu holen, beantwortet sofort
-die wichtigste Frage: **gibt es einen Parameter für den Zeitraum?** Ohne den muss
-der Adapter blättern, was fast immer schlechter ist.
+Das nennt die Kandidaten für den Terminblock, druckt zwei Blöcke vollständig
+aus und listet die Felder darin mit ihrem Anteil sowie die Ticketsignale. Damit
+ist die Handarbeit erledigt — von Hand nachzählen nur noch dort, wo die Anteile
+stutzig machen. Und die machen stutzig:
 
-### Wenn die Seite gar keine Termine im HTML hat
+- **100 %** — Pflichtfeld, taugt als Anker.
+- **um 50 %** — entweder ein Sonderfall (Premiere, Führung) oder zwei Bauarten
+  desselben Feldes. Beide ansehen, nicht die häufigere nehmen.
+- **Blockzahl = Termine × 2 oder 3** — die Seite rendert je Breakpoint eine
+  Variante. Eine wählen, über die Termin-ID entdoppeln.
 
-Findet das Skript keine Datums- oder Ticketmuster, rendert die Seite ihren
-Spielplan erst im Browser. Dann aufzeichnen, was sie selbst nachlädt – das ist
-der gesuchte Endpunkt:
+Die Zahl der Blöcke immer gegen die Website prüfen, bevor sie in einen Test
+wandert.
 
-```bash
-node -e "import('playwright').then(async ({chromium})=>{
-const b=await chromium.launch(); const p=await (await b.newContext()).newPage();
-p.on('request',r=>{ if(['xhr','fetch'].includes(r.resourceType()))
-  console.log(r.method(), r.url(), r.postData()?.slice(0,200)??''); });
-await p.goto('https://beispiel.de/spielplan',{waitUntil:'networkidle'});
-await p.waitForTimeout(3000); await b.close();})"
-```
-
-So kam der Gärtnerplatz-Endpunkt heraus:
-`/de/spielplan/index.html?ajax=1&offset=N&letzterTermin=<unix>`.
-
-Dann die Parameter einzeln durchprobieren, statt sie zu übernehmen:
-
-- **Ist der Zeitraum absolut oder relativ?** Dort ist `offset` kein Monat,
-  sondern der Abstand zum *laufenden* Monat. Der Bezugspunkt wandert also –
-  der Adapter muss ihn aus der aktuellen Zeit berechnen.
-- **Braucht es den Cursor wirklich?** `letzterTermin` sah nach einer Pflicht
-  aus; mit `0` liefert dieselbe Seite sogar einen Termin mehr.
-- **Geht statt POST auch GET?** Beim Gärtnerplatz ja – das spart einen
-  Sonderweg im HTTP-Layer.
-- **Wie meldet die Quelle das Ende?** Dort mit dem Text `ende erreicht.` Ein
-  solches Signal ist Gold wert: damit weiss der Adapter, wann er aufhören darf.
-
-### Wenn 403 kommt
-
-Etliche Kulturseiten stehen hinter einer Bot-Erkennung, die am **TLS-Handshake**
-ansetzt, nicht am User-Agent. `curl` und ein nacktes `fetch` bekommen 403, wo
-derselbe Link im Browser 200 liefert. Das sieht aus wie ein Ausfall, ist keiner —
-diese Verwechslung hat hier schon einmal Stunden gekostet.
-
-Vor jeder Aussage „die Seite ist down" gegenprüfen:
-
-```bash
-node -e "import('playwright').then(async ({chromium})=>{const b=await chromium.launch();
-const p=await b.newPage();const r=await p.goto('https://beispiel.de/spielplan');
-console.log(r.status(), (await p.content()).length); await b.close();})"
-```
-
-Antwortet der Browser mit 200, ist die Seite öffentlich erreichbar und
-`fetchText` aus `src/lib/events/http.ts` kommt durch (HTTP/2 mit Chromes
-Cipher-Reihenfolge). **Adapter benutzen nie direkt `fetch`.**
-
-Bleibt es auch im Browser bei 403/503, ist die Quelle tatsächlich gestört: melden
-und die Arbeit vertagen.
-
-### Wenn die Seite wirklich nicht erreichbar ist
-
-Das Web-Archiv zeigt oft auch die nachgeladenen Endpunkte:
-
-```bash
-curl -sS "https://web.archive.org/cdx/search/cdx?url=beispiel.de/spielplan*&output=json&fl=original,timestamp,length&limit=40&filter=statuscode:200&collapse=urlkey&from=2026" \
-  | python3 -m json.tool
-# Rohfassung ohne Archiv-Rahmen: Zeitstempel + "id_"
-curl -sS -L "https://web.archive.org/web/<timestamp>id_/<url>" -o /tmp/roh
-```
-
-Archivstände sind zum **Verstehen der Struktur** gut, nie als Datenquelle. Ein
-Adapter, der nur gegen ein altes Archiv geprüft wurde, ist nicht geprüft.
-
-## 2. Fixtures ablegen
+## 3. Fixtures ablegen
 
 Echte Antworten unverändert speichern:
 
@@ -123,109 +85,24 @@ src/lib/events/sources/<quelle>/__fixtures__/<beschreibung>-<YYYY-MM>.html
 ```
 
 Mindestens zwei: **ein voller Monat** und **ein leerer** (Sommerpause oder
-Vergangenheit). Der leere Fall ist der, der später Fehlalarme auslöst.
+Vergangenheit). Der leere Fall ist der, der später Fehlalarme auslöst. Eine
+Seite ganz ohne Terminliste ist kein leerer Monat, sondern ein Layoutbruch —
+Fixture entsprechend benennen. Nie umdatieren, nie von Hand nachbessern.
 
-Nie umdatieren, nie von Hand nachbessern.
-
-## 3. Felder zuordnen
+## 4. Felder zuordnen
 
 Pflicht: Titel, Beginn, Spielstätte, Veranstaltungsart, Ticketlage, Link zur
-Veranstaltung. Wenn die Listen- oder Fragmentantwort einen Kurzinfo-,
-Programm- oder Beschreibungstext enthält, gehört er nach `description`, nicht in
-`notes`.
+Veranstaltung. Kurzinfo- oder Programmtext aus der Liste gehört nach
+`description`, nicht in `notes`.
 
-Zusätzlich prüfen, ob die verlinkte Event-/Produktionsseite einen längeren
-Programmtext enthält. Viele Listen liefern nur einen Teaser; die App soll aber
-den langen Text durchsuchen und im Detail anzeigen können. Der Parser für diese
-Seite bleibt eine reine Funktion in `parse.ts`, z. B.
-`parseDetailDescription(html)`. Das Laden läuft in `index.ts` über
-`enrichEventDescriptions` aus `src/lib/events/sources/detail.ts`.
+Nichts erfinden: fehlt eine Einzelangabe, bleibt das Feld leer bzw. `unknown`;
+nur die Veranstaltungsart bekommt über `defaultCategory` einen Quellen-Fallback.
 
-Dabei gilt:
+Alles Weitere — Ticketlage-Tabelle, Untertitel gegen Hinweise, IDs, Zeitzone,
+Detailseiten-Texte und die Fallen, die schon einmal zugeschlagen haben — steht
+in **`referenzen/felder-und-fallen.md`**. Vor dem Schreiben des Parsers lesen.
 
-- Detailseiten nach Produktion deduplizieren, nicht nach Vorstellung. Enthält
-  die Termin-URL eine Vorstellungs-ID, den Cache-Key auf die Produktionsseite
-  normalisieren, damit mehrere Abende desselben Stücks nur einen Detailabruf
-  kosten.
-- Detailtexte cachen. Ein fehlgeschlagener Detailabruf darf nie die Quelle als
-  kaputt markieren; der Termin bleibt mit Kurztext oder ohne `description`
-  erhalten.
-- Detailabrufe haben ein eigenes Zeitbudget und begrenzte Parallelität. Normale
-  Seitenaufrufe bleiben knapp; ein expliziter Quellen-Reload darf mehr Zeit
-  bekommen.
-- Der lange Text ersetzt den Kurztext nur, wenn er wirklich informativer ist.
-  Keine Navigations-, Footer-, Cast-, Abo- oder Ticketshop-Texte in
-  `description` übernehmen.
-
-| Befund auf der Seite | `availability` |
-| --- | --- |
-| normaler Kaufen-Knopf | `available` |
-| „Letzte Karten", „Restkarten", „wenige Plätze" | `limited` |
-| „ausverkauft", deaktivierter Knopf | `soldout` |
-| „Vorverkauf ab …", kein Verkauf über die Seite | `not_on_sale` |
-| gar keine Angabe | `unknown` |
-
-**Zwei unabhängige Signale** nutzen, wo es geht — Knopftext *und* CSS-Klasse,
-JSON-Feld *und* Knopf. Bei der Staatsoper ist „ausverkauft" ein `<span>` statt
-`<a>`: wer nur auf `a` selektiert, verliert genau diesen Zustand lautlos.
-
-`past` ist **kein** Adapter-Zustand. Vergangene Termine werden unverändert
-übernommen; die Anzeige leitet den Zustand über `displayAvailability()` aus der
-Zeit ab. Adapter filtern Vergangenes nicht heraus und schreiben es nicht um.
-
-Weitere Regeln:
-
-- `id` ist `` `${sourceId}:${stabile ID der Quelle}` `` — bevorzugt die
-  numerische Termin-ID aus dem Link, nur notfalls ein Slug aus Datum, Zeit, Titel.
-- `start` immer über `berlinIso(datum, stunde, minute)` aus `../../time.ts`.
-  Nie einen Offset von Hand schreiben (Sommerzeit).
-- **Meta-Zeilen können mehr als zwei Teile haben.** `16.00 Uhr | Nationaltheater
-  | PREMIERE` — die Spielstätte ist der *zweite* Abschnitt, alles danach sind
-  Hinweise. Wer „alles nach dem ersten `|`" nimmt, bekommt Spielstätten wie
-  „Nationaltheater | PREMIERE".
-- **Dieselbe Angabe steht oft in verschiedenen Elementen.** Die Spielstätte ist
-  beim Gärtnerplatz mal ein Link auf den Saalplan („Foyer"), mal blosser Text
-  („Kempten") – und beim Haupthaus gar nicht da. Ein Selektor auf `a[href…]`
-  verliert zwei von drei Fällen lautlos. Lieber den gemeinsamen Container
-  greifen und den Text nehmen.
-- **Nicht jeder Block in der Liste ist ein Termin.** Zwischen den Vorstellungen
-  stehen Hinweiskästen (dort: „Theaterferien", auf *jeder* Seite). Ein Block
-  zählt nur, wenn er die stabile Termin-ID trägt.
-- **Taxonomien aus der Seite lesen statt im Code pflegen.** Gattungen, Orte und
-  Merkmale stehen oft nur als `sparte-14`, `ort-57` im Markup – die Namen dazu
-  in den Beschriftungen der Filter. Die einmal je Abruf mitzulesen ist besser
-  als eine Tabelle im Code, die bei einer neuen Gattung still veraltet.
-- **Jeder Termin braucht in der API eine Veranstaltungsart.** Liefert die Quelle
-  pro Termin eine Gattung, kommt sie in `event.category`. Liefert sie keine oder
-  nur teilweise Gattungen, setze in `definition.defaultCategory` einen ehrlichen
-  Quellen-Fallback wie „Theater", „Konzert", „Clubnacht" oder „Oper & Ballett".
-  Die Parser dürfen fehlende Einzelwerte leer lassen; die Aggregation ergänzt
-  daraus die Kategorie. In der App soll dadurch keine Kategorie-Pille „Ohne
-  Angabe" entstehen.
-- **`venue.city` nicht hart setzen.** Häuser führen Gastspiele in anderen Städten
-  im selben Spielplan. Lieber weglassen als erfinden.
-- **Versalien wortweise glätten** mit `softenShouted` aus `../../text.ts` –
-  nicht nur wenn der ganze Titel schreit: `ILLUSIONEN - WIE SCHWANENSEE
-  (Gastspiel in Baden-Baden)` bliebe sonst stehen, weil der Klammerzusatz
-  Kleinbuchstaben enthält. `clean` für Leerraum kommt aus derselben Datei.
-- **Steht das Jahr nicht am Termin** (das Residenztheater schreibt nur
-  „Do. 1 Okt"), nimmt der Parser den angefragten Monat entgegen und wählt das
-  Jahr so, dass der Termin ihm am nächsten liegt. Damit stimmt auch ein
-  Januartermin auf einer Dezemberseite.
-- **Nicht zu eng klassifizieren.** Wenn ein Theater auch Führungen, Gespräche
-  oder Gastspiele führt, ist „Theater" als `defaultCategory` besser als alles
-  pauschal „Schauspiel" zu nennen.
-- **Preise und Schlagworte trennen** und lesbar machen. Rohtext wie
-  `Preise M , € 193 /168 /- /- /- /14` gehört als `Preise M: 193 / 168 / 14 €`
-  in `notes`, Platzhalter `-` fallen weg.
-- **Programmtext getrennt halten.** Inhaltsangaben, Kurzinfos und
-  Beschreibungstexte gehören in `description`. `notes` ist für Preise,
-  Festivals, Premierenhinweise, Abo-Reihen und praktische Zusatzinfos.
-- Nichts erfinden: fehlt eine konkrete Einzelangabe, bleibt dieses Feld leer
-  bzw. `unknown`; nur die Veranstaltungsart bekommt über `defaultCategory`
-  einen Quellen-Fallback.
-
-## 4. Adapter schreiben
+## 5. Adapter schreiben
 
 Vorlage `src/lib/events/sources/_template.ts`, bestes Vorbild
 `src/lib/events/sources/staatsoper/`.
@@ -244,21 +121,15 @@ der Parser testbar.
 In `index.ts`:
 
 - `definition.cityId` muss in `src/lib/cities.ts` existieren.
-- `definition.color` gedeckt und von den vorhandenen Quellen unterscheidbar.
 - `definition.group` ist der Ordner in der Sidebar — vorhandene Gruppen
-  wiederverwenden („Oper & Ballett", „Theater", „Konzert", „Club"), nicht je
-  Haus eine neue anlegen.
-- `definition.defaultCategory` setzen, wenn nicht garantiert jeder Termin eine
-  eigene Gattung liefert. Das ist der Quellen-Fallback für konsistente
-  Veranstaltungsarten.
-- Nach dem Filtern der Termine optional `enrichEventDescriptions` aufrufen, wenn
-  Detailseiten längere Programmtexte liefern. Dafür `parseDetailDescription`
-  aus `parse.ts` importieren und bei mehreren Vorstellungen pro Produktion
-  einen normalisierten `cacheKey` übergeben.
+  wiederverwenden („Oper & Ballett", „Theater", „Konzert", „Club").
+- `definition.color` gedeckt und von den vorhandenen Quellen unterscheidbar.
+- `definition.defaultCategory` setzen, wenn nicht jeder Termin eine eigene
+  Gattung liefert.
 - `iconUrl` nur setzen, wenn die Favicon-Erkennung über die Startseite nichts
   findet; die Erkennung hat Vorrang, damit ein Icon-Wechsel sich selbst heilt.
-- `ttlSeconds` so wählen, dass die Quelle höchstens ein paar Mal pro Stunde
-  angefasst wird (30 Minuten sind der übliche Wert).
+- `ttlSeconds` so, dass die Quelle höchstens ein paar Mal pro Stunde angefasst
+  wird (30 Minuten sind der übliche Wert).
 - Mehrere Monate mit `Promise.allSettled`: einzelne Lücken hinnehmen und
   protokollieren, Totalausfall werfen.
 - Antwort ohne erkennbaren Termin **muss werfen** (`Layout geändert?`). Die
@@ -267,82 +138,60 @@ In `index.ts`:
 - **Ausnahme:** ein leerer Monat ist kein Fehler. Drei Bauarten sind uns
   begegnet: eine ausdrückliche Leermeldung im Markup (Staatsoper
   `.activity-list__col--empty`), ein vorhandener, aber leerer Container
-  (Residenztheater `div.schedule`) und eine schlicht leere Antwort plus ein
-  Endesignal (Gärtnerplatz: leerer Body bzw. `ende erreicht.`). Immer am
-  **Markup oder am Signal** festmachen, nie an der Antwortlänge. Sommerpause,
-  noch nicht begonnener Vorverkauf und vergangene Monate sehen genau so aus.
+  (Residenztheater `div.schedule`) und eine leere Antwort plus Endesignal
+  (Gärtnerplatz: leerer Body bzw. `ende erreicht.`). Immer am **Markup oder am
+  Signal** festmachen, nie an der Antwortlänge — Sommerpause, noch nicht
+  begonnener Vorverkauf und vergangene Monate sehen genau so aus.
 - **Kennt die Quelle keine Vergangenheit**, Monate vor dem laufenden gar nicht
-  erst anfragen und leer zurückgeben – das ist kein Ausfall.
+  erst anfragen und leer zurückgeben.
 
-## 5. Registrieren
+## 6. Registrieren
 
-In `src/lib/events/registry.ts` importieren und in `sources` eintragen. Mehr
-ist nicht nötig — Sidebar, Ordner, Filter, Farbe und Favicon ergeben sich daraus.
+In `src/lib/events/registry.ts` importieren und in `sources` eintragen. Mehr ist
+nicht nötig — Sidebar, Ordner, Filter, Farbe und Favicon ergeben sich daraus.
 
-## 6. Prüfen — gegen die echte Quelle, über mehrere Monate
+## 7. Prüfen
 
 ```bash
 npm test && npx tsc --noEmit && npx eslint src scripts && npm run build
+npm run check -- <quellen-id>
 ```
 
 Der Parser-Test deckt mindestens ab: Gesamtzahl der Termine, ein vollständig
 normalisierter Termin mit allen Feldern, die Verteilung der
 Verfügbarkeitszustände, Eindeutigkeit der IDs, den ausdrücklich leeren Monat
-sowie leeres und kaputtes HTML. Wenn die Quelle Programmtext im Listenformat
-liefert, muss ein Test `description` abdecken. Wenn Detailseiten längere
-Programmtexte liefern, muss `parseDetailDescription` mit einem kleinen
-HTML-Schnipsel getestet werden. Zusätzlich gegen die Aggregation prüfen: Alle
-ausgelieferten Events haben `category`, `availability`, `title`, `start`,
-`venue.name` und `url`.
+sowie leeres und kaputtes HTML. Liefert die Liste Programmtext, muss ein Test
+`description` abdecken; gibt es Detailseiten, einer `parseDetailDescription`.
 
-Dann live, und zwar **mit leerem Cache und über mehrere Monate**:
-
-```bash
-find .cache -type f -name "*.json" -delete   # sonst gilt weiter, was schon da ist
-npm run dev &
-for r in 2026-09-01:2026-09-30 2026-10-01:2026-10-31 2026-12-01:2027-01-31 2026-07-01:2026-08-31; do
-  curl -sS "http://localhost:3000/api/events?from=${r%%:*}&to=${r##*:}" | python3 -c "
-import json,sys,collections
-d=json.load(sys.stdin)
-missing=[e['id'] for e in d['events'] if not e.get('category') or not e.get('venue',{}).get('name') or not e.get('url')]
-dupes=[k for k,c in collections.Counter((e['start'], e['title'].casefold(), e['venue']['name'].casefold()) for e in d['events']).items() if c>1]
-assert not missing, missing[:10]
-assert not dupes, dupes[:10]
-for s in d['sources']:
-    ev=[e for e in d['events'] if e['sourceId']==s['sourceId']]
-    print(s['sourceId'], s['status'], len(ev), dict(collections.Counter(e['availability'] for e in ev)), dict(collections.Counter(e['category'] for e in ev)))"
-done
-```
+`npm run check` ruft den Adapter live auf — über Vergangenheit, laufenden
+Monat, die nächsten Monate und die Spielzeitpause, mit abgeschaltetem
+Platten-Cache. Es prüft, was die API garantieren muss: Pflichtfelder nach der
+Normalisierung, eindeutige IDs, keine Dopplungen, keine Termine ausserhalb des
+angefragten Zeitraums. Ohne Argument laufen alle Quellen, mit `2026-11` o. ä.
+ein bestimmter Monat.
 
 Warum mehrere Monate: ein Adapter, der nur einen Monat kann, fällt sonst nicht
-auf. Genau das ist hier schon passiert. Einen **vergangenen** Monat und einen in
-der **Spielzeitpause** immer mitprüfen.
+auf. Genau das ist hier schon passiert.
 
-Die Zahlen mit der Website vergleichen, nicht nur „es kommt etwas". Dann ein
-Ereignis vollständig ansehen: stimmen Uhrzeit, Spielstätte, Ticketlink?
+Die ausgegebenen Zahlen mit der Website vergleichen, nicht nur „es kommt etwas".
+Dann ein Ereignis vollständig ansehen: stimmen Uhrzeit, Spielstätte,
+Ticketlink? Für die Oberfläche zusätzlich `npm run dev` — dabei zwei Fallen:
+der Cache liegt auch im Arbeitsspeicher des Servers (nach `npm run seed` oder
+dem Löschen von `.cache` neu starten), und `npm run seed` legt Fixture-Daten in
+den Cache, die danach wieder raus müssen.
 
-Zwei Fallen beim Prüfen:
-
-- Der Cache liegt auch im Arbeitsspeicher des Servers. Nach `npm run seed` oder
-  dem Löschen von `.cache` **den Dev-Server neu starten**.
-- `npm run seed` legt Fixture-Daten in den Cache. Danach wieder entfernen, sonst
-  zeigt die App Termine, die es an der Quelle nicht mehr gibt.
-
-## 7. Berichten
+## 8. Berichten
 
 Kurz und konkret: welcher Endpunkt, wie die Ticketlage erkannt wird, welche
 Veranstaltungsart-Felder direkt aus der Quelle kommen und welcher
 `defaultCategory` greift, was der Adapter **nicht** liefert (z. B. keine
-Endzeiten oder keinen langen Programmtext auf Detailseiten), wie viele Termine je Monat
-im Vergleich zur Website, ob in der API Dopplungen auffallen, und woran
-auffällt, dass die Quelle sich geändert hat.
+Endzeiten, kein langer Programmtext), wie viele Termine je Monat im Vergleich
+zur Website, ob Dopplungen auffallen, und woran auffällt, dass die Quelle sich
+geändert hat.
 
-## Grenzen
+## Referenzen
 
-- Nur öffentlich zugängliche Seiten. Keine Logins, keine Paywalls, keine
-  Captchas, kein Umgehen von Sperren oder Ratenbegrenzungen.
-- Dass `fetchText` sich wie ein Browser verhält, ist kein Umgehen eines
-  Zugangsschutzes: abgerufen wird genau die Seite, die jeder Browser ohne
-  Anmeldung bekommt. Was bleibt, ist Zurückhaltung — grosszügige TTL, keine
-  parallelen Massenabrufe.
-- `robots.txt` der Quelle ansehen und gesperrte Pfade respektieren.
+- `referenzen/endpunkt-finden.md` — kein Termin im HTML, 403, Token,
+  Web-Archiv, Seiten ohne Monatsparameter.
+- `referenzen/felder-und-fallen.md` — Ticketlage-Tabelle, Zuordnung der Felder,
+  Detailseiten-Texte, und die Fallen, die schon einmal zugeschlagen haben.
