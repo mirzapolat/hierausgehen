@@ -89,6 +89,12 @@ export interface FetchTextOptions {
   signal?: AbortSignal;
   /** Maximale Zahl gefolgter Weiterleitungen. */
   maxRedirects?: number;
+  /**
+   * Formularkodierter Rumpf für eine Abfrage, die nur per POST beantwortet
+   * wird (Gasteig lädt seine Terminliste so nach). Rein lesend – deshalb ist
+   * auch ein Wiederholungsversuch unbedenklich.
+   */
+  body?: string;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -101,12 +107,12 @@ export async function fetchText(url: string, options: FetchTextOptions = {}): Pr
   // Knapp bemessen: eine unerreichbare Quelle darf einen Seitenaufruf nicht
   // aufhalten. Zwei Versuche à 8 s statt drei à 15 s senken den schlimmsten
   // Fall je Adresse von rund 46 s auf rund 16 s.
-  const { timeoutMs = 8_000, retries = 1, headers = {}, signal, maxRedirects = 5 } = options;
+  const { timeoutMs = 8_000, retries = 1, headers = {}, signal, maxRedirects = 5, body } = options;
 
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await followRedirects(url, headers, timeoutMs, signal, maxRedirects);
+      return await followRedirects(url, headers, timeoutMs, signal, maxRedirects, body);
     } catch (error) {
       if (signal?.aborted) throw error;
       // 4xx ausser 408/429 sind dauerhaft – ein Wiederholen bringt nichts.
@@ -139,10 +145,11 @@ async function followRedirects(
   timeoutMs: number,
   signal: AbortSignal | undefined,
   maxRedirects: number,
+  body?: string,
 ): Promise<string> {
   let current = url;
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const response = await request(current, headers, timeoutMs, signal);
+    const response = await request(current, headers, timeoutMs, signal, body);
 
     if (response.status >= 300 && response.status < 400 && response.headers.location) {
       current = new URL(response.headers.location, current).toString();
@@ -168,12 +175,13 @@ async function request(
   headers: Record<string, string>,
   timeoutMs: number,
   signal?: AbortSignal,
+  body?: string,
 ): Promise<Response> {
   try {
-    return await requestHttp2(url, headers, timeoutMs, signal);
+    return await requestHttp2(url, headers, timeoutMs, signal, body);
   } catch (error) {
     if (error instanceof SourceHttpError || signal?.aborted) throw error;
-    return requestFetch(url, headers, timeoutMs, signal);
+    return requestFetch(url, headers, timeoutMs, signal, body);
   }
 }
 
@@ -182,6 +190,7 @@ function requestHttp2(
   extraHeaders: Record<string, string>,
   timeoutMs: number,
   signal?: AbortSignal,
+  body?: string,
 ): Promise<Response> {
   const target = new URL(url);
 
@@ -211,11 +220,20 @@ function requestHttp2(
     client.on('error', (error) => finish(() => reject(error)));
 
     const req = client.request({
-      ':method': 'GET',
+      ':method': body === undefined ? 'GET' : 'POST',
       ':authority': target.host,
       ':scheme': 'https',
       ':path': `${target.pathname}${target.search}`,
       ...BROWSER_HEADERS,
+      ...(body === undefined
+        ? {}
+        : {
+            'content-type': 'application/x-www-form-urlencoded',
+            'content-length': String(Buffer.byteLength(body)),
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+          }),
       ...lowercaseKeys(extraHeaders),
     });
 
@@ -243,7 +261,7 @@ function requestHttp2(
         }
       }),
     );
-    req.end();
+    req.end(body);
   });
 }
 
@@ -252,14 +270,22 @@ async function requestFetch(
   extraHeaders: Record<string, string>,
   timeoutMs: number,
   signal?: AbortSignal,
+  body?: string,
 ): Promise<Response> {
   const timeout = AbortSignal.timeout(timeoutMs);
   const composed = signal ? AbortSignal.any([signal, timeout]) : timeout;
 
   const res = await fetch(url, {
+    method: body === undefined ? 'GET' : 'POST',
+    body,
     signal: composed,
     redirect: 'manual',
-    headers: { ...BROWSER_HEADERS, ...lowercaseKeys(extraHeaders), 'accept-encoding': 'gzip, deflate' },
+    headers: {
+      ...BROWSER_HEADERS,
+      ...(body === undefined ? {} : { 'content-type': 'application/x-www-form-urlencoded' }),
+      ...lowercaseKeys(extraHeaders),
+      'accept-encoding': 'gzip, deflate',
+    },
   });
 
   return {
