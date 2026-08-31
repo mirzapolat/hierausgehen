@@ -106,7 +106,13 @@ export interface EventSource {
   ttlSeconds?: number;
 }
 
-export type SourceStatus = 'ok' | 'stale' | 'error';
+/**
+ * - `ok`            frische Daten
+ * - `revalidating`  aus dem Cache geliefert, Auffrischung läuft im Hintergrund
+ * - `stale`         aus dem Cache geliefert, die letzte Auffrischung schlug fehl
+ * - `error`         keine Daten vorhanden
+ */
+export type SourceStatus = 'ok' | 'revalidating' | 'stale' | 'error';
 
 export interface SourceResult {
   sourceId: string;

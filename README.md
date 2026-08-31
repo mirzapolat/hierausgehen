@@ -189,11 +189,34 @@ Drei Eigenheiten:
 
 ## Verhalten bei Störungen
 
-- Jede Quelle wird einzeln geladen; ein Ausfall betrifft nur sie.
-- Abgelaufene Daten bleiben bis zu sieben Tage im Cache und werden ausgeliefert,
-  wenn die Quelle nicht erreichbar ist. Die Sidebar markiert die Quelle dann und
-  nennt den Stand.
-- Antwortet eine Quelle zwar, liefert aber keinen einzigen erkennbaren Termin,
-  wirft der Adapter absichtlich einen Fehler — ein stilles „keine
-  Veranstaltungen" wäre die schlechtere Antwort auf ein geändertes Layout.
-- Der Cache liegt unter `.cache/` und übersteht Neustarts.
+Leitsatz: **niemand wartet auf eine tote Quelle.**
+
+- **Veraltetes sofort, Auffrischung im Hintergrund.** Ist ein Cache-Eintrag
+  abgelaufen, wird er trotzdem umgehend ausgeliefert und die Abfrage läuft
+  daneben weiter (`status: revalidating`). Ein Ausfall verzögert damit keinen
+  Seitenaufruf – gemessen 0,08 s statt 130 s.
+- **Sicherungsschalter.** Nach dem zweiten Fehlversuch in Folge wird die Quelle
+  pausiert (1 Minute, verdoppelnd bis 30 Minuten) und gar nicht mehr angefasst.
+  Das deckt den einzigen verbleibenden Wartefall ab: kalter Cache *und* tote
+  Quelle.
+- **Harte Frist je Quelle.** 12 Sekunden, notfalls per
+  `EVENT_SOURCE_DEADLINE_MS` anders gesetzt. Sie greift auch dann, wenn ein
+  Adapter das Abbruchsignal ignorieren sollte. Darunter liegt das Budget in
+  `http.ts`: 8 s Zeitlimit, ein Wiederholversuch.
+- **Fehler bleiben lokal.** Jede Quelle wird einzeln geladen; eine kaputte leert
+  den Kalender nie. Die Sidebar markiert nur echte Ausfälle (`stale`, `error`),
+  nicht die normale Hintergrund-Auffrischung, und nennt den Stand der Daten.
+- **Layout geändert?** Antwortet eine Quelle zwar, liefert aber keinen einzigen
+  erkennbaren Termin, wirft der Adapter absichtlich – ein stilles „keine
+  Veranstaltungen" wäre die schlechtere Antwort. Ausdrückliche Leermeldungen
+  (Sommerpause, Vergangenheit) sind davon ausgenommen.
+- **Der Cache liegt unter `.cache/`** und übersteht Neustarts; im Container
+  liegt er auf einem Volume, damit ein Deployment nicht kalt startet.
+
+Gemessen im Container, Gärtnerplatz auf eine unroutbare Adresse umgebogen:
+
+| Lage | vorher | jetzt |
+| --- | --- | --- |
+| Kalter Cache, Quelle tot | 129 s / Zeitüberschreitung | 12 s (zweimal), danach 0,02 s |
+| Warmer Cache, Quelle stirbt | 31 s | 0,08 s |
+| Alles gesund, kalt | – | 0,5 s |

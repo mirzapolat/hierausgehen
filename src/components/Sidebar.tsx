@@ -186,7 +186,9 @@ export function Sidebar({
                               label={isSolo(solo, [source.id]) ? t('soloOff') : t('soloOn')}
                               text={t('solo')}
                             />
-                            {info && info.status !== 'ok' && (
+                            {/* Eine laufende Auffrischung ist kein Problem –
+                                gewarnt wird nur bei echten Ausfällen. */}
+                            {(info?.status === 'stale' || info?.status === 'error') && (
                               <span
                                 title={
                                   info.status === 'stale'
@@ -444,7 +446,7 @@ function isSolo(solo: Set<string>, ids: string[]): boolean {
 
 function SourceFootnote({ status }: { status: SourceResult[] }) {
   const { format, t } = useSettings();
-  const problems = status.filter((s) => s.status !== 'ok');
+  const problems = status.filter((s) => s.status === 'stale' || s.status === 'error');
   const newest = status.reduce<string | undefined>(
     (acc, s) => (!acc || s.fetchedAt > acc ? s.fetchedAt : acc),
     undefined,

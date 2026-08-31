@@ -72,3 +72,47 @@ export function dedupe<T>(key: string, run: () => Promise<T>): Promise<T> {
   inflight.set(key, promise);
   return promise;
 }
+
+/* ----------------------------- Quellenzustand ----------------------------- */
+
+/**
+ * Merkt sich, wie es einer Quelle zuletzt ergangen ist. Daraus speist sich der
+ * Sicherungsschalter in `aggregate.ts`: eine Quelle, die mehrfach hintereinander
+ * nicht antwortet, wird eine Weile gar nicht mehr angefasst, statt bei jedem
+ * Seitenaufruf erneut ins Zeitlimit zu laufen.
+ */
+export interface SourceHealth {
+  /** Fehlversuche in Folge. */
+  failures: number;
+  lastError?: string;
+  /** Bis zu diesem Zeitpunkt (ms Epoch) wird die Quelle übersprungen. */
+  openUntil: number;
+}
+
+const HEALTHY: SourceHealth = { failures: 0, openUntil: 0 };
+const HEALTH_TTL_SECONDS = 24 * 60 * 60;
+
+export async function readHealth(sourceId: string): Promise<SourceHealth> {
+  const entry = await readCache<SourceHealth>(`health_${sourceId}`);
+  return entry?.value ?? HEALTHY;
+}
+
+export async function recordFailure(sourceId: string, error: string, maxPauseMs: number): Promise<void> {
+  const current = await readHealth(sourceId);
+  const failures = current.failures + 1;
+  // Ab dem zweiten Fehlschlag in Folge pausieren, die Pause verdoppelt sich bis
+  // zur Obergrenze. Der erste Fehlversuch kann ein Aussetzer sein und kostet
+  // niemanden etwas, weil währenddessen der Cache ausgeliefert wird.
+  const pause = failures < 2 ? 0 : Math.min(maxPauseMs, 60_000 * 2 ** (failures - 2));
+  await writeCache<SourceHealth>(
+    `health_${sourceId}`,
+    { failures, lastError: error, openUntil: pause ? Date.now() + pause : 0 },
+    HEALTH_TTL_SECONDS,
+  );
+}
+
+export async function recordSuccess(sourceId: string): Promise<void> {
+  const current = await readHealth(sourceId);
+  if (current.failures === 0 && current.openUntil === 0) return;
+  await writeCache<SourceHealth>(`health_${sourceId}`, HEALTHY, HEALTH_TTL_SECONDS);
+}

@@ -98,7 +98,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * oder Netzwerkproblem – die Aggregation entscheidet dann über den Fallback.
  */
 export async function fetchText(url: string, options: FetchTextOptions = {}): Promise<string> {
-  const { timeoutMs = 15_000, retries = 2, headers = {}, signal, maxRedirects = 5 } = options;
+  // Knapp bemessen: eine unerreichbare Quelle darf einen Seitenaufruf nicht
+  // aufhalten. Zwei Versuche à 8 s statt drei à 15 s senken den schlimmsten
+  // Fall je Adresse von rund 46 s auf rund 16 s.
+  const { timeoutMs = 8_000, retries = 1, headers = {}, signal, maxRedirects = 5 } = options;
 
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {

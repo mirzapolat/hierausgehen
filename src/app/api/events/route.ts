@@ -33,7 +33,9 @@ export async function GET(request: Request) {
 
   const result = await aggregateEvents({ from, to }, { cityId: requestedCity, sourceIds, force });
 
-  const degraded = result.sources.some((s) => s.status !== 'ok');
+  // Eine Auffrischung im Hintergrund ist kein Ausfall; nur echte Probleme
+  // sollen die Antwort vom Zwischenspeichern ausnehmen.
+  const degraded = result.sources.some((s) => s.status === 'stale' || s.status === 'error');
   return NextResponse.json(result, {
     headers: {
       // Kurz am Rand cachen, aber bei Problemen nicht festschreiben.
