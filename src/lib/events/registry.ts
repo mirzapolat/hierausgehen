@@ -2,6 +2,7 @@ import type { EventSource } from './types.ts';
 import { deutschesTheater } from './sources/deutsches-theater/index.ts';
 import { gasteig } from './sources/gasteig/index.ts';
 import { gaertnerplatz } from './sources/gaertnerplatz/index.ts';
+import { muenchenmusik } from './sources/muenchenmusik/index.ts';
 import { residenztheater } from './sources/residenztheater/index.ts';
 import { staatsoper } from './sources/staatsoper/index.ts';
 import { theaterakademie } from './sources/theaterakademie/index.ts';
@@ -19,6 +20,7 @@ export const sources: EventSource[] = [
   deutschesTheater,
   theaterakademie,
   gasteig,
+  muenchenmusik,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));
