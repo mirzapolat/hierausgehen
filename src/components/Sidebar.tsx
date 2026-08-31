@@ -1,0 +1,475 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { SourceDefinition, SourceResult } from '@/lib/events/types';
+import { useSettings } from '@/lib/settings/context';
+import { Checkbox } from './Checkbox';
+import { SourceIcon } from './SourceIcon';
+import { ChevronDown, Close, MoreHorizontal, Warning } from './icons';
+
+interface Props {
+  definitions: SourceDefinition[];
+  status: SourceResult[];
+  enabled: Set<string>;
+  onToggleSource: (id: string) => void;
+  onToggleGroup: (ids: string[], next: boolean) => void;
+  /** Leer = kein Solo. Sonst sind ausschliesslich diese Quellen sichtbar. */
+  solo: Set<string>;
+  onSolo: (ids: string[]) => void;
+  /** Gattungen, die im geladenen Zeitraum tatsächlich vorkommen, mit Anzahl. */
+  categories: { name: string; count: number }[];
+  /** Tatsächlich sichtbare Arten – bei aktivem Solo nur die solierte. */
+  enabledCategories: Set<string>;
+  onToggleCategory: (name: string) => void;
+  /** Leer = kein Solo. Sonst sind ausschliesslich diese Arten sichtbar. */
+  categorySolo: Set<string>;
+  onCategorySolo: (name: string) => void;
+  onShowAllCategories: () => void;
+  availableOnly: boolean;
+  onAvailableOnlyChange: (next: boolean) => void;
+  query: string;
+  onQueryChange: (next: string) => void;
+}
+
+/**
+ * Filterspalte: Quellen in Ordnern, dazu Suche und ein Schnellfilter für
+ * verfügbare Karten. Ein Ordner lässt sich als Ganzes an- und abwählen.
+ */
+export function Sidebar({
+  definitions,
+  status,
+  enabled,
+  onToggleSource,
+  onToggleGroup,
+  solo,
+  onSolo,
+  categories,
+  enabledCategories,
+  onToggleCategory,
+  categorySolo,
+  onCategorySolo,
+  onShowAllCategories,
+  availableOnly,
+  onAvailableOnlyChange,
+  query,
+  onQueryChange,
+}: Props) {
+  const { t, format } = useSettings();
+  const groups = useMemo(() => groupSources(definitions), [definitions]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const statusById = useMemo(() => new Map(status.map((s) => [s.sourceId, s])), [status]);
+
+  return (
+    <div className="flex h-full flex-col gap-5 overflow-y-auto scroll-quiet px-4 py-4">
+      <div
+        className={`rounded-[5px] p-[1.5px] ${
+          query ? 'rainbow-ring' : 'bg-transparent'
+        }`}
+      >
+        <div className="relative">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder={t('search')}
+            aria-label={t('searchAria')}
+            className={`w-full rounded-[var(--radius-sm)] bg-[var(--canvas)] py-1.5 pl-2.5 text-[13px]
+                        text-text placeholder:text-faint focus:outline-none
+                        ${query ? 'border border-transparent pr-7' : 'border border-line pr-2.5 focus:border-accent'}`}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => onQueryChange('')}
+              aria-label={t('clearSearch')}
+              title={t('clearSearch')}
+              className="absolute right-1 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center
+                         rounded-full text-muted hover:bg-[var(--chrome)] hover:text-text"
+            >
+              <Close className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <section>
+        <div className="mb-2 flex items-center gap-2 px-0.5">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {t('sources')}
+          </h2>
+          {solo.size > 0 && (
+            <button
+              type="button"
+              onClick={() => onSolo([])}
+              className="ml-auto flex items-center gap-1 rounded-[var(--radius-xs)] bg-[var(--accent-soft)]
+                         px-1.5 py-[1px] text-[10px] font-medium uppercase tracking-[0.05em] text-accent"
+              title={t('soloOff')}
+            >
+              {t('soloActive')}
+              <Close className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {groups.map((group) => {
+            const ids = group.sources.map((s) => s.id);
+            const active = ids.filter((id) => enabled.has(id)).length;
+            const groupState = active === 0 ? 'off' : active === ids.length ? 'on' : 'mixed';
+            const isCollapsed = collapsed.has(group.name);
+
+            return (
+              <div key={group.name}>
+                <div className="group relative flex items-center gap-2 pl-1">
+                  <Checkbox
+                    state={groupState}
+                    label={group.name}
+                    onChange={() => onToggleGroup(ids, groupState !== 'on')}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsed((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(group.name)) next.delete(group.name);
+                        else next.add(group.name);
+                        return next;
+                      })
+                    }
+                    aria-expanded={!isCollapsed}
+                    aria-label={isCollapsed ? t('expand') : t('collapse')}
+                    className="flex min-w-0 flex-1 items-center gap-1 rounded-[var(--radius-xs)] py-0.5
+                               text-left text-[12px] font-medium text-muted hover:text-text"
+                  >
+                    <span className="truncate">{group.name}</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 shrink-0 text-faint transition-transform ${
+                        isCollapsed ? '-rotate-90' : ''
+                      }`}
+                    />
+                  </button>
+                  <SoloButton
+                    active={isSolo(solo, ids)}
+                    onClick={() => onSolo(ids)}
+                    label={isSolo(solo, ids) ? t('soloOff') : t('soloOn')}
+                    text={t('solo')}
+                  />
+                </div>
+
+                {!isCollapsed && (
+                  <ul className="mt-0.5 flex flex-col">
+                    {group.sources.map((source) => {
+                      const info = statusById.get(source.id);
+                      const isEnabled = enabled.has(source.id);
+                      return (
+                        <li key={source.id}>
+                          <div
+                            onClick={() => onToggleSource(source.id)}
+                            className="group relative flex cursor-pointer items-center gap-2
+                                       rounded-[var(--radius-sm)] py-1.5 pl-[22px] pr-1.5
+                                       hover:bg-[var(--canvas)]"
+                          >
+                            <Checkbox
+                              state={isEnabled ? 'on' : 'off'}
+                              color={source.color}
+                              label={source.name}
+                              onChange={() => onToggleSource(source.id)}
+                            />
+                            <SourceIcon source={source} />
+                            <span
+                              className={`flex-1 truncate text-[13px] ${isEnabled ? 'text-text' : 'text-faint'}`}
+                            >
+                              {source.name}
+                            </span>
+                            <SoloButton
+                              active={isSolo(solo, [source.id])}
+                              onClick={() => onSolo([source.id])}
+                              label={isSolo(solo, [source.id]) ? t('soloOff') : t('soloOn')}
+                              text={t('solo')}
+                            />
+                            {info && info.status !== 'ok' && (
+                              <span
+                                title={
+                                  info.status === 'stale'
+                                    ? t('asOf', { time: format.stamp(info.fetchedAt) })
+                                    : (info.error ?? '')
+                                }
+                              >
+                                <Warning className="h-3.5 w-3.5 text-[var(--danger)]" />
+                              </span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {categories.length > 1 && (
+        <section>
+          <h2 className="mb-2 px-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {t('categories')}
+          </h2>
+          {/* Pillen statt Kästchen: kompakter und beliebig kombinierbar. */}
+          <div className="flex flex-wrap gap-1">
+            {categories.map((category) => (
+              <CategoryPill
+                key={category.name}
+                name={category.name}
+                count={category.count}
+                active={enabledCategories.has(category.name)}
+                solo={categorySolo.has(category.name)}
+                onToggle={() => onToggleCategory(category.name)}
+                onSolo={() => onCategorySolo(category.name)}
+                onShowAll={onShowAllCategories}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section>
+        <h2 className="mb-2 px-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+          {t('tickets')}
+        </h2>
+        <div
+          onClick={() => onAvailableOnlyChange(!availableOnly)}
+          className="flex cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] py-1 pl-1 pr-1.5
+                     hover:bg-[var(--canvas)]"
+        >
+          <Checkbox
+            state={availableOnly ? 'on' : 'off'}
+            label={t('onlyAvailable')}
+            onChange={() => onAvailableOnlyChange(!availableOnly)}
+          />
+          <span className="text-[13px]">{t('onlyAvailable')}</span>
+        </div>
+      </section>
+
+      <SourceFootnote status={status} />
+    </div>
+  );
+}
+
+/**
+ * Eine Veranstaltungsart als Pille. Klick schaltet sie an oder aus; über das
+ * Drei-Punkte-Menü lässt sie sich für einen Moment allein anzeigen (Solo).
+ */
+function CategoryPill({
+  name,
+  count,
+  active,
+  solo,
+  onToggle,
+  onSolo,
+  onShowAll,
+}: {
+  name: string;
+  count: number;
+  active: boolean;
+  solo: boolean;
+  onToggle: () => void;
+  onSolo: () => void;
+  onShowAll: () => void;
+}) {
+  const { t } = useSettings();
+  const container = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  /** Feste Position, damit das Menü nicht am Scrollrand der Sidebar abschneidet. */
+  const [menu, setMenu] = useState<{ left: number; top: number }>();
+  const open = menu !== undefined;
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setMenu(undefined);
+    const onPointerDown = (e: MouseEvent) => {
+      if (!container.current?.contains(e.target as Node)) close();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [open]);
+
+  const openMenu = () => {
+    const rect = trigger.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = MENU_WIDTH;
+    setMenu({
+      left: Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8),
+      top: rect.bottom + 4,
+    });
+  };
+
+  const tone = solo
+    ? 'border-transparent bg-accent text-white'
+    : active
+      ? 'border-transparent bg-[var(--accent-soft)] text-accent'
+      : 'border-line text-faint hover:border-line-strong hover:text-muted';
+
+  return (
+    <div ref={container} className="group relative">
+      <button
+        type="button"
+        aria-pressed={active}
+        onClick={onToggle}
+        className={`flex items-center gap-1.5 rounded-full border py-[3px] pl-2 pr-2 text-[12px]
+                    transition-colors ${tone}`}
+      >
+        <span className="truncate">{name || t('noCategory')}</span>
+        <span className="tabular-nums text-[10px] opacity-65">{count}</span>
+      </button>
+
+      <button
+        type="button"
+        aria-label={t('moreOptions')}
+        aria-haspopup="menu"
+        ref={trigger}
+        aria-expanded={open}
+        onClick={() => (open ? setMenu(undefined) : openMenu())}
+        className={`absolute right-0 top-0 grid h-full w-6 place-items-center rounded-full
+                    transition-opacity focus-visible:opacity-100
+                    [@media(hover:none)]:opacity-100
+                    ${solo ? 'text-white' : 'text-muted'}
+                    ${open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+        style={{
+          background: solo
+            ? 'linear-gradient(to right, transparent, var(--accent) 40%)'
+            : active
+              ? 'linear-gradient(to right, transparent, var(--accent-soft) 40%)'
+              : 'linear-gradient(to right, transparent, var(--chrome) 40%)',
+        }}
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" />
+      </button>
+
+      {menu && (
+        <div
+          role="menu"
+          className="fixed z-50 overflow-hidden rounded-[var(--radius-md)] border border-line
+                     bg-[var(--raised)] py-1"
+          style={{ left: menu.left, top: menu.top, width: MENU_WIDTH, boxShadow: 'var(--shadow-overlay)' }}
+        >
+          <MenuItem
+            label={solo ? t('soloOff') : t('soloCategoryOn')}
+            onClick={() => {
+              onSolo();
+              setMenu(undefined);
+            }}
+          />
+          <MenuItem
+            label={t('showAllCategories')}
+            onClick={() => {
+              onShowAll();
+              setMenu(undefined);
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+const MENU_WIDTH = 168;
+
+function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="block w-full px-2.5 py-1.5 text-left text-[13px] text-text hover:bg-[var(--chrome)]"
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * Solo blendet für einen Moment alles ausser der gewählten Quelle bzw. dem
+ * gewählten Ordner aus, ohne die eigentliche Auswahl zu verlieren. Nochmal
+ * klicken stellt sie wieder her.
+ */
+function SoloButton({
+  active,
+  onClick,
+  label,
+  text,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  text: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={`shrink-0 rounded-[var(--radius-xs)] px-1 py-[1px] text-[10px] font-medium uppercase
+                  tracking-[0.05em] transition-opacity
+                  ${
+                    active
+                      ? 'relative bg-accent text-white opacity-100'
+                      : 'absolute right-1.5 z-10 border border-line bg-[var(--raised)] text-muted opacity-0 hover:text-text group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'
+                  }`}
+    >
+      {text}
+    </button>
+  );
+}
+
+/** Trifft die Solo-Auswahl genau diese Quellen? */
+function isSolo(solo: Set<string>, ids: string[]): boolean {
+  return solo.size === ids.length && ids.every((id) => solo.has(id));
+}
+
+function SourceFootnote({ status }: { status: SourceResult[] }) {
+  const { format, t } = useSettings();
+  const problems = status.filter((s) => s.status !== 'ok');
+  const newest = status.reduce<string | undefined>(
+    (acc, s) => (!acc || s.fetchedAt > acc ? s.fetchedAt : acc),
+    undefined,
+  );
+
+  return (
+    <p className="mt-auto shrink-0 pt-4 text-[11px] leading-relaxed text-faint hairline-t">
+      {newest ? t('asOf', { time: format.stamp(newest) }) : t('noDataYet')}
+      {problems.length === 1 && ` ${t('sourceUnavailableOne')}`}
+      {problems.length > 1 && ` ${t('sourceUnavailableMany', { count: problems.length })}`}
+    </p>
+  );
+}
+
+function groupSources(definitions: SourceDefinition[]) {
+  const groups = new Map<string, SourceDefinition[]>();
+  for (const definition of definitions) {
+    const list = groups.get(definition.group) ?? [];
+    list.push(definition);
+    groups.set(definition.group, list);
+  }
+  return [...groups.entries()]
+    .map(([name, sources]) => ({
+      name,
+      sources: sources.sort((a, b) => a.name.localeCompare(b.name, 'de')),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+}

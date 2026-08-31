@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Zwischenspeicher der Quellen (Termine und Favicons)
+/.cache
+.probe/
+
+# Umgebungsvariablen (die echte Datei liegt auf dem Server)
+.env
+.env.*
+!.env.example

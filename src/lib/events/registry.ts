@@ -1,0 +1,19 @@
+import type { EventSource } from './types.ts';
+import { gaertnerplatz } from './sources/gaertnerplatz/index.ts';
+import { residenztheater } from './sources/residenztheater/index.ts';
+import { staatsoper } from './sources/staatsoper/index.ts';
+
+/**
+ * Alle bekannten Quellen. Eine neue Quelle wird ausschliesslich hier
+ * registriert – Datenmodell, Aggregation, Kalender und UI bleiben unberührt.
+ */
+export const sources: EventSource[] = [staatsoper, gaertnerplatz, residenztheater];
+
+export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));
+
+export const sourceDefinitions = sources.map((s) => s.definition);
+
+/** Quellen einer Stadt. */
+export function sourcesForCity(cityId: string): EventSource[] {
+  return sources.filter((source) => source.definition.cityId === cityId);
+}

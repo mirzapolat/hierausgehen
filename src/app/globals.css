@@ -1,26 +1,172 @@
 @import "tailwindcss";
 
+/*
+ * Designsystem
+ * ------------
+ * Ruhige Flächen, feine Linien, klare Typografie. Keine Schatten ausser für
+ * echte Overlays, kleine Radien, gedeckte Farben. Quellenfarben sind das
+ * einzige kräftige Element – sie tragen die Information.
+ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #ffffff;
+  --chrome: #fafaf9;
+  --raised: #ffffff;
+  --text: #1d1d1f;
+  --text-muted: #6e6e73;
+  --text-faint: #a1a1a6;
+  --line: #ececea;
+  --line-strong: #dcdcd8;
+  --accent: #2f6fd0;
+  --accent-soft: #eaf1fb;
+  --danger: #b4472e;
+  --overlay: rgb(0 0 0 / 0.28);
+  --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 32px rgb(0 0 0 / 0.10);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/*
+ * Dunkles Farbschema: einmal für die Systemeinstellung (sofern der Nutzer
+ * nicht ausdrücklich hell gewählt hat) und einmal für die manuelle Wahl.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme='light']) {
+    --canvas: #141416;
+    --chrome: #0e0e10;
+    --raised: #1b1b1e;
+    --text: #f2f2f4;
+    --text-muted: #9a9aa0;
+    --text-faint: #6a6a70;
+    --line: #262629;
+    --line-strong: #35353a;
+    --accent: #5b93e6;
+    --accent-soft: #1b2635;
+    --danger: #e0785e;
+    --overlay: rgb(0 0 0 / 0.55);
+    --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
   }
 }
 
+:root[data-theme='dark'] {
+  --canvas: #141416;
+  --chrome: #0e0e10;
+  --raised: #1b1b1e;
+  --text: #f2f2f4;
+  --text-muted: #9a9aa0;
+  --text-faint: #6a6a70;
+  --line: #262629;
+  --line-strong: #35353a;
+  --accent: #5b93e6;
+  --accent-soft: #1b2635;
+  --danger: #e0785e;
+  --overlay: rgb(0 0 0 / 0.55);
+  --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
+  }
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-chrome: var(--chrome);
+  --color-raised: var(--raised);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+html[data-theme='light'] { color-scheme: light; }
+html[data-theme='dark'] { color-scheme: dark; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  overscroll-behavior: none;
+}
+
+/* Fokus nur für Tastaturnutzung, dafür deutlich. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-xs);
+}
+
+@utility hairline-b { border-bottom: 1px solid var(--line); }
+@utility hairline-t { border-top: 1px solid var(--line); }
+@utility hairline-r { border-right: 1px solid var(--line); }
+@utility hairline-l { border-left: 1px solid var(--line); }
+
+/* Dezente Scrollbars, damit die Flächen ruhig bleiben. */
+@utility scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  &::-webkit-scrollbar { width: 8px; height: 8px; }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--line-strong);
+    border-radius: 99px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  &::-webkit-scrollbar-track { background: transparent; }
+}
+
+/*
+ * Aktive Suche: ein laufender Farbverlauf als Rahmen. Das ist der einzige
+ * bunte Akzent der Oberfläche – er soll auffallen, damit niemand vergisst,
+ * dass die Ansicht gefiltert ist.
+ */
+@utility rainbow-ring {
+  background: linear-gradient(
+    90deg,
+    #e0574a,
+    #d9922b,
+    #57a05a,
+    #2f6fd0,
+    #7a4fb0,
+    #e0574a
+  );
+  background-size: 300% 100%;
+  animation: rainbow-pan 6s linear infinite;
+}
+
+@keyframes rainbow-pan {
+  to {
+    background-position: -300% 0;
+  }
+}
+
+/* Das native Kreuz von type="search" ersetzen wir durch einen eigenen Knopf. */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

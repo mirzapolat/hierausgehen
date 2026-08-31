@@ -1,0 +1,44 @@
+# hierausgehen — ein selbst gehosteter Container.
+# Davor steht eine externe Traefik-Instanz, die TLS und Routing übernimmt.
+# Compose liest die lokale .env-Datei automatisch.
+#
+#   cp .env.example .env
+#   docker compose up --build -d
+
+services:
+  hierausgehen:
+    build:
+      context: .
+    image: hierausgehen
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      # Zeitzone der Stadt – wirkt auf Logs und auf den Bezugsmonat, den
+      # manche Quellen relativ zur Gegenwart angeben.
+      TZ: ${TZ:-Europe/Berlin}
+      # Zwischenspeicher auf Platte. "0" schaltet ihn ab (nur zum Testen).
+      EVENT_CACHE_DISK: ${EVENT_CACHE_DISK:-1}
+    expose:
+      - "3000"
+    volumes:
+      # Termine und Favicons überleben Neustarts und Deployments.
+      - cache:/app/.cache
+    networks:
+      - home
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.hierausgehen.rule: "Host(`hierausgehen.de`) || Host(`www.hierausgehen.de`)"
+      traefik.http.routers.hierausgehen.entrypoints: websecure
+      traefik.http.routers.hierausgehen.tls.certresolver: letsencrypt
+      traefik.http.routers.hierausgehen.middlewares: secure-headers@file,compress@file
+      traefik.http.services.hierausgehen.loadbalancer.server.port: "3000"
+    restart: unless-stopped
+
+volumes:
+  cache:
+
+# Bestehendes Traefik-Netz (ausserhalb dieses Projekts angelegt).
+networks:
+  home:
+    external: true
