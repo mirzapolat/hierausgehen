@@ -1,6 +1,7 @@
 import type { Availability, CalendarEvent, SourceDefinition } from './types';
 import type { MessageKey } from '../i18n';
 import type { Formatter } from '../format';
+import { groupColor } from './groups.ts';
 
 /**
  * Für die Anzeige kommt ein Zustand dazu, den keine Quelle liefert: ein
@@ -53,8 +54,10 @@ export function eventMinutes(event: CalendarEvent, format: Formatter): { start: 
   return { start, end: Math.max(end, start + 30) };
 }
 
+/** Die Farbe einer Quelle ist die ihres Ordners – siehe `events/groups.ts`. */
 export function sourceColor(definitions: SourceDefinition[], sourceId: string): string {
-  return definitions.find((d) => d.id === sourceId)?.color ?? 'var(--text-faint)';
+  const group = definitions.find((d) => d.id === sourceId)?.group;
+  return group ? groupColor(group) : 'var(--text-faint)';
 }
 
 export function sourceName(definitions: SourceDefinition[], sourceId: string): string {

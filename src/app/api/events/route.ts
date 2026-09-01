@@ -5,10 +5,6 @@ import { DEFAULT_CITY_ID, isKnownCityId } from '@/lib/cities';
 export const dynamic = 'force-dynamic';
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-/** Mehr Zeit nur fuer explizite Einzelquellen-Retry aus der UI. */
-const SOURCE_RETRY_DEADLINE_MS = 30_000;
-const SOURCE_RETRY_REQUEST_MS = 15_000;
-const SOURCE_RETRY_DESCRIPTION_MS = 18_000;
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
@@ -26,31 +22,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: `Unbekannte Stadt "${requestedCity}".` }, { status: 400 });
   }
 
-  const sourceIds = params.get('sources')?.split(',').filter(Boolean);
-  const refresh = params.get('refresh') === '1';
-  // Neu erhoben wird nur auf ausdrücklichen Wunsch für eine einzelne Quelle
-  // (Sidebar). Ein allgemeines Neuladen zeigt den täglichen Stand – sonst
-  // könnte jeder Besuch alle Häuser erneut abfragen.
-  const sourceRetry = refresh && sourceIds?.length === 1 && params.get('retry') === 'source';
-
   // Der Kalender kennt nur den täglichen Datenstand; ein Zeitraum ausserhalb
   // ist keine Fehlbedienung, er liefert schlicht nichts.
   const covered = snapshotRange(requestedCity);
-  const result = await eventsInRange(
-    requestedCity,
-    { from: from < covered.from ? covered.from : from, to: to > covered.to ? covered.to : to },
-    {
-      force: sourceRetry,
-      sourceIds: sourceRetry ? sourceIds : undefined,
-      fetchOptions: sourceRetry
-        ? {
-            deadlineMs: SOURCE_RETRY_DEADLINE_MS,
-            requestTimeoutMs: SOURCE_RETRY_REQUEST_MS,
-            descriptionBudgetMs: SOURCE_RETRY_DESCRIPTION_MS,
-          }
-        : undefined,
-    },
-  );
+  // Erhoben wird ausschliesslich im Tageslauf (siehe `snapshot.ts`); eine
+  // Abfrage liest den Stand, sie löst nie eine neue Erhebung aus.
+  const result = await eventsInRange(requestedCity, {
+    from: from < covered.from ? covered.from : from,
+    to: to > covered.to ? covered.to : to,
+  });
 
   // Eine Auffrischung im Hintergrund ist kein Ausfall; nur echte Probleme
   // sollen die Antwort vom Zwischenspeichern ausnehmen.

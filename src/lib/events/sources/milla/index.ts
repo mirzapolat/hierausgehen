@@ -36,7 +36,6 @@ export const milla: EventSource = {
     cityId: 'muenchen',
     group: 'Club',
     defaultCategory: 'Konzert',
-    color: '#544787',
     homepage: BASE,
     enabledByDefault: true,
   },

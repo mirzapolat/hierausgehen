@@ -48,3 +48,58 @@ function soften(word: string): string {
       (_, prefix: string, letter: string) => prefix + letter.toLocaleUpperCase('de-DE'),
     );
 }
+
+/**
+ * HTML-Entities auflösen.
+ *
+ * Nötig überall dort, wo ein Adapter Markup selbst aufräumt (Tags per Regex
+ * entfernen) statt den Text über cheerio zu holen – sonst steht am Ende
+ * "Kabarett &amp; Comedy" im Datenmodell.
+ */
+export function decodeEntities(text: string): string {
+  return text.replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
+    if (entity.startsWith('#x') || entity.startsWith('#X'))
+      return codePoint(parseInt(entity.slice(2), 16), match);
+    if (entity.startsWith('#')) return codePoint(parseInt(entity.slice(1), 10), match);
+    return NAMED_ENTITIES[entity] ?? match;
+  });
+}
+
+// Namen werden buchstabengetreu nachgeschlagen: &Auml; ist nicht &auml;.
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+  shy: '',
+  ndash: '–',
+  mdash: '—',
+  hellip: '…',
+  laquo: '«',
+  raquo: '»',
+  bdquo: '„',
+  ldquo: '“',
+  rdquo: '”',
+  sbquo: '‚',
+  lsquo: '‘',
+  rsquo: '’',
+  euro: '€',
+  copy: '©',
+  reg: '®',
+  deg: '°',
+  szlig: 'ß',
+  auml: 'ä',
+  ouml: 'ö',
+  uuml: 'ü',
+  Auml: 'Ä',
+  Ouml: 'Ö',
+  Uuml: 'Ü',
+};
+
+function codePoint(value: number, fallback: string): string {
+  return Number.isFinite(value) && value > 0 && value <= 0x10ffff
+    ? String.fromCodePoint(value)
+    : fallback;
+}

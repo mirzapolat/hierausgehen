@@ -87,9 +87,33 @@ Zeit ab. Adapter filtern Vergangenes nicht heraus und schreiben es nicht um.
   Die Parser dürfen fehlende Einzelwerte leer lassen; die Aggregation ergänzt
   daraus die Kategorie. In der App soll dadurch keine Kategorie-Pille „Ohne
   Angabe" entstehen.
+- **Den Wortlaut der Quelle übernehmen, nicht übersetzen.** Der Parser schreibt,
+  was auf der Seite steht („Live Music", „Musik", „Kinder & Familie"). Das
+  Vereinheitlichen ist nicht seine Aufgabe: `src/lib/events/categories.ts`
+  bildet die Formulierung anschliessend auf den gemeinsamen Wortschatz ab
+  („Live Music" und „Musik" werden zu „Konzert"), der Originalwortlaut bleibt
+  als `event.categoryLabel` erhalten. Ein Parser, der selbst auf „Konzert"
+  umschreibt, verschenkt genau diese Genauigkeit.
+- **Nach `npm run check` einmal `npm run categories -- <quellen-id>`.** Die
+  Ausgabe zeigt jede Formulierung der Quelle mit der Art, die daraus wird, und
+  markiert mit `*`, was der Wortschatz noch nicht kennt. Für jede Markierung
+  eine Entscheidung treffen — es gibt nur zwei:
+  - **Schreibweise einer bestehenden Art** („Livemusik", „Konzerte",
+    „Tanzabend") → als Synonym in `SYNONYMS` eintragen. Gross-/Kleinschreibung,
+    Bindestriche, Umlaute, „&"/„und" und der Plural sind schon abgedeckt und
+    brauchen keinen Eintrag.
+  - **Wirklich eine neue Art** (die Quelle macht einen Unterschied, den es im
+    Kalender bisher nicht gibt) → in `CATEGORIES` aufnehmen. Neue Arten sind
+    erlaubt und kosten nichts an der UI; sie ersetzen nur nichts Bestehendes.
+    Zwei Namen für dieselbe Sache sind der Fehler, den es zu vermeiden gilt.
+  Wird nichts entschieden, ist das kein Datenverlust: eine unbekannte Art
+  bleibt in ihrer Schreibweise stehen. Sie steht dann aber als eigener Filter
+  neben einer gleichbedeutenden — genau die Zersplitterung, die der Wortschatz
+  auflöst.
 - **Nicht zu eng klassifizieren.** Wenn ein Theater auch Führungen, Gespräche
   oder Gastspiele führt, ist „Theater" als `defaultCategory` besser als alles
-  pauschal „Schauspiel" zu nennen.
+  pauschal „Schauspiel" zu nennen. Auch `defaultCategory` läuft durch den
+  Wortschatz.
 
 ## Lange Programmtexte von Detailseiten
 

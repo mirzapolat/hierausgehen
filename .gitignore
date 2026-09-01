@@ -44,9 +44,6 @@ next-env.d.ts
 /.cache
 .probe/
 
-# Spiegel unerreichbarer Quellen (erzeugt von "npm run mirror")
-/.mirror
-
 # Umgebungsvariablen (die echte Datei liegt auf dem Server)
 .env
 .env.*

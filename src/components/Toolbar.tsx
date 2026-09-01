@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ViewMode } from '@/lib/calendar';
+import { addDays, type ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
 import { CityPicker } from './CityPicker';
@@ -12,14 +12,12 @@ import {
   Keyboard,
   PanelLeft,
   PanelRight,
-  Refresh,
   Settings,
 } from './icons';
 
 interface Props {
   view: ViewMode;
   anchor: string;
-  loading: boolean;
   cityId: string;
   onCityChange: (id: string) => void;
   onViewChange: (view: ViewMode) => void;
@@ -28,7 +26,10 @@ interface Props {
   canStepBack: boolean;
   canStepForward: boolean;
   onToday: () => void;
-  onRefresh: () => void;
+  /** Sprung auf heute (0), morgen (1) oder übermorgen (2). */
+  onJumpDay: (offset: number) => void;
+  /** Nur zur Anzeige: welcher der drei Tage gerade gewählt ist. */
+  selectedDay: string;
   onOpenFilters: () => void;
   activeFilterCount: number;
   sidebarCollapsed: boolean;
@@ -41,7 +42,6 @@ interface Props {
 export function Toolbar({
   view,
   anchor,
-  loading,
   cityId,
   onCityChange,
   onViewChange,
@@ -49,7 +49,8 @@ export function Toolbar({
   canStepBack,
   canStepForward,
   onToday,
-  onRefresh,
+  onJumpDay,
+  selectedDay,
   onOpenFilters,
   activeFilterCount,
   sidebarCollapsed,
@@ -64,6 +65,14 @@ export function Toolbar({
   const detailKey = useKeyLabel(DETAIL_KEY);
   const title = format.rangeLabel(view, anchor);
   const mobileTitle = view === 'month' ? format.monthYearShort(anchor) : title;
+
+  // Die drei Tage, nach denen am häufigsten gefragt wird. Auf schmalen
+  // Geräten führt stattdessen der Titel nach heute – dort ist kein Platz.
+  const jumps = [
+    { offset: 0, label: t('today') },
+    { offset: 1, label: t('tomorrow') },
+    { offset: 2, label: t('dayAfterTomorrow') },
+  ].map((jump) => ({ ...jump, day: addDays(format.today(), jump.offset) }));
 
   const views: { id: ViewMode; label: string; short: string }[] = [
     { id: 'day', label: t('day'), short: t('dayShort') },
@@ -100,9 +109,18 @@ export function Toolbar({
         <PanelLeft className={`h-4 w-4 ${sidebarCollapsed ? 'opacity-50' : ''}`} />
       </button>
 
-      <span className="ml-1 hidden text-[13px] font-semibold tracking-[-0.01em] lg:inline">
+      {/* Bewusst ein einfacher Link statt `next/link`: der Name führt auf die
+          nackte Startseite und lädt die Seite dabei wirklich neu – ohne Stadt,
+          Ansicht und Datum aus der Adresse. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- der Neuladen-Effekt ist hier der Zweck */}
+      <a
+        href="/"
+        title={t('appHomeTitle')}
+        className="ml-1 hidden rounded-[var(--radius-sm)] px-1 py-0.5 text-[13px] font-semibold
+                   tracking-[-0.01em] hover:bg-[var(--canvas)] lg:inline"
+      >
         {t('appName')}
-      </span>
+      </a>
       <CityPicker cityId={cityId} onChange={onCityChange} />
 
       <div className="mx-auto flex min-w-0 items-center gap-0.5 lg:mx-0 lg:ml-3">
@@ -141,23 +159,21 @@ export function Toolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onRefresh}
-          title={`${t('reload')} (R)`}
-          aria-label={t('reload')}
-          className={`hidden ${iconButton} sm:grid`}
-        >
-          <Refresh className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-        <button
-          type="button"
-          onClick={onToday}
-          className="hidden h-7 rounded-[var(--radius-sm)] border border-line px-2.5 text-[12px]
-                     text-muted hover:border-line-strong hover:text-text sm:block"
-        >
-          {t('today')}
-        </button>
+        <div className="hidden h-7 items-center rounded-[var(--radius-sm)] border border-line md:flex">
+          {jumps.map((jump, index) => (
+            <button
+              key={jump.offset}
+              type="button"
+              onClick={() => onJumpDay(jump.offset)}
+              title={jump.offset === 0 ? `${jump.label} (T)` : jump.label}
+              className={`h-full px-2.5 text-[12px] transition-colors ${index > 0 ? 'hairline-l' : ''} ${
+                selectedDay === jump.day ? 'text-text' : 'text-muted hover:text-text'
+              }`}
+            >
+              {jump.label}
+            </button>
+          ))}
+        </div>
 
         <div
           role="tablist"

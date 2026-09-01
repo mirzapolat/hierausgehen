@@ -17,6 +17,7 @@ npm run probe -- --anatomie <url|.probe/datei> # 2. Terminblock, Felder, Signale
 #  … Fixtures ablegen, parse.ts + index.ts + parse.test.ts schreiben …
 npm test && npx tsc --noEmit && npx eslint src scripts && npm run build
 npm run check -- <quellen-id>                  # live, mehrere Monate, kalter Cache
+npm run categories -- <quellen-id>             # Veranstaltungsarten einordnen
 ```
 
 Grenzen: nur öffentlich zugängliche Seiten, keine Logins, Paywalls, Captchas,
@@ -98,6 +99,11 @@ Veranstaltung. Kurzinfo- oder Programmtext aus der Liste gehört nach
 Nichts erfinden: fehlt eine Einzelangabe, bleibt das Feld leer bzw. `unknown`;
 nur die Veranstaltungsart bekommt über `defaultCategory` einen Quellen-Fallback.
 
+Die Veranstaltungsart wird **im Wortlaut der Quelle** übernommen — „Live Music",
+„Musik", „Kinder & Familie". Das Zusammenführen erledigt `categories.ts`
+danach; der Originalwortlaut bleibt am Termin erhalten. Schritt 7 entscheidet,
+ob eine Formulierung ein Synonym oder eine neue Art ist.
+
 Alles Weitere — Ticketlage-Tabelle, Untertitel gegen Hinweise, IDs, Zeitzone,
 Detailseiten-Texte und die Fallen, die schon einmal zugeschlagen haben — steht
 in **`referenzen/felder-und-fallen.md`**. Vor dem Schreiben des Parsers lesen.
@@ -121,9 +127,11 @@ der Parser testbar.
 In `index.ts`:
 
 - `definition.cityId` muss in `src/lib/cities.ts` existieren.
-- `definition.group` ist der Ordner in der Sidebar — vorhandene Gruppen
-  wiederverwenden („Oper & Ballett", „Theater", „Konzert", „Club").
-- `definition.color` gedeckt und von den vorhandenen Quellen unterscheidbar.
+- `definition.group` ist der Ordner in der Sidebar und bestimmt zugleich die
+  Farbe. Die möglichen Ordner stehen in `src/lib/events/groups.ts`; die Quelle
+  wählt einen davon (der Typ lässt nichts anderes zu). Ein wirklich neuer
+  Ordner wird dort samt Farbe angelegt — eine eigene Farbe je Quelle gibt es
+  nicht.
 - `definition.defaultCategory` setzen, wenn nicht jeder Termin eine eigene
   Gattung liefert.
 - `iconUrl` nur setzen, wenn die Favicon-Erkennung über die Startseite nichts
@@ -173,6 +181,21 @@ ein bestimmter Monat.
 Warum mehrere Monate: ein Adapter, der nur einen Monat kann, fällt sonst nicht
 auf. Genau das ist hier schon passiert.
 
+Danach die Veranstaltungsarten einordnen:
+
+```bash
+npm run categories -- <quellen-id>
+```
+
+Die Ausgabe stellt jeder Formulierung der Quelle die Art gegenüber, die daraus
+wird, und markiert mit `*`, was der Wortschatz in `src/lib/events/categories.ts`
+noch nicht kennt. Jede Markierung braucht eine Entscheidung: Synonym einer
+bestehenden Art (dann in `SYNONYMS` eintragen) oder wirklich eine neue Art (dann
+in `CATEGORIES` aufnehmen). Neue Arten sind ausdrücklich erlaubt — die Liste
+soll die Breite des Programms abbilden. Vermieden werden soll nur, dass
+dieselbe Sache zweimal unter verschiedenen Namen als Filter steht. Die Regeln
+dazu stehen in `referenzen/felder-und-fallen.md`.
+
 Die ausgegebenen Zahlen mit der Website vergleichen, nicht nur „es kommt etwas".
 Dann ein Ereignis vollständig ansehen: stimmen Uhrzeit, Spielstätte,
 Ticketlink? Für die Oberfläche zusätzlich `npm run dev` — dabei zwei Fallen:
@@ -183,8 +206,9 @@ den Cache, die danach wieder raus müssen.
 ## 8. Berichten
 
 Kurz und konkret: welcher Endpunkt, wie die Ticketlage erkannt wird, welche
-Veranstaltungsart-Felder direkt aus der Quelle kommen und welcher
-`defaultCategory` greift, was der Adapter **nicht** liefert (z. B. keine
+Veranstaltungsart-Felder direkt aus der Quelle kommen, welcher `defaultCategory`
+greift, welche Arten dabei neu in den Wortschatz kamen und welche als Synonym
+eingeordnet wurden, was der Adapter **nicht** liefert (z. B. keine
 Endzeiten, kein langer Programmtext), wie viele Termine je Monat im Vergleich
 zur Website, ob Dopplungen auffallen, und woran auffällt, dass die Quelle sich
 geändert hat.

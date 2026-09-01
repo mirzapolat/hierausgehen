@@ -10,8 +10,8 @@
     "test": "node --test --experimental-strip-types \"src/**/*.test.ts\"",
     "seed": "node --experimental-strip-types scripts/seed-cache.ts",
     "probe": "node --experimental-strip-types scripts/probe-source.ts",
-    "mirror": "node --experimental-strip-types scripts/mirror-source.ts",
-    "check": "node --experimental-strip-types scripts/check-source.ts"
+    "check": "node --experimental-strip-types scripts/check-source.ts",
+    "categories": "node --experimental-strip-types scripts/categories.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

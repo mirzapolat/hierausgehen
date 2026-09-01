@@ -33,7 +33,6 @@ export const residenztheater: EventSource = {
     cityId: 'muenchen',
     group: 'Theater',
     defaultCategory: 'Theater',
-    color: '#4A7C59',
     homepage: BASE,
     enabledByDefault: true,
   },

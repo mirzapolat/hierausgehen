@@ -4,146 +4,118 @@ import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
 
 /**
- * Parser für die nachgeladenen Spielplan-Fragmente des Staatstheaters am
- * Gärtnerplatz.
+ * Parser für den Webshop des Staatstheaters am Gärtnerplatz
+ * (EVENTIM.Inhouse unter `tickets.staatstheater.bayern`).
  *
- * Ein Fragment enthält je Termin ein `div.vorstellung` mit sprechenden
- * Klassen: `vorstellung-<id>` (die Termin-ID), `date-DDMMYY`, `sparte-<id>`
- * (Gattung) und `ort-<id>` (Spielstätte). Ist der Spielplan zu Ende, antwortet
- * die Quelle mit „ende erreicht."; ein Monat ohne Termine liefert nichts.
+ * Die Terminliste wird seitenweise nachgeladen; eine Antwort ist ein
+ * `<li>`-Fragment je Termin. Jeder Block trägt seine Termin-ID gleich dreimal
+ * — als `id="eventKey:<id>"` am Block und in den IDs von Titel, Datum, Zeit
+ * und Ort. Gelesen wird die des Blocks; sie ist der Anker.
+ *
+ * Zwei Antworten sind keine Termine und werden ausdrücklich erkannt:
+ * `<li id="listend">` heisst „hinter dieser Seite kommt nichts mehr", und die
+ * Fehlerseite des Shops heisst „ohne gültige Sitzung gibt es keine Auskunft".
+ * Beides von einem stillen „keine Veranstaltungen" zu unterscheiden ist der
+ * Grund, warum `ParseResult` mehr als nur Termine zurückgibt.
  */
 
 const SOURCE_ID = 'gaertnerplatz';
-const BASE = 'https://www.gaertnerplatztheater.de';
-/** Antwort, mit der die Quelle das Ende des Spielplans meldet. */
-const END_MARKER = 'ende erreicht';
+const BASE = 'https://tickets.staatstheater.bayern';
+const SHOP = `${BASE}/gpt.webshop/webticket/eventlist`;
 
 export interface ParseResult {
   events: CalendarEvent[];
   /** Blöcke, die wie ein Termin aussahen, aber nicht verwertbar waren. */
   skipped: number;
-  /** Die Quelle meldet: hinter diesem Monat kommt nichts mehr. */
-  end: boolean;
-  /** Leere Antwort – ein Monat ohne Vorstellungen (etwa Theaterferien). */
-  empty: boolean;
-  /** Gefundene Terminblöcke, unabhängig davon, ob sie verwertbar waren. */
+  /** Erkannte Terminblöcke, unabhängig davon, ob sie verwertbar waren. */
   blocks: number;
+  /** `<li id="listend">` – hinter dieser Seite kommt nichts mehr. */
+  end: boolean;
+  /** Die Fehlerseite des Shops: die Sitzung fehlt oder ist abgelaufen. */
+  sessionLost: boolean;
 }
 
 /**
- * @param sparten Zuordnung `sparte-<id>` → Gattungsname, aus der Spielplanseite
- *                gelesen (siehe `parseSparten`). Fehlt ein Eintrag, bleibt die
- *                Gattung leer, statt geraten zu werden.
+ * Eine Seite der Terminliste.
+ *
+ * @param category Gattung, unter der die Seite abgefragt wurde. Der Block
+ *                 selbst führt keine – sie kommt aus dem Filter, mit dem die
+ *                 Seite geholt wurde (siehe `parseSparten`). Ohne Angabe
+ *                 bleibt die Gattung leer, statt geraten zu werden.
  */
-export function parseScheduleFragment(
-  html: string,
-  sparten: Record<string, string> = {},
-): ParseResult {
-  const body = clean(html);
-  if (body.toLowerCase().startsWith(END_MARKER)) {
-    return { events: [], skipped: 0, end: true, empty: true, blocks: 0 };
+export function parseEventList(html: string, category?: string): ParseResult {
+  if (isSessionError(html)) {
+    return { events: [], skipped: 0, blocks: 0, end: false, sessionLost: true };
   }
-  if (body === '') return { events: [], skipped: 0, end: false, empty: true, blocks: 0 };
 
   const $ = cheerio.load(html);
+  const end = $('#listend').length > 0;
+  const blocks = $('div[id^="eventKey:"]');
+
   const events: CalendarEvent[] = [];
   let skipped = 0;
 
-  $('.vorstellung').each((_, element) => {
+  blocks.each((_, element) => {
     const block = $(element) as unknown as Block;
-    const classes = (block.attr('class') ?? '').split(/\s+/);
+    const id = block.attr('id')?.slice('eventKey:'.length);
+    const date = parseDate(clean(block.find('[id^="event-date-"]').first().text()));
+    const title = clean(block.find('h2').first().text());
 
-    // Ohne `vorstellung-<id>` ist der Block kein Termin, sondern ein Hinweis
-    // (etwa der Kasten „Theaterferien", der auf jeder Seite mitläuft).
-    const id = classes.find((c) => /^vorstellung-\d+$/.test(c))?.slice('vorstellung-'.length);
-    if (!id) return;
-
-    const date = parseDate(block, classes);
-    const title = clean(block.find('.fs-3 a').first().text());
-    if (!date || !title) {
+    if (!id || !date || !title) {
       skipped++;
       return;
     }
 
-    const { start, end } = parseTime(clean(block.find('.fw-bold').first().text()));
+    const time = parseTime(clean(block.find('.evt-event-detail__time').first().text()));
     const ticket = readTicket(block);
-    const link = block.find('.fs-3 a').first().attr('href');
-
-    // Die Spielstätte steht nur, wenn es nicht die grosse Bühne ist – und mal
-    // als Link auf den Saalplan ("Foyer"), mal als blosser Text bei Gastspielen
-    // ("Kempten"). Beides steckt im selben Kasten, der nicht `.icons` ist.
-    const venue = clean(block.find('.text-produktion-font-color').not('.icons').first().text());
-
-    const category = sparten[classes.find((c) => /^sparte-(?!0$)\d+$/.test(c)) ?? ''];
-    // Die Zeile unter dem Titel ist mal die Gattung, mal eine eigene Zeile.
-    const tagline = clean(block.find('span.text-uppercase').first().text());
+    const subtitle = clean(block.find('.eventSubtitle1').first().text());
+    const venue = clean(block.find('[id^="event-location-"]').first().text());
 
     events.push({
       id: `${SOURCE_ID}:${id}`,
       sourceId: SOURCE_ID,
       title: softenShouted(title),
-      subtitle: tagline && tagline !== category ? softenShouted(tagline) : undefined,
-      description: readDescription(block),
+      subtitle: subtitle ? softenShouted(subtitle) : undefined,
       category,
-      start: berlinIso(date, start?.hour ?? 0, start?.minute ?? 0),
-      end: end ? berlinIso(date, end.hour, end.minute) : undefined,
-      allDay: !start,
-      // Gastspiele stehen mit dem Ortsnamen ("Kempten") – keine Stadt erfinden.
+      start: berlinIso(date, time?.hour ?? 0, time?.minute ?? 0),
+      // Der Shop nennt nur den Beginn; eine Endzeit gibt es hier nicht.
+      allDay: !time,
       venue: { name: venue || 'Staatstheater am Gärtnerplatz' },
       availability: ticket.availability,
       availabilityLabel: ticket.label,
       ticketUrl: ticket.url,
-      url: link ? absolute(link) : `${BASE}/de/spielplan/index.html`,
-      notes: collectNotes($, block),
+      // Ausverkauftes hat im Shop keinen eigenen Link mehr. Dann bleibt die
+      // Liste selbst der ehrlichste Verweis – lieber die als ein Link, den
+      // die Quelle so nicht anbietet.
+      url: ticket.url ?? SHOP,
     });
   });
 
-  return { events, skipped, end: false, empty: false, blocks: $('.vorstellung').length };
+  return { events, skipped, blocks: blocks.length, end, sessionLost: false };
 }
 
 /**
- * Gattungsnamen aus der Spielplanseite lesen: die Filterkästchen tragen die
- * `sparte`-IDs, die zugehörigen `<label>` den Namen. Damit muss keine Tabelle
- * im Code gepflegt werden, die bei einer neuen Gattung still veraltet.
+ * Die Sparten aus dem Filter der Shop-Seite: `<option value="4">Musical</option>`.
+ *
+ * Der Block eines Termins nennt seine Gattung nicht — sie ergibt sich daraus,
+ * mit welchem Filter die Liste geholt wurde. Deshalb wird die Tabelle einmal je
+ * Erhebung aus der Seite gelesen, statt im Code zu veralten. „alle Sparten"
+ * (leerer Wert) ist keine Gattung und fällt weg.
  */
-export function parseSparten(indexHtml: string): Record<string, string> {
-  const $ = cheerio.load(indexHtml);
-  const sparten: Record<string, string> = {};
+export function parseSparten(html: string): { id: string; name: string }[] {
+  const $ = cheerio.load(html);
+  const sparten: { id: string; name: string }[] = [];
 
-  $('input[name="sparte[]"]').each((_, element) => {
-    const input = $(element);
-    const value = input.attr('value');
-    const id = input.attr('id');
-    if (!value || value === '0' || !id) return;
-
-    const label = clean($(`label[for="${id}"]`).text());
-    if (label) sparten[`sparte-${value}`] = label;
+  $('#selectGenre option, select[name="map[\'genre\']"] option').each((_, element) => {
+    const option = $(element);
+    const id = clean(option.attr('value') ?? '');
+    const name = clean(option.text());
+    if (!id || id === '0' || !name) return;
+    if (sparten.some((entry) => entry.id === id)) return;
+    sparten.push({ id, name });
   });
 
   return sparten;
-}
-
-export function parseDetailDescription(html: string): string | undefined {
-  const $ = cheerio.load(html);
-  $('script, style, noscript, header, nav, footer').remove();
-
-  const paragraphs = uniqueParagraphs(
-    $,
-    [
-      '.children-without-margin p',
-      '.ce-bodytext p',
-      '.text-content p',
-      'main article p',
-      'main .container p',
-    ].join(', '),
-  ).filter((text) => text.length > 80);
-
-  if (paragraphs.length) return paragraphs.join('\n\n');
-
-  const fallback = uniqueParagraphs($, '.children-without-margin, .ce-bodytext').filter(
-    (text) => text.length > 80,
-  );
-  return fallback.length ? fallback.join('\n\n') : undefined;
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,97 +123,55 @@ export function parseDetailDescription(html: string): string | undefined {
 type Block = cheerio.Cheerio<never>;
 
 /**
- * Datum aus der Klasse `date-DDMMYY`; die Textzeile („Fr, 02.10.26") dient
- * als Gegenprobe, falls die Klasse einmal fehlt.
+ * Der Shop antwortet auf jede Anfrage ohne gültige Sitzung mit einer
+ * vollständigen HTML-Seite statt mit dem Fragment. Erkennbar an `actPage`,
+ * nicht an der Überschrift: die steht in der Sprache der Sitzung.
  */
-function parseDate(block: Block, classes: string[]): string | undefined {
-  const fromClass = classes.find((c) => /^date-\d{6}$/.test(c))?.slice('date-'.length);
-  if (fromClass) return isoFrom(fromClass.slice(0, 2), fromClass.slice(2, 4), fromClass.slice(4, 6));
-
-  const fromText = clean(block.find('.fs-3').first().text()).match(/(\d{2})\.(\d{2})\.(\d{2})/);
-  return fromText ? isoFrom(fromText[1], fromText[2], fromText[3]) : undefined;
+function isSessionError(html: string): boolean {
+  return /content="webshopexception"/.test(html) || /actPage["']?\s*[:=]\s*["']webshopexception/.test(html);
 }
 
-function isoFrom(day: string, month: string, year: string): string | undefined {
-  const d = Number(day);
-  const m = Number(month);
-  if (!d || !m || d > 31 || m > 12) return undefined;
-  return `20${year}-${month}-${day}`;
+/** „Fr. 25.09.2026" → "2026-09-25". */
+function parseDate(text: string): string | undefined {
+  const match = text.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if (!match) return undefined;
+
+  const [, day, month, year] = match;
+  if (Number(day) > 31 || Number(month) > 12) return undefined;
+  return `${year}-${month}-${day}`;
 }
 
-interface Clock {
-  hour: number;
-  minute: number;
-}
+/** „19:30" – der Shop führt nur den Beginn. */
+function parseTime(text: string): { hour: number; minute: number } | undefined {
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return undefined;
 
-/** "19.30–22.00 Uhr" oder "19.00 Uhr". */
-function parseTime(text: string): { start?: Clock; end?: Clock } {
-  const match = text.match(/(\d{1,2})[.:](\d{2})(?:\s*[–—-]\s*(\d{1,2})[.:](\d{2}))?\s*Uhr/);
-  if (!match) return {};
-  return {
-    start: { hour: Number(match[1]), minute: Number(match[2]) },
-    end: match[3] ? { hour: Number(match[3]), minute: Number(match[4]) } : undefined,
-  };
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return undefined;
+  return { hour, minute };
 }
 
 /**
- * Ticketlage aus zwei unabhängigen Signalen: der Art des Elements und seinem
- * Text. Buchbares ist ein `<a>` in den Webshop, alles andere ein `<span>`.
+ * Ticketlage aus zwei unabhängigen Signalen: dem Element und seinem Text.
+ *
+ * Buchbares steht in einem `<a href=…selectseat…>`, Ausverkauftes in einem
+ * `span[id^="soldtext:"]` — dessen `<a>` hat kein `href`. Wer nur auf `a`
+ * selektiert, hielte Ausverkauftes für buchbar. Die Beschriftung folgt der
+ * Sprache der Sitzung, deshalb sind beide Fassungen abgedeckt.
  */
 function readTicket(block: Block): { availability: Availability; label?: string; url?: string } {
-  const cta = block.find('.btn-produktion').first();
-  if (cta.length === 0) return { availability: 'unknown' };
+  const sold = block.find('span[id^="soldtext:"]').first();
+  if (sold.length > 0) return { availability: 'soldout', label: clean(sold.text()) || undefined };
+
+  const cta = block.find('a[href*="selectseat"]').first();
+  const href = cta.attr('href');
+  if (cta.length === 0 || !href) return { availability: 'unknown' };
 
   const label = clean(cta.text());
+  const url = new URL(href, BASE).toString();
   const lower = label.toLocaleLowerCase('de-DE');
-  const href = cta.attr('href');
-  const url = href?.startsWith('http') ? href : undefined;
 
-  if (lower.includes('ausverkauft')) return { availability: 'soldout', label };
-  if (!url) {
-    // "ab 02.10." – Vorverkauf hat noch nicht begonnen.
-    return { availability: 'not_on_sale', label: label || undefined };
-  }
-  if (/restkarten|letzte|wenige/.test(lower)) return { availability: 'limited', label, url };
-  if (/^(tickets?|karten)$/.test(lower)) return { availability: 'available', label, url };
-
-  // "Schulbestellung": buchbar, aber nicht für das allgemeine Publikum.
-  return { availability: 'not_on_sale', label, url };
-}
-
-function collectNotes($: cheerio.CheerioAPI, block: Block): string[] | undefined {
-  const notes: string[] = [];
-
-  // Merkmale wie „U30" oder „Familienvorstellung" – mal als Text, mal als
-  // Icon, dessen Beschriftung dann den Namen trägt.
-  block.find('.icons a').each((_, element) => {
-    const anchor = $(element);
-    const name = clean(anchor.text()) || clean(anchor.attr('aria-label') ?? '');
-    if (name) notes.push(name);
-  });
-
-  return notes.length ? [...new Set(notes)] : undefined;
-}
-
-function readDescription(block: Block): string | undefined {
-  return clean(block.find('.children-without-margin').first().text()) || undefined;
-}
-
-function uniqueParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
-  const seen = new Set<string>();
-  const paragraphs: string[] = [];
-  $(selector).each((_, element) => {
-    const text = clean($(element).text());
-    if (!text || seen.has(text)) return;
-    seen.add(text);
-    paragraphs.push(text);
-  });
-  return paragraphs;
-}
-
-function absolute(href: string): string {
-  if (href.startsWith('http')) return href;
-  // Die Fragmente verlinken relativ zu dem <base> der Seite ("./produktionen/…"),
-  // nicht relativ zum Ajax-Endpunkt /de/spielplan/index.html.
-  return new URL(href.replace(/^\.\//, ''), `${BASE}/de/`).toString();
+  if (/restkarten|remaining|letzte|wenige/.test(lower)) return { availability: 'limited', label, url };
+  return { availability: 'available', label: label || undefined, url };
 }

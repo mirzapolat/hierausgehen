@@ -1,32 +1,42 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
-import { fetchText } from '../../http.ts';
-import { TZ, monthsInRange } from '../../time.ts';
-import { enrichEventDescriptions } from '../detail.ts';
-import { parseDetailDescription, parseScheduleFragment, parseSparten } from './parse.ts';
+import { type CookieJar, createCookieJar, fetchText } from '../../http.ts';
+import { parseEventList, parseSparten } from './parse.ts';
 
 /**
- * Staatstheater am Gärtnerplatz.
+ * Staatstheater am Gärtnerplatz – über den Kartenshop des Staatstheaters
+ * (EVENTIM.Inhouse) statt über die eigene Spielplanseite.
  *
- * Die Spielplanseite enthält selbst keine Termine – sie lädt sie nach:
+ * Der Shop gibt nur innerhalb einer Sitzung Auskunft. Der Ablauf ist deshalb
+ * zweistufig:
  *
- *   GET /de/spielplan/index.html?ajax=1&offset={N}&letzterTermin=0
+ *   1. GET  /gpt.webshop/webticket/shop            → 302 auf `eventlist`,
+ *      setzt dabei die `JSESSIONID`. Dieselbe Antwort trägt die Sparten.
+ *   2. POST /gpt.webshop/webticket/include/eventlistdelta
+ *      mit `index`, `genre` und `date_begin` – das Fragment einer Seite.
  *
- * `offset` ist **kein** Monat, sondern der Abstand in Monaten zum laufenden
- * Monat: 0 ist der aktuelle, 1 der nächste und so fort. Vergangenes gibt die
- * Quelle nicht heraus, negative Werte gibt es nicht. Hinter dem letzten
- * geplanten Monat antwortet sie mit „ende erreicht.".
+ * `index` ist **keine** Position, sondern die Seitennummer; eine Seite fasst
+ * zehn Termine. Die letzte Seite trägt `<li id="listend">`. `date_begin` im
+ * Format `TT.MM.JJJJ` wirkt, `date_end` wird vom Shop ignoriert — das Ende des
+ * Zeitraums schneidet deshalb dieser Adapter selbst ab.
  *
- * `letzterTermin` ist im Original ein Cursor mit der Unix-Zeit des zuletzt
- * gezeigten Termins. Mit `0` liefert dieselbe Seite den vollständigen Monat –
- * mit dem echten Cursor fehlt der jeweils erste Termin. Deshalb immer `0`.
+ * Die Gattung steht an keinem Termin. Sie ergibt sich daraus, mit welchem
+ * Sparten-Filter die Liste geholt wurde: der Adapter läuft die Sparten einzeln
+ * ab, und jeder Termin trägt danach die seine. Die Sparten selbst kommen aus
+ * dem Filter der Shop-Seite, damit keine Tabelle im Code veraltet.
  *
- * Die Gattungsnamen stehen nicht in den Fragmenten, sondern als Beschriftung
- * der Filter auf der Spielplanseite. Die wird einmal je Abruf mitgelesen,
- * damit keine Tabelle im Code veraltet.
+ * Was der Shop **nicht** kann: er führt nur, was gerade im Verkauf ist. Das
+ * sind je nach Vorverkauf zwei bis drei Monate, nicht die zwölf des
+ * Spielplans. Vergangenes gibt er gar nicht heraus, Endzeiten und
+ * Programmtexte führt er nicht.
  */
 
-const BASE = 'https://www.gaertnerplatztheater.de';
-const SCHEDULE = `${BASE}/de/spielplan/index.html`;
+const BASE = 'https://tickets.staatstheater.bayern';
+/** Eröffnet die Sitzung (302 auf die Terminliste) und liefert die Sparten. */
+const SHOP = `${BASE}/gpt.webshop/webticket/shop`;
+const DELTA = `${BASE}/gpt.webshop/webticket/include/eventlistdelta`;
+
+/** Zehn Termine je Seite; mehr als das ist eine Notbremse, kein Erwartungswert. */
+const MAX_PAGES = 20;
 
 export const gaertnerplatz: EventSource = {
   definition: {
@@ -34,9 +44,14 @@ export const gaertnerplatz: EventSource = {
     name: 'Staatstheater am Gärtnerplatz',
     cityId: 'muenchen',
     group: 'Oper & Ballett',
-    defaultCategory: 'Oper & Ballett',
-    color: '#7A4FA0',
-    homepage: BASE,
+    // Greift nur, wenn die Sparten einmal nicht lesbar sind – dann ist der
+    // gemeinsame Nenner des Hauses die ehrlichste Auskunft.
+    defaultCategory: 'Musiktheater',
+    homepage: 'https://www.gaertnerplatztheater.de',
+    // Ausnahmsweise fest: die Erkennung liefe über die Startseite des Hauses,
+    // und genau die erreicht dieser Server nicht (der Grund für den Umzug in
+    // den Shop). Das Logo liegt beim Shop und ist von hier aus erreichbar.
+    iconUrl: `${BASE}/gpt.webshop/images/responsive/Logo%20GPT_ICO.png`,
     enabledByDefault: true,
   },
 
@@ -47,87 +62,121 @@ export const gaertnerplatz: EventSource = {
     signal?: AbortSignal,
     options?: EventFetchOptions,
   ): Promise<CalendarEvent[]> {
-    const current = currentMonth();
-    const offsets = monthsInRange(range.from.slice(0, 7), range.to.slice(0, 7))
-      .map((month) => ({ month, offset: monthIndex(month) - monthIndex(current) }))
-      // Vergangene Monate kennt die Quelle nicht – das ist kein Fehler.
-      .filter((entry) => entry.offset >= 0);
+    const jar = createCookieJar();
+    const shopPage = await fetchText(SHOP, {
+      jar,
+      signal,
+      timeoutMs: options?.requestTimeoutMs,
+    });
 
-    if (offsets.length === 0) return [];
+    const sparten = parseSparten(shopPage);
+    if (sparten.length === 0) {
+      console.warn('[gaertnerplatz] keine Sparten im Filter gefunden – Termine ohne Gattung');
+    }
 
-    const sparten = await loadSparten(signal, options);
-
-    const results = await Promise.allSettled(
-      offsets.map(async ({ month, offset }) => {
-        const html = await fetchText(`${SCHEDULE}?ajax=1&offset=${offset}&letzterTermin=0`, {
-          signal,
-          timeoutMs: options?.requestTimeoutMs,
-        });
-        const { events, skipped, end, empty, blocks } = parseScheduleFragment(html, sparten);
-
-        // Leere Antwort und „ende erreicht." sind gültige Auskünfte. Inhalt
-        // ohne einen einzigen Terminblock heisst dagegen: Aufbau geändert.
-        if (!end && !empty && blocks === 0) {
-          throw new Error(`Spielplan ${month} (offset ${offset}): kein Terminblock erkannt (Layout geändert?)`);
-        }
-        if (skipped > 0) {
-          console.warn(`[gaertnerplatz] ${month}: ${skipped} Block/Blöcke übersprungen`);
-        }
-        return events;
-      }),
-    );
+    // Ohne Sparten bleibt die ungefilterte Liste: lieber Termine ohne Gattung
+    // als gar keine. `genre: '0'` ist im Shop „alle Sparten".
+    const filters = sparten.length > 0 ? sparten : [{ id: '0', name: '' }];
 
     const events: CalendarEvent[] = [];
     const failures: string[] = [];
-    for (const [i, result] of results.entries()) {
-      if (result.status === 'fulfilled') events.push(...result.value);
-      else failures.push(`${offsets[i].month}: ${errorMessage(result.reason)}`);
+    let blocks = 0;
+
+    // Bewusst nacheinander: der Shop führt die Liste in der Sitzung, und
+    // elf kleine Abrufe am Tag sind ihm zuzumuten, ein Schwall nicht.
+    for (const sparte of filters) {
+      try {
+        const collected = await collectSparte(jar, sparte, range, signal, options);
+        blocks += collected.blocks;
+        events.push(...collected.events);
+      } catch (error) {
+        failures.push(`${sparte.name || 'alle Sparten'}: ${errorMessage(error)}`);
+      }
     }
 
-    // Einzelne Monatslücken sind hinnehmbar, ein Totalausfall nicht.
-    if (failures.length === offsets.length) throw new Error(failures.join('; '));
+    // Eine kaputte Sparte ist zu verschmerzen, ein Totalausfall nicht.
+    if (failures.length === filters.length) throw new Error(failures.join('; '));
     if (failures.length) console.warn(`[gaertnerplatz] Teilausfall – ${failures.join('; ')}`);
 
-    const filtered = dedupeById(events).filter((event) => withinRange(event.start, range));
-    return enrichEventDescriptions({
-      sourceId: 'gaertnerplatz',
-      events: filtered,
-      signal,
-      fetchOptions: options,
-      parseDescription: parseDetailDescription,
-      cacheKey: productionKey,
-    });
+    // Antwortet der Shop, ohne dass ein einziger Block zu erkennen ist, hat
+    // sich sein Aufbau geändert. Ein stilles „keine Veranstaltungen" wäre die
+    // schlechtere Antwort – die Aggregation soll den Cache ausliefern.
+    if (blocks === 0) {
+      throw new Error('Kein Terminblock in der Liste erkannt (Layout geändert?)');
+    }
+
+    return dedupeById(events).filter((event) => withinRange(event.start, range));
   },
 };
 
-/**
- * Gattungsnamen von der Spielplanseite lesen. Schlägt das fehl, laufen die
- * Termine ohne Gattung weiter – das ist besser als der ganze Monat.
- */
-async function loadSparten(
+/** Alle Seiten einer Sparte, bis der Shop das Ende meldet. */
+async function collectSparte(
+  jar: CookieJar,
+  sparte: { id: string; name: string },
+  range: FetchRange,
   signal?: AbortSignal,
   options?: EventFetchOptions,
-): Promise<Record<string, string>> {
-  try {
-    return parseSparten(
-      await fetchText(SCHEDULE, { signal, retries: 1, timeoutMs: options?.requestTimeoutMs }),
-    );
-  } catch (error) {
-    console.warn(`[gaertnerplatz] Gattungen nicht lesbar: ${errorMessage(error)}`);
-    return {};
+): Promise<{ events: CalendarEvent[]; blocks: number }> {
+  const events: CalendarEvent[] = [];
+  let blocks = 0;
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const html = await fetchText(DELTA, {
+      jar,
+      body: deltaBody(sparte.id, page, range.from),
+      signal,
+      timeoutMs: options?.requestTimeoutMs,
+    });
+
+    const result = parseEventList(html, sparte.name || undefined);
+
+    // Die Fehlerseite ist keine leere Sparte, sondern eine verlorene Sitzung.
+    // Sie stillschweigend als „nichts gefunden" zu zählen, hiesse den Kalender
+    // zu leeren, sobald der Shop die Sitzung schliesst.
+    if (result.sessionLost) {
+      throw new Error(`Sitzung abgelaufen (Seite ${page})`);
+    }
+    if (result.skipped > 0) {
+      console.warn(`[gaertnerplatz] ${sparte.name}: ${result.skipped} Block/Blöcke übersprungen`);
+    }
+
+    blocks += result.blocks;
+    events.push(...result.events);
+
+    // Die letzte Seite meldet sich selbst; eine Seite ohne Block ist ebenfalls
+    // das Ende (eine Sparte ohne Termine im Zeitraum kommt genau so daher).
+    if (result.end || result.blocks === 0) return { events, blocks };
   }
+
+  console.warn(`[gaertnerplatz] ${sparte.name}: nach ${MAX_PAGES} Seiten abgebrochen`);
+  return { events, blocks };
 }
 
-/** Laufender Monat in Münchner Zeit – Bezugspunkt für `offset`. */
-function currentMonth(): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit' }).format(
-    new Date(),
-  );
+/**
+ * Der Shop erwartet das vollständige Filterformular, auch wo nichts gefiltert
+ * wird. `weekdaysstring` ist die Wochentagsmaske: sieben `N` heisst „kein Tag
+ * ausgeschlossen".
+ */
+function deltaBody(genre: string, page: number, from: string): string {
+  return new URLSearchParams({
+    index: String(page),
+    genre,
+    production: '0',
+    date_begin: germanDate(from),
+    date_end: '',
+    weekdaysstring: 'NNNNNNN',
+    venue: '0',
+    performanceLocation: '0',
+    eventTitle: '',
+    showOnlyBookableEvents: '',
+    showOnlyMagicCodeEvents: 'true',
+  }).toString();
 }
 
-function monthIndex(month: string): number {
-  const [year, m] = month.split('-').map(Number);
-  return year * 12 + m;
+/** "2026-10-01" → "01.10.2026". */
+function germanDate(iso: string): string {
+  const [year, month, day] = iso.split('-');
+  return `${day}.${month}.${year}`;
 }
 
 function withinRange(start: string, range: FetchRange): boolean {
@@ -139,15 +188,6 @@ function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
   const map = new Map<string, CalendarEvent>();
   for (const event of events) map.set(event.id, event);
   return [...map.values()];
-}
-
-function productionKey(event: CalendarEvent): string | undefined {
-  try {
-    const url = new URL(event.url);
-    return `${url.origin}${url.pathname}`;
-  } catch {
-    return event.url;
-  }
 }
 
 function errorMessage(error: unknown): string {

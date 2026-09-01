@@ -37,6 +37,7 @@ src/
       ics.ts               ein Termin als .ics-Datei (RFC 5545)
       http.ts              Timeout, Retry, Browser-Header
       favicon.ts           Favicon einer Quelle finden und zwischenspeichern
+      categories.ts        Veranstaltungsarten: ein Wortschatz für alle Quellen
       text.ts                geteilte Textwerkzeuge (Versalien, Leerraum)
       sources/
         _template.ts       Vorlage für eine neue Quelle
@@ -78,6 +79,42 @@ Code beim Hinzufügen einer Quelle automatisch heranzieht:
 4. `index.ts` nach dem Muster von `sources/staatsoper/` bauen.
 5. In `registry.ts` eintragen. Sidebar, Filter, Farbe und Favicon ergeben sich
    daraus von selbst.
+6. `npm run categories -- <quellen-id>` zeigt, welche Veranstaltungsarten die
+   Quelle mitbringt und was der gemeinsame Wortschatz daraus macht.
+
+### Veranstaltungsarten
+
+Jede Website benennt ihre Gattungen anders. „Musik", „Live Music" und
+„Konzerte" meinen dasselbe; das Deutsche Theater führt Doppelungen wie
+„Konzert / Weltmusik"; anderswo steht die Art nur im Plural oder in Versalien.
+Ungefiltert waren das über fünfzig Werte für gut ein Dutzend Sachen — als
+Filter in der Seitenleiste unbrauchbar.
+
+Der Parser übernimmt trotzdem weiter **den Wortlaut der Quelle**; das
+Zusammenführen passiert danach, an einer Stelle:
+`events/categories.ts` bildet die Formulierung auf einen Wert aus `CATEGORIES`
+ab. Verglichen wird ohne Rücksicht auf Gross-/Kleinschreibung, Bindestriche,
+Umlaute, `&`/`und`, HTML-Entities und den Plural; zusammengesetzte Angaben
+werden zerlegt, es gewinnt der erste bekannte Teil.
+
+Zwei Dinge bleiben dabei erhalten:
+
+- **Die Breite.** Was der Wortschatz nicht kennt, wird nicht eingeebnet,
+  sondern bleibt als eigene Art stehen. Eine neue Quelle kann also eine Art
+  mitbringen, die es hier noch nie gab, ohne dass jemand etwas anpasst.
+- **Die Genauigkeit.** Der Wortlaut der Quelle steht weiter am Termin
+  (`categoryLabel`) und in der CSV-Spalte `veranstaltungsart_quelle`.
+
+`npm run categories` ruft die Quellen live ab und stellt beides gegenüber; mit
+`*` markiert ist, was der Wortschatz noch nicht kennt. Das ist die Stelle zum
+Hinschauen, wenn eine Quelle dazukommt: Schreibweise einer bestehenden Art
+(dann als Synonym eintragen) oder wirklich eine neue Art (dann in `CATEGORIES`
+aufnehmen).
+
+Die **Farbe gehört zum Ordner, nicht zur Quelle** (`events/groups.ts`): im
+Kalender soll ein Blick genügen, um Oper von Kino zu unterscheiden – welches
+Haus es ist, steht daneben. `definition.group` ist deshalb keine freie
+Beschriftung, sondern eine Wahl aus den dort angelegten Ordnern.
 
 ## Bayerische Staatsoper
 
@@ -157,44 +194,51 @@ Zwei Eigenheiten:
 - **Kommende Monate füllen sich erst mit ihrem Vorverkauf.** Bis dahin stehen
   dort nur einzelne angekündigte Premieren. Ein fast leerer Monat ist normal.
 
-Die Quelle führt **keine Gattung**; entsprechend bleibt `category` leer und die
-Termine sammeln sich in der Sidebar unter „Ohne Angabe".
+Die Quelle führt **keine Gattung**; entsprechend bleibt `category` am Termin
+leer und die Aggregation setzt den Fallback der Quelle ein.
 
 ## Staatstheater am Gärtnerplatz
 
-Die Spielplanseite enthält selbst keine Termine – sie lädt sie nach:
+Nicht über die eigene Spielplanseite, sondern über den **Kartenshop des
+Staatstheaters** (EVENTIM.Inhouse). Der Grund ist handfest: `gaertnerplatztheater.de`
+liegt bei 1blu hinter einer Firewall, die TCP von der Adresse dieses Servers
+verwirft. Der Shop liegt auf einem anderen Host und ist erreichbar.
+
+Der Shop gibt nur innerhalb einer Sitzung Auskunft, der Abruf ist deshalb
+zweistufig:
 
 ```
-GET /de/spielplan/index.html?ajax=1&offset={N}&letzterTermin=0
+GET  /gpt.webshop/webticket/shop                     # 302 -> eventlist, setzt JSESSIONID
+POST /gpt.webshop/webticket/include/eventlistdelta   # index, genre, date_begin, …
 ```
 
-`offset` ist **kein** Monat, sondern der Abstand in Monaten zum laufenden
-Monat: 0 ist der aktuelle, 1 der nächste. Vergangenes gibt die Quelle nicht
-heraus; hinter dem letzten geplanten Monat antwortet sie mit `ende erreicht.`
-`letzterTermin` ist im Original ein Cursor – mit `0` liefert dieselbe Seite den
-vollständigen Monat, mit dem echten Cursor fehlt der erste Termin.
+`index` ist **keine** Position, sondern die Seitennummer; eine Seite fasst zehn
+Termine, die letzte trägt `<li id="listend">`. `date_begin` im Format
+`TT.MM.JJJJ` wirkt, `date_end` wird ignoriert – das Ende des Zeitraums schneidet
+der Adapter selbst ab. Ohne gültige Sitzung antwortet der Shop mit einer
+vollständigen Fehlerseite statt mit dem Fragment; die wird als solche erkannt
+und nie als „keine Termine" verbucht.
 
-Je Termin ein `div.vorstellung` mit sprechenden Klassen: `vorstellung-<id>`
-(die stabile Termin-ID), `date-DDMMYY`, `sparte-<id>` (Gattung) und `ort-<id>`.
-Dazu Beginn und **Endzeit**, Titel, Merkmale wie „U30" und der Ticketstatus.
+Je Termin ein `div` mit `id="eventKey:<id>"` – der stabilen Termin-ID – und
+darin Titel, Untertitel, Datum, Beginn und Spielstätte, jeweils mit derselben ID
+im Attribut. Die Ticketlage kommt aus zwei unabhängigen Signalen:
 
 | Quelle | `availability` |
 | --- | --- |
-| `<a class="ticket">Tickets</a>` | `available` |
-| `<a class="ticket">Restkarten</a>` | `limited` |
-| `<span>Ausverkauft</span>` | `soldout` |
-| `<span>ab 02.10.</span>`, „Schulbestellung" | `not_on_sale` |
-| kein Knopf | `unknown` |
+| `<a href="…selectseat…">Karten</a>` | `available` |
+| derselbe Link mit „Restkarten" | `limited` |
+| `<span id="soldtext:<id>">` mit `<a>` **ohne** `href` | `soldout` |
 
-Drei Eigenheiten:
+**Die Gattung steht an keinem Termin.** Sie ergibt sich daraus, mit welchem
+Sparten-Filter die Liste geholt wurde – der Adapter läuft die Sparten (Oper,
+Musical, Ballett, Konzert, Liederabend, Operette, Soiree, Sonstiges) einzeln ab,
+und die Sparten selbst liest er aus dem Filter der Shop-Seite, damit keine
+Tabelle im Code veraltet. Die Sparten teilen die Liste vollständig und
+überschneidungsfrei auf.
 
-- **Nicht jeder Block ist ein Termin.** Der Kasten „Theaterferien" läuft auf
-  jeder Seite mit; gezählt wird nur, was eine `vorstellung-<id>` trägt.
-- **Die Spielstätte fehlt beim Haupthaus**, steht beim Foyer als Link auf den
-  Saalplan und bei Gastspielen als blosser Text („Kempten").
-- **Die Gattungsnamen stehen nicht in den Fragmenten**, sondern als
-  Beschriftung der Filter auf der Spielplanseite. Sie werden einmal je Abruf
-  mitgelesen, damit keine Tabelle im Code veraltet.
+Was der Shop **nicht** kann: er führt nur, was gerade im Verkauf ist – je nach
+Vorverkauf zwei bis drei Monate statt der zwölf des Spielplans. Vergangenes gibt
+er gar nicht heraus, Endzeiten und lange Programmtexte führt er nicht.
 
 ## Suchmaschinen und Installation
 
@@ -232,9 +276,10 @@ viele Leute den Kalender öffnen: die Quellen sehen eine Abfrage am Tag.
 - **Die geplante Erhebung darf lange dauern** (3 Minuten je Quelle) – es wartet
   niemand darauf. Nur der seltene Fall „gar kein Stand vorhanden, Besuch schon
   da" arbeitet mit knapperen Fristen.
-- **„Daten neu laden" und Ziehen zum Aktualisieren** holen den aktuellen Stand,
-  fragen aber keine Quelle neu ab. Erneut erhoben wird nur eine einzelne Quelle
-  über die Sidebar (`refresh=1&retry=source`).
+- **Von Hand auffrischen kann niemand.** Es gibt weder einen Knopf noch Ziehen
+  zum Aktualisieren noch ein Neuladen einzelner Quellen: erhoben wird
+  ausschliesslich im Tageslauf, jeder Aufruf liest nur den Stand. Damit sehen
+  die Häuser garantiert eine Abfrage am Tag, gleich wie oft jemand drückt.
 - **Zwölf Monate sind das Ende der Fahnenstange.** Der Kalender lässt sich nicht
   darüber hinaus bewegen: Pfeile werden am Rand inaktiv, der Monatsstreifen
   endet dort, und ein Deeplink auf ein Datum ausserhalb landet am Rand

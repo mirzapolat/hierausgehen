@@ -1,4 +1,5 @@
 import type { CalendarEvent, EventPerformance, SourceDefinition } from './types.ts';
+import { FALLBACK_CATEGORY, normalizeCategory } from './categories.ts';
 import { clean } from './text.ts';
 
 /**
@@ -24,14 +25,15 @@ export function normalizeAndDedupeEvents(
 
 function normalizeEvent(event: CalendarEvent, definition?: SourceDefinition): CalendarEvent {
   const notes = event.notes?.map(clean).filter(Boolean);
+  const category = eventCategory(event, definition);
 
   return {
     ...event,
     title: clean(event.title),
     subtitle: event.subtitle ? clean(event.subtitle) : undefined,
     description: event.description ? clean(event.description) : undefined,
-    category:
-      clean(event.category ?? '') || definition?.defaultCategory || definition?.group || 'Sonstiges',
+    category: category.name,
+    categoryLabel: category.label,
     venue: {
       name: clean(event.venue.name) || definition?.name || 'Unbekannter Ort',
       city: event.venue.city ? clean(event.venue.city) : undefined,
@@ -42,6 +44,31 @@ function normalizeEvent(event: CalendarEvent, definition?: SourceDefinition): Ca
     icsUrl: event.icsUrl || undefined,
     notes: notes?.length ? [...new Set(notes)] : undefined,
   };
+}
+
+/**
+ * Die Veranstaltungsart der Quelle auf den gemeinsamen Wortschatz bringen.
+ *
+ * Sagt der Termin nichts, greift der Fallback der Quelle: erst
+ * `defaultCategory`, dann der Ordner der Seitenleiste. Der Originalwortlaut
+ * bleibt als `categoryLabel` erhalten, solange er etwas hinzufügt.
+ *
+ * Ausgangspunkt ist deshalb `categoryLabel`, wenn es schon eines gibt: ein
+ * bereits normalisierter Termin – aus dem Cache, aus dem Datenstand – soll
+ * beim zweiten Durchlauf denselben Wortlaut vor sich haben wie beim ersten,
+ * sonst verlöre er ihn.
+ */
+function eventCategory(
+  event: CalendarEvent,
+  definition?: SourceDefinition,
+): { name: string; label?: string } {
+  const raw = clean(event.categoryLabel ?? event.category ?? '');
+  const name =
+    normalizeCategory(raw) ??
+    normalizeCategory(definition?.defaultCategory) ??
+    normalizeCategory(definition?.group) ??
+    FALLBACK_CATEGORY;
+  return { name, label: raw && raw !== name ? raw : undefined };
 }
 
 export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {

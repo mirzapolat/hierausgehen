@@ -25,7 +25,6 @@ export const kinoamolympiasee: EventSource = {
     cityId: 'muenchen',
     group: 'Kino',
     defaultCategory: 'Kino',
-    color: '#00778B',
     homepage: BASE,
     enabledByDefault: true,
   },

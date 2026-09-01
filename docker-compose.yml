@@ -24,10 +24,6 @@ services:
     volumes:
       # Termine und Favicons überleben Neustarts und Deployments.
       - cache:/app/.cache
-      # Spiegel der Quellen, die dieser Server selbst nicht erreicht. Wird vom
-      # Workflow "Spiegel blockierter Quellen" befüllt; fehlt das Verzeichnis,
-      # legt Compose es leer an und die App kommt auch ohne aus.
-      - ./.mirror:/app/.mirror:ro
     networks:
       - home
     labels:

@@ -51,7 +51,6 @@ export const lostweekend: EventSource = {
     cityId: 'muenchen',
     group: 'Club',
     defaultCategory: 'Club',
-    color: '#A8557A',
     homepage: BASE,
     enabledByDefault: true,
   },

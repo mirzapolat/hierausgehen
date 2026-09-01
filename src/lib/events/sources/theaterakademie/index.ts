@@ -33,7 +33,6 @@ export const theaterakademie: EventSource = {
     cityId: 'muenchen',
     group: 'Theater',
     defaultCategory: 'Theater',
-    color: '#3F6E8C',
     homepage: PROGRAMME_URL,
     enabledByDefault: true,
   },

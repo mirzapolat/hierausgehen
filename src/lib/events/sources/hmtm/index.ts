@@ -64,7 +64,6 @@ export const hmtm: EventSource = {
     cityId: 'muenchen',
     group: 'Konzert',
     defaultCategory: 'Konzert',
-    color: '#5C6BC0',
     homepage: BASE,
     enabledByDefault: true,
   },

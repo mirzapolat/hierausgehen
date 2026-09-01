@@ -24,7 +24,6 @@ export const volkstheater: EventSource = {
     cityId: 'muenchen',
     group: 'Theater',
     defaultCategory: 'Theater',
-    color: '#C7342F',
     homepage: BASE,
     enabledByDefault: true,
   },

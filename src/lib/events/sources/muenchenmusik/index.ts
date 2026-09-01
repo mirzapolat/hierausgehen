@@ -46,7 +46,6 @@ export const muenchenmusik: EventSource = {
     cityId: 'muenchen',
     group: 'Konzert',
     defaultCategory: 'Konzert',
-    color: '#2F7D74',
     homepage: BASE,
     enabledByDefault: true,
   },

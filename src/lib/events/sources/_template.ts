@@ -27,9 +27,8 @@ export const templateSource: EventSource = {
     id: 'template', // eindeutig, kleingeschrieben; Teil der Event-ID
     name: 'Beispielhaus',
     cityId: 'muenchen', // muss in `src/lib/cities.ts` existieren
-    group: 'Theater', // Ordner in der Sidebar
+    group: 'Theater', // Ordner in der Sidebar; er bestimmt auch die Farbe
     defaultCategory: 'Theater', // Fallback, wenn ein Termin keine eigene Gattung liefert
-    color: '#4A6FA5', // erkennbar, aber gedeckt
     homepage: BASE,
     enabledByDefault: true,
   },
@@ -80,6 +79,8 @@ function parse(html: string): CalendarEvent[] {
     title: 'Titel',
     subtitle: 'Autor oder Ensemble',
     description: 'Kurzinfo oder Programmtext aus der Quelle.',
+    // Wortlaut der Quelle, nicht übersetzt – `categories.ts` vereinheitlicht
+    // das anschliessend („Schauspiel" wird zu „Theater").
     category: 'Schauspiel',
     start: berlinIso('2026-09-01', 19, 30),
     allDay: false,

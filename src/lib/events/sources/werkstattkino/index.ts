@@ -34,7 +34,6 @@ export const werkstattkino: EventSource = {
     cityId: 'muenchen',
     group: 'Kino',
     defaultCategory: 'Kino',
-    color: '#B5793A',
     homepage: BASE,
     enabledByDefault: true,
   },

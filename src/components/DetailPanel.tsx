@@ -125,7 +125,9 @@ function EventDetail({
         {event.category && (
           <>
             <span className="text-faint">·</span>
-            <span className="text-[12px] text-muted">{event.category}</span>
+            <span className="text-[12px] text-muted" title={event.categoryLabel}>
+              {event.category}
+            </span>
           </>
         )}
       </div>

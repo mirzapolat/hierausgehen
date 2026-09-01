@@ -82,6 +82,18 @@ export class SourceHttpError extends Error {
   }
 }
 
+/**
+ * Sitzungskekse über mehrere Abrufe hinweg – Name auf Wert, mehr braucht es
+ * nicht. Manche Quellen geben nur Auskunft, wenn zuvor eine Sitzung eröffnet
+ * wurde (der Gärtnerplatz-Webshop antwortet sonst mit seiner Fehlerseite).
+ * Ein Behälter wird je Erhebung angelegt und lebt nicht länger.
+ */
+export type CookieJar = Map<string, string>;
+
+export function createCookieJar(): CookieJar {
+  return new Map();
+}
+
 export interface FetchTextOptions {
   timeoutMs?: number;
   retries?: number;
@@ -89,6 +101,12 @@ export interface FetchTextOptions {
   signal?: AbortSignal;
   /** Maximale Zahl gefolgter Weiterleitungen. */
   maxRedirects?: number;
+  /**
+   * Sammelt und schickt Sitzungskekse. Wird er mitgegeben, verhält sich der
+   * Client wie ein Browser: `set-cookie` wandert hinein — auch das einer
+   * Weiterleitung — und geht beim nächsten Abruf wieder hinaus.
+   */
+  jar?: CookieJar;
   /**
    * Formularkodierter Rumpf für eine Abfrage, die nur per POST beantwortet
    * wird (Gasteig lädt seine Terminliste so nach). Rein lesend – deshalb ist
@@ -107,12 +125,12 @@ export async function fetchText(url: string, options: FetchTextOptions = {}): Pr
   // Knapp bemessen: eine unerreichbare Quelle darf einen Seitenaufruf nicht
   // aufhalten. Zwei Versuche à 8 s statt drei à 15 s senken den schlimmsten
   // Fall je Adresse von rund 46 s auf rund 16 s.
-  const { timeoutMs = 8_000, retries = 1, headers = {}, signal, maxRedirects = 5, body } = options;
+  const { timeoutMs = 8_000, retries = 1, headers = {}, signal, maxRedirects = 5, body, jar } = options;
 
   let lastError: unknown;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await followRedirects(url, headers, timeoutMs, signal, maxRedirects, body);
+      return await followRedirects(url, headers, timeoutMs, signal, maxRedirects, body, jar);
     } catch (error) {
       if (signal?.aborted) throw error;
       // 4xx ausser 408/429 sind dauerhaft – ein Wiederholen bringt nichts.
@@ -146,10 +164,12 @@ async function followRedirects(
   signal: AbortSignal | undefined,
   maxRedirects: number,
   body?: string,
+  jar?: CookieJar,
 ): Promise<string> {
   let current = url;
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const response = await request(current, headers, timeoutMs, signal, body);
+    const response = await request(current, withCookies(headers, jar), timeoutMs, signal, body);
+    if (jar) absorbCookies(jar, response.setCookie);
 
     if (response.status >= 300 && response.status < 400 && response.headers.location) {
       current = new URL(response.headers.location, current).toString();
@@ -166,7 +186,28 @@ async function followRedirects(
 interface Response {
   status: number;
   headers: Record<string, string>;
+  /** Roh, weil eine Antwort mehrere `set-cookie` tragen darf. */
+  setCookie: string[];
   body: string;
+}
+
+function withCookies(
+  headers: Record<string, string>,
+  jar: CookieJar | undefined,
+): Record<string, string> {
+  if (!jar || jar.size === 0) return headers;
+  const cookie = [...jar].map(([name, value]) => `${name}=${value}`).join('; ');
+  return { ...headers, cookie };
+}
+
+/** Nur `name=wert` zählt; Pfad, Ablauf und Flags sind für einen Abruf ohne Belang. */
+function absorbCookies(jar: CookieJar, setCookie: string[]): void {
+  for (const entry of setCookie) {
+    const [pair] = entry.split(';');
+    const separator = pair.indexOf('=');
+    if (separator < 1) continue;
+    jar.set(pair.slice(0, separator).trim(), pair.slice(separator + 1).trim());
+  }
 }
 
 /**
@@ -251,6 +292,7 @@ function requestHttp2(
 
     let status = 0;
     let responseHeaders: Record<string, string> = {};
+    let setCookie: string[] = [];
     const chunks: Buffer[] = [];
 
     req.on('response', (incoming) => {
@@ -260,6 +302,8 @@ function requestHttp2(
           .filter(([key]) => !key.startsWith(':'))
           .map(([key, value]) => [key, String(value)]),
       );
+      const raw = incoming['set-cookie'];
+      setCookie = Array.isArray(raw) ? raw : raw ? [String(raw)] : [];
     });
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
     req.on('error', (error) => finish(() => reject(error)));
@@ -267,7 +311,7 @@ function requestHttp2(
       finish(() => {
         try {
           const body = decompress(Buffer.concat(chunks), responseHeaders['content-encoding']);
-          resolve({ status, headers: responseHeaders, body });
+          resolve({ status, headers: responseHeaders, setCookie, body });
         } catch (error) {
           reject(error);
         }
@@ -303,6 +347,7 @@ async function requestFetch(
   return {
     status: res.status,
     headers: Object.fromEntries(res.headers.entries()),
+    setCookie: res.headers.getSetCookie(),
     body: await res.text(),
   };
 }

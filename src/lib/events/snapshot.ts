@@ -8,7 +8,7 @@ import type {
 import { aggregateEvents } from './aggregate.ts';
 import { sourcesForCity } from './registry.ts';
 import { dedupe, isFresh, readCache, writeCache } from './cache.ts';
-import { dedupeEvents } from './normalize.ts';
+import { dedupeEvents, normalizeAndDedupeEvents } from './normalize.ts';
 import { nextRefreshAt, secondsUntilRefresh, todayInZone } from './schedule.ts';
 import { coverageRange } from '../calendar.ts';
 import { cities, cityById, type City } from '../cities.ts';
@@ -58,8 +58,6 @@ export async function getSnapshot(
   cityId: string,
   options: {
     force?: boolean;
-    sourceIds?: string[];
-    fetchOptions?: EventFetchOptions;
     /** Auf diesen Aufruf wartet niemand – er darf den vollen Rahmen nutzen. */
     patient?: boolean;
   } = {},
@@ -69,16 +67,12 @@ export async function getSnapshot(
   const key = cacheKey(cityId, range);
   const cached = await readCache<AggregateResult>(key);
 
-  // Ausdrückliche Auffrischung: aus der Oberfläche heraus oder vom Zeitplan.
+  // Auffrischung vom Zeitplan. Die Oberfläche kann keine anstossen: erhoben
+  // wird im Tageslauf, ein Aufruf liest nur den Stand.
   if (options.force) {
-    const fetched = await collect(cityId, range, {
-      ...options,
-      fetchOptions: options.fetchOptions ?? SCHEDULED_FETCH,
-    });
-    const merged =
-      options.sourceIds?.length && cached ? mergeSources(cached.value, fetched) : fetched;
-    await store(key, merged, city);
-    return withRegistrySources(cityId, merged);
+    const fetched = await collect(cityId, range, { force: true, fetchOptions: SCHEDULED_FETCH });
+    await store(key, fetched, city);
+    return withRegistrySources(cityId, fetched);
   }
 
   if (cached && isFresh(cached)) {
@@ -129,6 +123,13 @@ export async function getSnapshot(
  * eigener Statuseintrag. Ohne ihn wäre sie in der Oberfläche nicht von einer
  * Quelle ohne Termine zu unterscheiden – mit ihm zeigt die Sidebar den
  * Hinweis und den Knopf zum Nachladen.
+ *
+ * Aus demselben Grund läuft der Stand noch einmal durch die Normalisierung:
+ * gespeichert ist das Ergebnis der Regeln von gestern. Eine geänderte Regel –
+ * eine Veranstaltungsart, die dazukommt, ein Synonym, ein umbenannter Ordner –
+ * soll sofort greifen und nicht bis zur nächsten Erhebung warten. Die
+ * Normalisierung ist dafür eigens wiederholbar: sie rechnet aus demselben
+ * Termin zweimal dasselbe.
  */
 function withRegistrySources(cityId: string, result: AggregateResult): AggregateResult {
   const definitions = sourcesForCity(cityId).map((source) => source.definition);
@@ -137,6 +138,7 @@ function withRegistrySources(cityId: string, result: AggregateResult): Aggregate
 
   return {
     ...result,
+    events: normalizeAndDedupeEvents(result.events, definitions),
     definitions,
     sources: missing.length ? [...result.sources, ...missing.map(notCollectedYet)] : result.sources,
   };
@@ -189,12 +191,8 @@ function collectMissingSources(
 }
 
 /** Ausschnitt eines Datenstands – mehr als den Datenstand gibt es nicht. */
-export async function eventsInRange(
-  cityId: string,
-  range: FetchRange,
-  options?: { force?: boolean; sourceIds?: string[]; fetchOptions?: EventFetchOptions },
-): Promise<AggregateResult> {
-  const snapshot = await getSnapshot(cityId, options);
+export async function eventsInRange(cityId: string, range: FetchRange): Promise<AggregateResult> {
+  const snapshot = await getSnapshot(cityId);
   return {
     ...snapshot,
     events: snapshot.events.filter((event) => {

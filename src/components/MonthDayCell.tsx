@@ -13,7 +13,11 @@ interface Props {
   selectedEventId?: string;
   onSelectDay: (day: string) => void;
   onSelectEvent: (event: CalendarEvent) => void;
-  /** Gehört der Tag nicht zum angezeigten Monat? Nur im festen Raster relevant. */
+  /**
+   * Gehört der Tag nicht zum angezeigten Monat? Nur im festen Raster relevant.
+   * Solche Tage treten als Ganzes zurück – Fläche, Ziffer und Punkte –, damit
+   * die Grenze des Monats ohne Hinsehen erkennbar ist.
+   */
   outside?: boolean;
   /** Nur Punkte statt Titel – für die Mobilansicht. */
   compact?: boolean;
@@ -54,7 +58,13 @@ export function MonthDayCell({
       }}
       className={`flex min-h-0 cursor-pointer flex-col gap-[3px] overflow-hidden px-1.5 pb-1 pt-1
                   hairline-r hairline-b transition-colors
-                  ${selected ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--chrome)]'}`}
+                  ${
+                    selected
+                      ? 'bg-[var(--accent-soft)]'
+                      : outside
+                        ? 'bg-[var(--sunken)]'
+                        : 'hover:bg-[var(--chrome)]'
+                  }`}
     >
       <div className="flex shrink-0 items-baseline gap-1">
         <span
@@ -78,7 +88,7 @@ export function MonthDayCell({
               className="h-[5px] w-[5px] rounded-full"
               style={{
                 background: sourceColor(definitions, event.sourceId),
-                opacity: isPast(event) ? 0.35 : 1,
+                opacity: outside ? 0.3 : isPast(event) ? 0.35 : 1,
               }}
             />
           ))}

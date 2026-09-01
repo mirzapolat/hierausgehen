@@ -11,6 +11,8 @@
 :root {
   --canvas: #ffffff;
   --chrome: #fafaf9;
+  /* Zurückgesetzte Fläche – für das, was zwar da ist, aber nicht dazugehört. */
+  --sunken: #f1f1ef;
   --raised: #ffffff;
   --text: #1d1d1f;
   --text-muted: #6e6e73;
@@ -32,6 +34,7 @@
   :root:not([data-theme='light']) {
     --canvas: #141416;
     --chrome: #0e0e10;
+    --sunken: #0a0a0c;
     --raised: #1b1b1e;
     --text: #f2f2f4;
     --text-muted: #9a9aa0;
@@ -49,6 +52,7 @@
 :root[data-theme='dark'] {
   --canvas: #141416;
   --chrome: #0e0e10;
+  --sunken: #0a0a0c;
   --raised: #1b1b1e;
   --text: #f2f2f4;
   --text-muted: #9a9aa0;
@@ -65,6 +69,7 @@
 @theme inline {
   --color-canvas: var(--canvas);
   --color-chrome: var(--chrome);
+  --color-sunken: var(--sunken);
   --color-raised: var(--raised);
   --color-text: var(--text);
   --color-muted: var(--text-muted);

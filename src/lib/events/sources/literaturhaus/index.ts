@@ -31,7 +31,6 @@ export const literaturhaus: EventSource = {
     cityId: 'muenchen',
     group: 'Literatur',
     defaultCategory: 'Literatur',
-    color: '#2F4858',
     homepage: BASE,
     enabledByDefault: true,
   },

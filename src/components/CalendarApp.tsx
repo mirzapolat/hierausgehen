@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AggregateResult, CalendarEvent, EventPerformance } from '@/lib/events/types';
-import { dedupeEvents } from '@/lib/events/normalize';
 import {
   type ViewMode,
   addDays,
@@ -23,7 +22,7 @@ import { DetailPanel } from './DetailPanel';
 import { HorizontalCalendar } from './HorizontalCalendar';
 import { MonthScrollView } from './MonthScrollView';
 import { MonthView } from './MonthView';
-import { PullToRefresh } from './PullToRefresh';
+import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
@@ -94,8 +93,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const [layout, setLayout] = useState(defaultLayout);
 
   const [data, setData] = useState(initialData);
-  const [loading, setLoading] = useState(false);
-  const [loadingSources, setLoadingSources] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -183,7 +180,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     setSolo(new Set());
     setCategorySolo(new Set());
     setSelectedEventId(undefined);
-    setLoadingSources(new Set());
     setRestoredSpaceCityId(cityId);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [restored, restoredSpaceCityId, cityId]);
@@ -224,16 +220,14 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
 
   const load = useCallback(
-    async (target: { from: string; to: string }, city: string, force = false) => {
+    async (target: { from: string; to: string }, city: string) => {
       const cacheKey = key(city, target);
-      if (!force && cache.current.has(cacheKey)) {
+      if (cache.current.has(cacheKey)) {
         setData(cache.current.get(cacheKey)!);
         return;
       }
-      setLoading(true);
       try {
         const params = new URLSearchParams({ from: target.from, to: target.to, city });
-        if (force) params.set('refresh', '1');
         const res = await fetch(`/api/events?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const next = (await res.json()) as AggregateResult;
@@ -241,8 +235,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         setData(next);
       } catch (error) {
         console.error('[calendar] Laden fehlgeschlagen', error);
-      } finally {
-        setLoading(false);
       }
     },
     [],
@@ -251,40 +243,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   useEffect(() => {
     void load(range, cityId);
   }, [range, cityId, load]);
-
-  const reloadSource = useCallback(
-    async (sourceId: string) => {
-      setLoadingSources((current) => new Set(current).add(sourceId));
-      try {
-        const params = new URLSearchParams({
-          from: range.from,
-          to: range.to,
-          city: cityId,
-          sources: sourceId,
-          refresh: '1',
-          retry: 'source',
-        });
-        const res = await fetch(`/api/events?${params}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const next = (await res.json()) as AggregateResult;
-
-        setData((current) => {
-          const merged = mergeSourceResult(current, next);
-          cache.current.set(key(cityId, range), merged);
-          return merged;
-        });
-      } catch (error) {
-        console.error(`[calendar] Quelle "${sourceId}" neu laden fehlgeschlagen`, error);
-      } finally {
-        setLoadingSources((current) => {
-          const next = new Set(current);
-          next.delete(sourceId);
-          return next;
-        });
-      }
-    },
-    [cityId, range],
-  );
 
   /* ------------------------------ Filtern ------------------------------- */
 
@@ -326,7 +284,16 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         return false;
       if (availableOnly && !['available', 'limited'].includes(event.availability)) return false;
       if (!needle) return true;
-      return [event.title, event.subtitle, event.description, event.venue.name, event.category]
+      // Auch der Wortlaut der Quelle ist durchsuchbar: wer "Live Music" tippt,
+      // soll das Konzert finden, das im Kalender "Konzert" heisst.
+      return [
+        event.title,
+        event.subtitle,
+        event.description,
+        event.venue.name,
+        event.category,
+        event.categoryLabel,
+      ]
         .filter(Boolean)
         .some((field) => field!.toLocaleLowerCase(settings.locale).includes(needle));
     });
@@ -383,13 +350,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     [anchor, view, coverage, canStep, steppedAnchor],
   );
 
-  const goToday = useCallback(() => {
-    const now = format.today();
-    setAnchor(now);
-    setSelectedDay(now);
-    setSelectedEventId(undefined);
-    setCalendarFocusKey((current) => current + 1);
-  }, [format]);
+  /** Sprung auf heute, morgen oder übermorgen. */
+  const goToDay = useCallback(
+    (offset: number) => {
+      const target = clampDay(addDays(format.today(), offset), coverage);
+      setAnchor(target);
+      setSelectedDay(target);
+      setSelectedEventId(undefined);
+      setCalendarFocusKey((current) => current + 1);
+    },
+    [format, coverage],
+  );
+
+  const goToday = useCallback(() => goToDay(0), [goToDay]);
 
   const selectDay = useCallback(
     (day: string) => {
@@ -430,8 +403,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     },
     [events, selectEvent, format, coverage],
   );
-
-  const refresh = useCallback(() => load(range, cityId, true), [load, range, cityId]);
 
   /* -------------------------- Tastatur und Menü -------------------------- */
 
@@ -590,7 +561,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         case 'd': case 'D': setView('day'); break;
         case 'w': case 'W': setView('week'); break;
         case 'm': case 'M': setView('month'); break;
-        case 'r': case 'R': void refresh(); break;
         case 'o': case 'O':
           if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
           break;
@@ -602,7 +572,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, stepEvent, goToday, refresh, focusSearch, dismiss, menu, shortcutsOpen, selectedEvent]);
+  }, [step, stepEvent, goToday, focusSearch, dismiss, menu, shortcutsOpen, selectedEvent]);
 
   /**
    * Ein einziger Zuhörer für alle Ansichten: das Menü hängt am Termin im DOM
@@ -715,8 +685,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           return same || ids.length === 0 ? new Set() : new Set(ids);
         })
       }
-      reloadingSources={loadingSources}
-      onReloadSource={reloadSource}
       categories={categories}
       enabledCategories={enabledCategories}
       onToggleCategory={(name) => {
@@ -750,12 +718,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   );
 
   return (
-    <PullToRefresh disabled={filtersOpen || sheetOpen} refreshing={loading} onRefresh={refresh}>
-      <div className="flex h-full flex-col overflow-hidden" onContextMenu={openMenu}>
+    <div className="flex h-full flex-col overflow-hidden" onContextMenu={openMenu}>
         <Toolbar
           view={view}
           anchor={anchor}
-          loading={loading}
           cityId={cityId}
           onCityChange={(id) => update({ cityId: id, citySelection: 'manual' })}
           onViewChange={setView}
@@ -763,7 +729,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           canStepBack={!restored || canStep(-1)}
           canStepForward={!restored || canStep(1)}
           onToday={goToday}
-          onRefresh={() => void refresh()}
+          onJumpDay={goToDay}
+          selectedDay={selectedDay}
           onOpenFilters={() => setFiltersOpen(true)}
           activeFilterCount={
             disabled.size +
@@ -809,6 +776,11 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
           {/* Kalender */}
           <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {/* Mobile: die Suche steht über dem Kalender statt in den Filtern. */}
+            <div className="shrink-0 px-3 py-2 hairline-b lg:hidden">
+              <SearchField query={query} onQueryChange={setQuery} />
+            </div>
+
             {view !== 'month' && (
               <HorizontalCalendar
                 key={calendarFocusKey}
@@ -990,8 +962,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       )}
 
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-      </div>
-    </PullToRefresh>
+    </div>
   );
 }
 
@@ -1066,19 +1037,4 @@ function stringList(value: unknown): string[] {
 
 function isViewMode(value: unknown): value is ViewMode {
   return value === 'day' || value === 'week' || value === 'month';
-}
-
-function mergeSourceResult(current: AggregateResult, next: AggregateResult): AggregateResult {
-  const sourceIds = new Set(next.sources.map((source) => source.sourceId));
-  const statuses = new Map(current.sources.map((source) => [source.sourceId, source]));
-  for (const source of next.sources) statuses.set(source.sourceId, source);
-
-  return {
-    definitions: current.definitions,
-    sources: current.sources.map((source) => statuses.get(source.sourceId) ?? source),
-    events: dedupeEvents([
-      ...current.events.filter((event) => !sourceIds.has(event.sourceId)),
-      ...next.events,
-    ]).sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title, 'de')),
-  };
 }

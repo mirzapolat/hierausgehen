@@ -17,6 +17,12 @@ Tailwind v4. Aufbau und Hintergründe stehen in `README.md`.
   gespeicherte Antwort in `__fixtures__/` getestet (`npm test`).
 - **Keine erfundenen Daten.** Fehlt eine Angabe, bleibt das Feld leer bzw.
   `unknown`. Fixtures nie von Hand umdatieren.
+- **Veranstaltungsarten sprechen eine Sprache.** Der Parser übernimmt den
+  Wortlaut der Quelle; `src/lib/events/categories.ts` bildet ihn auf den
+  gemeinsamen Wortschatz ab („Musik", „Live Music" → „Konzert"), der Wortlaut
+  bleibt als `categoryLabel` erhalten. Unbekannte Arten gehen nicht verloren,
+  sie bleiben stehen — `npm run categories` zeigt sie, damit sie als Synonym
+  oder als neue Art eingeordnet werden.
 - **Sichtbare Datums- und Zeitformate** laufen über den `Formatter` aus
   `src/lib/format.ts` (Sprache, Zeitzone, 12/24 h). In `calendar.ts` steht nur
   reine Datumsrechnung auf ISO-Tagen. Neue sichtbare Texte gehören ins

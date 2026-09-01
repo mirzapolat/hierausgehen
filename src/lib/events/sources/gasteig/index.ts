@@ -62,7 +62,6 @@ export const gasteig: EventSource = {
     cityId: 'muenchen',
     group: 'Konzert',
     defaultCategory: 'Konzert',
-    color: '#9C7A22',
     homepage: BASE,
     enabledByDefault: true,
   },

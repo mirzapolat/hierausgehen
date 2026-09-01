@@ -17,7 +17,6 @@ import {
   writeCache,
 } from './cache.ts';
 import { dedupeEvents, normalizeSourceEvents } from './normalize.ts';
-import { mirrorEventsInRange, readMirror } from './mirror.ts';
 
 const DEFAULT_TTL = 30 * 60;
 /** Wie lange ein veralteter Cache noch besser ist als gar nichts. */
@@ -30,12 +29,6 @@ const MAX_STALE_SECONDS = 7 * 24 * 60 * 60;
 const SOURCE_DEADLINE_MS = Number(process.env.EVENT_SOURCE_DEADLINE_MS) || 12_000;
 /** Längste Pause des Sicherungsschalters für eine dauerhaft tote Quelle. */
 const MAX_BREAKER_PAUSE_MS = 30 * 60 * 1000;
-/**
- * Bis hierhin gilt ein Spiegel als tagesaktuell. Der Workflow läuft einmal
- * täglich; alles darüber heisst, dass er nicht durchgekommen ist, und wird als
- * `stale` ausgewiesen statt stillschweigend als frischer Stand.
- */
-const MIRROR_FRESH_MS = 26 * 60 * 60 * 1000;
 
 /**
  * Holt alle Quellen einer Stadt ein.
@@ -49,9 +42,6 @@ const MIRROR_FRESH_MS = 26 * 60 * 60 * 1000;
  *   Aufruf ohne Cache nicht ins Zeitlimit läuft.
  * - Eine kaputte Quelle leert den Kalender nie: Fehler werden pro Quelle
  *   isoliert und der Aufrufer erfährt über `sources`, wie aktuell was ist.
- * - **Für unerreichbare Quellen gibt es den Spiegel** (`mirror.ts`): eine
- *   anderswo erhobene Kopie, die einspringt, wenn dieser Server selbst nicht
- *   an die Seite kommt.
  */
 export async function aggregateEvents(
   range: FetchRange,
@@ -134,18 +124,16 @@ async function loadSource(
   // erst angefasst – sonst zahlte jeder erste Aufruf das volle Zeitlimit.
   if (paused && !force) {
     const unreachable = health.lastError ?? 'Quelle vorübergehend nicht erreichbar';
-    return (
-      (await fromMirror(source, range, unreachable)) ?? {
-        events: [],
-        status: {
-          sourceId: id,
-          status: 'error',
-          fetchedAt: new Date().toISOString(),
-          eventCount: 0,
-          error: unreachable,
-        },
-      }
-    );
+    return {
+      events: [],
+      status: {
+        sourceId: id,
+        status: 'error',
+        fetchedAt: new Date().toISOString(),
+        eventCount: 0,
+        error: unreachable,
+      },
+    };
   }
 
   try {
@@ -164,13 +152,8 @@ async function loadSource(
     console.error(`[aggregate] Quelle "${id}" fehlgeschlagen: ${message}`);
     await recordFailure(id, message, MAX_BREAKER_PAUSE_MS);
 
-    // Lieber leicht veraltete Daten als eine leere Ansicht. Es gewinnt, was
-    // zuletzt tatsächlich erhoben wurde – Spiegel oder eigener Cache.
-    const mirrored = await fromMirror(source, range, message);
-    const cachedIsNewer =
-      usable && (!mirrored || cached!.fetchedAt > mirrored.status.fetchedAt);
-
-    if (cachedIsNewer) {
+    // Lieber leicht veraltete Daten als eine leere Ansicht.
+    if (usable) {
       return {
         events: normalizeSourceEvents(cached!.value, source.definition),
         status: {
@@ -182,7 +165,6 @@ async function loadSource(
         },
       };
     }
-    if (mirrored) return mirrored;
 
     return {
       events: [],
@@ -195,41 +177,6 @@ async function loadSource(
       },
     };
   }
-}
-
-/**
- * Die anderswo erhobene Kopie einer Quelle, die dieser Server nicht erreicht.
- *
- * Der Spiegel ist ein echter Datenstand und wird deshalb als `ok` geführt –
- * mit dem Erhebungszeitpunkt des Runners, nicht dem von jetzt. Bleibt der
- * Workflow aus, altert er sichtbar und die Oberfläche zeigt `stale` samt dem
- * Grund, aus dem der Direktabruf scheitert.
- */
-async function fromMirror(
-  source: EventSource,
-  range: FetchRange,
-  reason: string,
-): Promise<{ events: CalendarEvent[]; status: SourceResult } | undefined> {
-  const id = source.definition.id;
-  const mirror = await readMirror(id);
-  if (!mirror) return undefined;
-
-  const events = normalizeSourceEvents(mirrorEventsInRange(mirror, range), source.definition);
-  const fresh = Date.now() - Date.parse(mirror.fetchedAt) < MIRROR_FRESH_MS;
-  console.warn(
-    `[aggregate] Quelle "${id}" nicht erreichbar (${reason}) – Spiegel vom ${mirror.fetchedAt} mit ${events.length} Terminen`,
-  );
-
-  return {
-    events,
-    status: {
-      sourceId: id,
-      status: fresh ? 'ok' : 'stale',
-      fetchedAt: mirror.fetchedAt,
-      eventCount: events.length,
-      error: fresh ? undefined : `Spiegel nicht aufgefrischt (${reason})`,
-    },
-  };
 }
 
 /**

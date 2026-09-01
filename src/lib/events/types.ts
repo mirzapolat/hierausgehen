@@ -6,6 +6,8 @@
  * einer konkreten Website.
  */
 
+import type { EventGroup } from './groups.ts';
+
 /** Ticketlage, so grob wie sie sich quellenübergreifend verlässlich abbilden lässt. */
 export type Availability =
   | 'available' // regulär buchbar
@@ -44,8 +46,17 @@ export interface CalendarEvent {
   subtitle?: string;
   /** Programm-/Kurzinfo-Text der Quelle. */
   description?: string;
-  /** Gattung der Quelle ("Oper", "Konzert", "Schauspiel", …). */
+  /**
+   * Veranstaltungsart, vereinheitlicht über `categories.ts` – der Wert, nach
+   * dem gefiltert und gruppiert wird.
+   */
   category?: string;
+  /**
+   * Wortlaut der Quelle, falls er von `category` abweicht ("Live Music",
+   * "Kinder & Familie / Show & Revue"). Rein informativ; nichts filtert
+   * danach, aber die Genauigkeit der Quelle geht so nicht verloren.
+   */
+  categoryLabel?: string;
 
   /** Beginn als ISO-8601 mit Offset, z. B. "2026-07-02T19:00:00+02:00". */
   start: string;
@@ -80,15 +91,14 @@ export interface SourceDefinition {
   name: string;
   /** Stadt, zu der die Quelle gehört (siehe `src/lib/cities.ts`). */
   cityId: string;
-  /** Gruppe/Ordner in der Sidebar, z. B. "Oper & Ballett". */
-  group: string;
+  /** Ordner in der Sidebar; er bestimmt zugleich die Farbe (siehe `groups.ts`). */
+  group: EventGroup;
   /**
    * Veranstaltungsart, falls einzelne Termine keine eigene Gattung liefern.
    * Adapter dürfen das Feld am Termin leer lassen; die Aggregation ergänzt es.
+   * Wird wie jede Angabe der Quelle über `categories.ts` vereinheitlicht.
    */
   defaultCategory?: string;
-  /** Farbe als CSS-Farbwert; identifiziert die Quelle im Kalender. */
-  color: string;
   /** Startseite der Quelle. */
   homepage: string;
   /**

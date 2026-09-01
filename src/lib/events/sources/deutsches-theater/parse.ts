@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
-import { clean, softenShouted } from '../../text.ts';
+import { clean, decodeEntities, softenShouted } from '../../text.ts';
 
 type Card = cheerio.Cheerio<never>;
 
@@ -193,9 +193,11 @@ function readFacts($: cheerio.CheerioAPI): Map<string, string> {
     const valueHtml = block.find('.fakten-vorstellung-rechts').first().html() ?? '';
     // Zeilenumbrüche bleiben erhalten: beim Vorstellungsbeginn steht je Zeile
     // eine eigene Regel ("Dienstag - Freitag: 19:30 Uhr").
-    const value = valueHtml
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]+>/g, ' ')
+    // Tags fallen per Regex, deshalb müssen die Entities hier von Hand
+    // aufgelöst werden – sonst steht "Kabarett &amp; Comedy" im Genre.
+    const value = decodeEntities(
+      valueHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' '),
+    )
       .split('\n')
       .map(clean)
       .filter(Boolean)

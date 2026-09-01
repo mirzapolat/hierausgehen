@@ -35,7 +35,6 @@ export const kammerspiele: EventSource = {
     cityId: 'muenchen',
     group: 'Theater',
     defaultCategory: 'Theater',
-    color: '#8E4C86',
     homepage: BASE,
     enabledByDefault: true,
   },

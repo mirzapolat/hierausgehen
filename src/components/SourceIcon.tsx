@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { groupColor } from '@/lib/events/groups';
 import type { SourceDefinition } from '@/lib/events/types';
 
 /**
@@ -15,7 +16,7 @@ export function SourceIcon({ source, size = 14 }: { source: SourceDefinition; si
       <span
         aria-hidden="true"
         className="shrink-0 rounded-full"
-        style={{ width: size - 6, height: size - 6, background: source.color, margin: 3 }}
+        style={{ width: size - 6, height: size - 6, background: groupColor(source.group), margin: 3 }}
       />
     );
   }

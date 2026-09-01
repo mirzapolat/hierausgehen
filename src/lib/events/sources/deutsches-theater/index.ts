@@ -37,7 +37,6 @@ export const deutschesTheater: EventSource = {
     cityId: 'muenchen',
     group: 'Theater',
     defaultCategory: 'Theater',
-    color: '#8A4F3D',
     homepage: `${BASE}/programm/`,
     enabledByDefault: true,
   },

@@ -38,7 +38,6 @@ export const kinomondsterne: EventSource = {
     cityId: 'muenchen',
     group: 'Kino',
     defaultCategory: 'Kino',
-    color: '#6E7B33',
     homepage: BASE,
     enabledByDefault: true,
   },
