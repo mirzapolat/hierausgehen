@@ -238,6 +238,7 @@ function WeekDayList({
           <li key={event.id} className="min-w-0 hairline-b">
             <button
               type="button"
+              data-event-id={event.id}
               onClick={() => onSelectEvent(event)}
               aria-current={selected}
               className={`block w-full min-w-0 overflow-hidden px-2 py-2 text-left transition-colors ${

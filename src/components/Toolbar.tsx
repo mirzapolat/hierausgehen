@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  Keyboard,
   PanelLeft,
   PanelRight,
   Refresh,
@@ -33,6 +34,7 @@ interface Props {
   detailCollapsed: boolean;
   onToggleSidebar: () => void;
   onToggleDetail: () => void;
+  onOpenShortcuts: () => void;
 }
 
 export function Toolbar({
@@ -53,6 +55,7 @@ export function Toolbar({
   detailCollapsed,
   onToggleSidebar,
   onToggleDetail,
+  onOpenShortcuts,
 }: Props) {
   const { format, t } = useSettings();
   const title = format.rangeLabel(view, anchor);
@@ -85,6 +88,7 @@ export function Toolbar({
       <button
         type="button"
         onClick={onToggleSidebar}
+        title={`${sidebarCollapsed ? t('expand') : t('collapse')} ([)`}
         aria-label={sidebarCollapsed ? t('expand') : t('collapse')}
         aria-pressed={!sidebarCollapsed}
         className={`hidden ${iconButton} lg:grid`}
@@ -103,6 +107,7 @@ export function Toolbar({
           onClick={() => onStep(-1)}
           disabled={!canStepBack}
           className={stepButton}
+          title={`${t('previous')} (←)`}
           aria-label={t('previous')}
         >
           <ChevronLeft />
@@ -112,6 +117,7 @@ export function Toolbar({
           onClick={() => onStep(1)}
           disabled={!canStepForward}
           className={stepButton}
+          title={`${t('next')} (→)`}
           aria-label={t('next')}
         >
           <ChevronRight />
@@ -121,7 +127,7 @@ export function Toolbar({
           <button
             type="button"
             onClick={onToday}
-            title={t('today')}
+            title={`${t('today')} (T)`}
             className="truncate rounded-[var(--radius-sm)] px-1 py-0.5 hover:bg-[var(--canvas)]"
           >
             <span className="sm:hidden">{mobileTitle}</span>
@@ -134,7 +140,7 @@ export function Toolbar({
         <button
           type="button"
           onClick={onRefresh}
-          title={t('reload')}
+          title={`${t('reload')} (R)`}
           aria-label={t('reload')}
           className={`hidden ${iconButton} sm:grid`}
         >
@@ -161,6 +167,7 @@ export function Toolbar({
               aria-selected={view === item.id}
               type="button"
               onClick={() => onViewChange(item.id)}
+              title={`${item.label} (${item.short})`}
               className={`h-[22px] rounded-[3px] px-2 text-[12px] transition-colors ${
                 view === item.id
                   ? 'bg-[var(--canvas)] text-text shadow-[0_0_0_1px_var(--line)]'
@@ -176,11 +183,22 @@ export function Toolbar({
         <button
           type="button"
           onClick={onToggleDetail}
+          title={`${detailCollapsed ? t('expand') : t('collapse')} (])`}
           aria-label={detailCollapsed ? t('expand') : t('collapse')}
           aria-pressed={!detailCollapsed}
           className={`hidden ${iconButton} lg:grid`}
         >
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenShortcuts}
+          title={`${t('shortcuts')} (?)`}
+          aria-label={t('shortcuts')}
+          className={`hidden ${iconButton} lg:grid`}
+        >
+          <Keyboard />
         </button>
 
         <Link href="/settings" aria-label={t('settings')} title={t('settings')} className={iconButton}>

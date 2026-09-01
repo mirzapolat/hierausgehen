@@ -13,17 +13,24 @@ import {
   loadRange,
 } from '@/lib/calendar';
 import { isKnownCityId } from '@/lib/cities';
+import { sourceColor, sourceName } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
+import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { AgendaList } from './AgendaList';
+import { ContextMenu, type MenuItem } from './ContextMenu';
 import { DetailPanel } from './DetailPanel';
 import { HorizontalCalendar } from './HorizontalCalendar';
 import { MonthScrollView } from './MonthScrollView';
 import { MonthView } from './MonthView';
 import { PullToRefresh } from './PullToRefresh';
 import { ResizeHandle } from './ResizeHandle';
+import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
 import { Toolbar } from './Toolbar';
-import { Close } from './icons';
+import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
+
+/** Dauer der Spalten- und Overlay-Bewegungen; identisch zu den Klassen unten. */
+const MOTION_MS = 200;
 
 interface Props {
   initialData: AggregateResult;
@@ -90,6 +97,16 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const [loadingSources, setLoadingSources] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  /** Offenes Kontextmenü samt Zeigerposition; `null` heisst geschlossen. */
+  const [menu, setMenu] = useState<{ x: number; y: number; event: CalendarEvent } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  /** Während des Ziehens folgt die Spalte sofort statt animiert. */
+  const [resizing, setResizing] = useState(false);
+  /** Zähler: jede Erhöhung rollt die weiteren Termine im Detail ins Bild. */
+  const [revealPerformances, setRevealPerformances] = useState(0);
+  /** Zähler: jede Erhöhung holt die Auswahl in den sichtbaren Bereich. */
+  const [revealSelection, setRevealSelection] = useState(0);
 
   const cityId = settings.cityId;
   const cache = useRef(new Map<string, AggregateResult>([[key(initialCityId, initialRange), initialData]]));
@@ -413,32 +430,247 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     [events, selectEvent, format, coverage],
   );
 
-  // Tastatur: Pfeile blättern, t = heute, d/w/m = Ansicht.
+  const refresh = useCallback(() => load(range, cityId, true), [load, range, cityId]);
+
+  /* -------------------------- Tastatur und Menü -------------------------- */
+
+  /**
+   * Die gefilterten Termine in Anzeigereihenfolge – die Kette, an der sich
+   * Pfeil hoch und runter entlanghangeln, über Tagesgrenzen hinweg.
+   */
+  const ordered = useMemo(
+    () =>
+      [...events].sort(
+        (a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title, settings.locale),
+      ),
+    [events, settings.locale],
+  );
+
+  const stepEvent = useCallback(
+    (direction: -1 | 1) => {
+      if (ordered.length === 0) return;
+      const index = ordered.findIndex((event) => event.id === selectedEventId);
+
+      // Ohne Auswahl beim gewählten Tag einsteigen statt am Anfang des Zeitraums.
+      if (index === -1) {
+        const atDay = ordered.findIndex((event) => format.localDay(event.start) >= selectedDay);
+        selectEvent(ordered[atDay === -1 ? ordered.length - 1 : atDay]);
+      } else {
+        const next = index + direction;
+        if (next < 0 || next >= ordered.length) return;
+        selectEvent(ordered[next]);
+      }
+      setRevealSelection((current) => current + 1);
+    },
+    [ordered, selectedEventId, selectedDay, selectEvent, format],
+  );
+
+  // Eine mit der Tastatur gewählte Veranstaltung muss auch zu sehen sein.
+  useEffect(() => {
+    if (!revealSelection || !selectedEventId) return;
+    const frame = requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-event-id="${CSS.escape(selectedEventId)}"]`)
+        ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [revealSelection, selectedEventId]);
+
+  /** Suchfeld fokussieren – notfalls erst die Filterspalte dafür einblenden. */
+  const focusSearch = useCallback(() => {
+    const focus = () => {
+      const input = [...document.querySelectorAll<HTMLInputElement>('[data-search-input]')]
+        // Eine eingeklappte Spalte ist null Pixel breit; dort wird nicht gesucht.
+        .find((candidate) => candidate.getBoundingClientRect().width > 0);
+      input?.focus();
+      input?.select();
+      return !!input;
+    };
+    if (focus()) return;
+    if (window.matchMedia('(min-width: 1024px)').matches) {
+      setLayout((current) => ({ ...current, sidebarCollapsed: false }));
+    } else {
+      setFiltersOpen(true);
+    }
+    setTimeout(focus, MOTION_MS + 20);
+  }, []);
+
+  const eventLink = useCallback(
+    (event: CalendarEvent) => {
+      const params = new URLSearchParams({
+        city: cityId,
+        view,
+        date: clampDay(format.localDay(event.start), coverage),
+        event: event.id,
+      });
+      return `${window.location.origin}${window.location.pathname}?${params}`;
+    },
+    [cityId, view, format, coverage],
+  );
+
+  const copyLink = useCallback(
+    async (event: CalendarEvent) => {
+      const url = eventLink(event);
+      try {
+        await navigator.clipboard.writeText(url);
+        setLinkCopied(true);
+        return;
+      } catch {
+        // Ohne Zwischenablage (unsicherer Kontext, verweigerte Freigabe) bleibt
+        // das Teilen-Menü des Geräts.
+      }
+      try {
+        await navigator.share?.({ url });
+      } catch {
+        // Abgebrochenes Teilen ist kein Fehler.
+      }
+    },
+    [eventLink],
+  );
+
+  /** Alles zumachen, was sich über etwas anderes gelegt hat. */
+  const dismiss = useCallback(() => {
+    setMenu(null);
+    setShortcutsOpen(false);
+    setFiltersOpen(false);
+    setSheetOpen(false);
+  }, []);
+
+  // Tastatur: Pfeile blättern und wählen, Buchstaben schalten Ansicht und
+  // Spalten. Kürzel bleiben absichtlich einzeln und ohne Modifikator – sie
+  // sollen im Kalender liegen, nicht mit denen des Browsers streiten.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-      if (e.key === 'ArrowLeft') step(-1);
-      else if (e.key === 'ArrowRight') step(1);
-      else if (e.key === 't') goToday();
-      else if (e.key === 'd') setView('day');
-      else if (e.key === 'w') setView('week');
-      else if (e.key === 'm') setView('month');
-      else if (e.key === 'Escape') {
-        setFiltersOpen(false);
-        setSheetOpen(false);
+      const target = e.target as HTMLElement | null;
+      const typing =
+        !!target &&
+        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+
+      // Escape wirkt überall, auch aus dem Suchfeld heraus.
+      if (e.key === 'Escape') {
+        if (typing) target.blur();
+        dismiss();
         setSelectedEventId(undefined);
         setSolo(new Set());
         setCategorySolo(new Set());
-      } else return;
+        e.preventDefault();
+        return;
+      }
+      // Ein offenes Menü führt seine Tastatur selbst; die Kürzelübersicht lässt
+      // nur das Kürzel durch, das sie wieder zumacht.
+      if (typing || menu) return;
+      if (shortcutsOpen && e.key !== '?') return;
+
+      switch (e.key) {
+        case 'ArrowLeft': step(-1); break;
+        case 'ArrowRight': step(1); break;
+        case 'ArrowUp': stepEvent(-1); break;
+        case 'ArrowDown': stepEvent(1); break;
+        case 't': case 'T': goToday(); break;
+        case 'd': case 'D': setView('day'); break;
+        case 'w': case 'W': setView('week'); break;
+        case 'm': case 'M': setView('month'); break;
+        case 'r': case 'R': void refresh(); break;
+        case 'o': case 'O':
+          if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
+          break;
+        case '[':
+          setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }));
+          break;
+        case ']':
+          setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
+          break;
+        case '/': focusSearch(); break;
+        case '?': setShortcutsOpen((open) => !open); break;
+        default: return;
+      }
       e.preventDefault();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, goToday]);
+  }, [step, stepEvent, goToday, refresh, focusSearch, dismiss, menu, shortcutsOpen, selectedEvent]);
 
-  const refresh = useCallback(() => load(range, cityId, true), [load, range, cityId]);
+  /**
+   * Ein einziger Zuhörer für alle Ansichten: das Menü hängt am Termin im DOM
+   * (`data-event-id`), nicht an jeder Liste einzeln.
+   */
+  const openMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const element = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-event-id]');
+      const event = events.find((candidate) => candidate.id === element?.dataset.eventId);
+      if (!element || !event) return;
+      e.preventDefault();
+      setLinkCopied(false);
+      // Über die Tastatur ausgelöst liefern manche Browser keine Zeigerposition.
+      const rect = element.getBoundingClientRect();
+      const pointed = e.clientX !== 0 || e.clientY !== 0;
+      setMenu({ x: pointed ? e.clientX : rect.left, y: pointed ? e.clientY : rect.bottom, event });
+    },
+    [events],
+  );
+
+  const menuItems = useMemo<MenuItem[]>(() => {
+    const event = menu?.event;
+    if (!event) return [];
+    return [
+      {
+        key: 'link',
+        label: linkCopied ? t('menuLinkCopied') : t('menuCopyLink'),
+        icon: linkCopied ? <Check className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />,
+        keepOpen: true,
+        onSelect: () => void copyLink(event),
+      },
+      {
+        key: 'site',
+        label: t('toEvent'),
+        icon: <External className="h-3.5 w-3.5" />,
+        onSelect: () => window.open(event.url, '_blank', 'noopener,noreferrer'),
+      },
+      {
+        key: 'related',
+        label: t('menuRelated'),
+        icon: <Calendar className="h-3.5 w-3.5" />,
+        disabled: !event.relatedPerformances?.length,
+        onSelect: () => {
+          selectEvent(event);
+          setRevealPerformances((current) => current + 1);
+        },
+      },
+      {
+        key: 'source',
+        label: t('menuOnlySource', { name: sourceName(data.definitions, event.sourceId) }),
+        icon: (
+          <span
+            className="h-[7px] w-[7px] rounded-full"
+            style={{ background: sourceColor(data.definitions, event.sourceId) }}
+          />
+        ),
+        onSelect: () => setSolo(new Set([event.sourceId])),
+      },
+      {
+        key: 'title',
+        label: t('menuOnlyTitle'),
+        icon: <Filter className="h-3.5 w-3.5" />,
+        onSelect: () => setQuery(event.title),
+      },
+    ];
+  }, [menu, linkCopied, copyLink, selectEvent, data.definitions, t]);
+
+  /* ------------------------------- Anzeige ------------------------------ */
+
+  const filterOverlay = useOverlayTransition(filtersOpen, MOTION_MS);
+  const sheet = useOverlayTransition(sheetOpen && !!selectedEvent, MOTION_MS);
+  // Beim Zumachen darf die Auswahl schon weg sein – das Sheet zeigt trotzdem
+  // bis zum Ende der Bewegung, was zuletzt darin stand.
+  const [sheetEvent, setSheetEvent] = useState<CalendarEvent>();
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (selectedEvent) setSheetEvent(selectedEvent);
+  }, [selectedEvent]);
+
+  /** Gleiche Kurve für alle Spalten- und Overlay-Bewegungen. */
+  const motion = 'duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]';
 
   const sidebar = (
     <Sidebar
@@ -506,7 +738,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   return (
     <PullToRefresh disabled={filtersOpen || sheetOpen} refreshing={loading} onRefresh={refresh}>
-      <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex h-full flex-col overflow-hidden" onContextMenu={openMenu}>
         <Toolbar
           view={view}
           anchor={anchor}
@@ -515,8 +747,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           onCityChange={(id) => update({ cityId: id, citySelection: 'manual' })}
           onViewChange={setView}
           onStep={step}
-          canStepBack={canStep(-1)}
-          canStepForward={canStep(1)}
+          canStepBack={!restored || canStep(-1)}
+          canStepForward={!restored || canStep(1)}
           onToday={goToday}
           onRefresh={() => void refresh()}
           onOpenFilters={() => setFiltersOpen(true)}
@@ -534,25 +766,32 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }))
           }
           onToggleDetail={() => setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }))}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
         <div className="flex min-h-0 flex-1">
-          {/* Filter – links, ab lg dauerhaft sichtbar und in der Breite verstellbar */}
+          {/* Filter – links, ab lg dauerhaft sichtbar und in der Breite verstellbar.
+              Zum Einklappen läuft die Breite auf null; der Inhalt behält seine
+              eigene und wird beschnitten, statt sich dabei zu stauchen. */}
+          <aside
+            className={`hidden min-h-0 shrink-0 overflow-hidden bg-[var(--chrome)] lg:block
+                        ${layout.sidebarCollapsed ? '' : 'hairline-r'}
+                        ${resizing ? '' : `transition-[width] ${motion}`}`}
+            style={{ width: layout.sidebarCollapsed ? 0 : layout.sidebarWidth }}
+            inert={layout.sidebarCollapsed}
+          >
+            <div className="h-full" style={{ width: layout.sidebarWidth }}>
+              {sidebar}
+            </div>
+          </aside>
           {!layout.sidebarCollapsed && (
-            <>
-              <aside
-                className="hidden min-h-0 shrink-0 bg-[var(--chrome)] hairline-r lg:block"
-                style={{ width: layout.sidebarWidth }}
-              >
-                {sidebar}
-              </aside>
-              <ResizeHandle
-                side="left"
-                className="hidden lg:block"
-                width={layout.sidebarWidth}
-                onChange={(width) => setLayout((c) => ({ ...c, sidebarWidth: width }))}
-              />
-            </>
+            <ResizeHandle
+              side="left"
+              className="hidden lg:block"
+              width={layout.sidebarWidth}
+              onChange={(width) => setLayout((c) => ({ ...c, sidebarWidth: width }))}
+              onDragChange={setResizing}
+            />
           )}
 
           {/* Kalender */}
@@ -618,47 +857,55 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             )}
           </main>
 
-          {/* Details – rechts */}
+          {/* Details – rechts, mit derselben Bewegung wie die Filterspalte */}
           {!layout.detailCollapsed && (
-            <>
-              <ResizeHandle
-                side="right"
-                className="hidden lg:block"
-                width={layout.detailWidth}
-                min={260}
-                max={520}
-                onChange={(width) => setLayout((c) => ({ ...c, detailWidth: width }))}
-              />
-              <aside
-                className="hidden min-h-0 shrink-0 hairline-l lg:block"
-                style={{ width: layout.detailWidth }}
-              >
-                <DetailPanel
-                  day={selectedDay}
-                  dayEvents={dayEvents}
-                  event={selectedEvent}
-                  definitions={data.definitions}
-                  onSelectEvent={selectEvent}
-                  onSelectPerformance={selectPerformance}
-                  onBackToDay={() => setSelectedEventId(undefined)}
-                />
-              </aside>
-            </>
+            <ResizeHandle
+              side="right"
+              className="hidden lg:block"
+              width={layout.detailWidth}
+              min={260}
+              max={520}
+              onChange={(width) => setLayout((c) => ({ ...c, detailWidth: width }))}
+              onDragChange={setResizing}
+            />
           )}
+          <aside
+            className={`hidden min-h-0 shrink-0 overflow-hidden lg:block
+                        ${layout.detailCollapsed ? '' : 'hairline-l'}
+                        ${resizing ? '' : `transition-[width] ${motion}`}`}
+            style={{ width: layout.detailCollapsed ? 0 : layout.detailWidth }}
+            inert={layout.detailCollapsed}
+          >
+            <div className="h-full" style={{ width: layout.detailWidth }}>
+              <DetailPanel
+                day={selectedDay}
+                dayEvents={dayEvents}
+                event={selectedEvent}
+                definitions={data.definitions}
+                onSelectEvent={selectEvent}
+                onSelectPerformance={selectPerformance}
+                onBackToDay={() => setSelectedEventId(undefined)}
+                revealPerformances={revealPerformances}
+              />
+            </div>
+          </aside>
         </div>
 
-      {/* Mobile: Filter als Overlay */}
-      {filtersOpen && (
+      {/* Mobile: Filter als Overlay, das von links hereinfährt */}
+      {filterOverlay.mounted && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
             aria-label={t('closeFilters')}
             onClick={() => setFiltersOpen(false)}
-            className="absolute inset-0"
+            className={`absolute inset-0 transition-opacity ${motion}
+                        ${filterOverlay.shown ? 'opacity-100' : 'opacity-0'}`}
             style={{ background: 'var(--overlay)' }}
           />
           <div
-            className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-[var(--chrome)]"
+            className={`absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-[var(--chrome)]
+                        transition-transform ${motion}
+                        ${filterOverlay.shown ? 'translate-x-0' : '-translate-x-full'}`}
             style={{ boxShadow: 'var(--shadow-overlay)' }}
           >
             <div className="flex h-12 shrink-0 items-center justify-between px-4 hairline-b">
@@ -677,19 +924,22 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         </div>
       )}
 
-      {/* Mobile: Detail als Sheet */}
-      {sheetOpen && selectedEvent && (
+      {/* Mobile: Detail als Sheet, das von unten aufsteigt */}
+      {sheet.mounted && sheetEvent && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
             aria-label={t('close')}
             onClick={() => setSheetOpen(false)}
-            className="absolute inset-0"
+            className={`absolute inset-0 transition-opacity ${motion}
+                        ${sheet.shown ? 'opacity-100' : 'opacity-0'}`}
             style={{ background: 'var(--overlay)' }}
           />
           <div
-            className="absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
-                       rounded-t-[var(--radius-sheet)] bg-[var(--chrome)]"
+            className={`absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
+                        rounded-t-[var(--radius-sheet)] bg-[var(--chrome)]
+                        transition-transform ${motion}
+                        ${sheet.shown ? 'translate-y-0' : 'translate-y-full'}`}
             style={{
               boxShadow: 'var(--shadow-overlay)',
               height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
@@ -700,7 +950,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
               <DetailPanel
                 day={selectedDay}
                 dayEvents={dayEvents}
-                event={selectedEvent}
+                event={sheetEvent}
                 definitions={data.definitions}
                 onSelectEvent={selectEvent}
                 onSelectPerformance={selectPerformance}
@@ -709,11 +959,24 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   setSheetOpen(false);
                 }}
                 onClose={() => setSheetOpen(false)}
+                revealPerformances={revealPerformances}
               />
             </div>
           </div>
         </div>
       )}
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menuItems}
+          label={t('eventOptions')}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       </div>
     </PullToRefresh>
   );

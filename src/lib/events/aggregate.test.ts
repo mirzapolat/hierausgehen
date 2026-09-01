@@ -1,13 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 
 // Kein Cache auf Platte und eine kurze Frist – sonst dauern die Tests so lange
 // wie im Betrieb. Muss vor dem Import der Module gesetzt sein.
 process.env.EVENT_CACHE_DISK = '0';
 process.env.EVENT_SOURCE_DEADLINE_MS = '300';
+// Der Spiegel liegt im Betrieb als Bind-Mount im Container; für den Test
+// genügt ein eigenes Verzeichnis, das kein echtes überschreibt.
+process.env.EVENT_MIRROR_DIR = await mkdtemp(path.join(tmpdir(), 'hierausgehen-mirror-'));
 
 const { aggregateEvents } = await import('./aggregate.ts');
 const { writeCache } = await import('./cache.ts');
+const { mirrorPath } = await import('./mirror.ts');
 import type { CalendarEvent, EventFetchOptions, EventSource } from './types.ts';
 
 const RANGE = { from: '2026-10-01', to: '2026-10-31' };
@@ -265,4 +272,104 @@ test('reicht längere Fristen an explizite Quellenabrufe weiter', async () => {
   });
 
   assert.deepEqual(received, { deadlineMs: 1_000, requestTimeoutMs: 900 });
+});
+
+/* --------------------------------- Spiegel -------------------------------- */
+
+/**
+ * Für eine Quelle, deren Server die Adresse dieses Rechners blockiert, erhebt
+ * ein GitHub-Runner die Termine und legt sie als Spiegel ab. Die Aggregation
+ * muss daraus einen vollwertigen Datenstand machen – sonst hilft der Spiegel
+ * nichts.
+ */
+async function writeMirror(
+  sourceId: string,
+  events: CalendarEvent[],
+  fetchedAt = new Date().toISOString(),
+): Promise<void> {
+  await writeFile(
+    mirrorPath(sourceId),
+    JSON.stringify({ sourceId, range: RANGE, fetchedAt, events }),
+    'utf8',
+  );
+}
+
+test('eine blockierte Quelle wird aus dem Spiegel bedient', async () => {
+  const source = hangingSource(`mirror-${counter++}`);
+  const id = source.definition.id;
+  await writeMirror(id, [sampleEvent(id, { title: 'Aus dem Spiegel' })]);
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
+
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].title, 'Aus dem Spiegel');
+  assert.equal(result.sources[0].status, 'ok', 'ein frischer Spiegel ist ein echter Stand');
+});
+
+test('ein alter Spiegel liefert Termine, gilt aber als veraltet', async () => {
+  const source = hangingSource(`mirror-old-${counter++}`);
+  const id = source.definition.id;
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  await writeMirror(id, [sampleEvent(id)], threeDaysAgo);
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
+
+  assert.equal(result.events.length, 1);
+  assert.equal(result.sources[0].status, 'stale');
+  assert.equal(result.sources[0].fetchedAt, threeDaysAgo, 'der Zeitpunkt der Erhebung zählt');
+});
+
+test('der Spiegel liefert nur Termine im abgefragten Zeitraum', async () => {
+  const source = hangingSource(`mirror-range-${counter++}`);
+  const id = source.definition.id;
+  await writeMirror(id, [
+    sampleEvent(id, { id: `${id}:innen`, start: '2026-10-10T19:00:00+02:00' }),
+    sampleEvent(id, { id: `${id}:aussen`, start: '2026-12-10T19:00:00+01:00' }),
+  ]);
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
+
+  assert.deepEqual(
+    result.events.map((event) => event.id),
+    [`${id}:innen`],
+  );
+});
+
+test('ein Spiegel mit fremder Quellen-ID wird verworfen', async () => {
+  const source = hangingSource(`mirror-fremd-${counter++}`);
+  const id = source.definition.id;
+  await writeFile(
+    mirrorPath(id),
+    JSON.stringify({
+      sourceId: 'andere-quelle',
+      range: RANGE,
+      fetchedAt: new Date().toISOString(),
+      events: [sampleEvent('andere-quelle')],
+    }),
+    'utf8',
+  );
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
+
+  assert.equal(result.events.length, 0, 'lieber keine Termine als falsch zugeordnete');
+  assert.equal(result.sources[0].status, 'error');
+});
+
+test('der eigene Cache gewinnt, wenn er jünger ist als der Spiegel', async () => {
+  const source = hangingSource(`mirror-cache-${counter++}`);
+  const id = source.definition.id;
+  const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await writeMirror(id, [sampleEvent(id, { title: 'Aus dem Spiegel' })], lastWeek);
+  // Abgelaufen, aber vorhin erhoben – und mit `force` fällt der Weg über den
+  // veralteten Cache oben weg, es entscheidet also wirklich der Zeitpunkt.
+  await writeCache(`${id}_${RANGE.from}_${RANGE.to}`, [sampleEvent(id)], -1);
+
+  const result = await aggregateEvents(RANGE, {
+    cityId: 'muenchen',
+    sources: [source],
+    force: true,
+  });
+
+  assert.equal(result.events[0].title, 'Aus dem Zwischenspeicher');
+  assert.equal(result.sources[0].status, 'stale');
 });

@@ -64,6 +64,7 @@ export function DayView({ day, events, definitions, selectedEventId, onSelectEve
                 <li key={event.id}>
                   <button
                     type="button"
+                    data-event-id={event.id}
                     onClick={() => onSelectEvent(event)}
                     aria-current={selected}
                     className={`flex w-full items-start gap-4 px-6 py-3.5 text-left transition-colors hairline-b

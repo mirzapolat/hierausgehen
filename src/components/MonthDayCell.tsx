@@ -92,6 +92,7 @@ export function MonthDayCell({
               <button
                 key={event.id}
                 type="button"
+                data-event-id={event.id}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectEvent(event);

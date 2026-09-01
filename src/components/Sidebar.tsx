@@ -76,6 +76,7 @@ export function Sidebar({
         <div className="relative">
           <input
             type="search"
+            data-search-input=""
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder={t('search')}

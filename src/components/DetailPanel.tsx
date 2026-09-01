@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import type { CalendarEvent, EventPerformance, SourceDefinition } from '@/lib/events/types';
 import { availabilityKeys, displayAvailability, sourceColor, sourceName } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
@@ -16,6 +17,11 @@ interface Props {
   onSelectPerformance: (performance: EventPerformance) => void;
   onBackToDay: () => void;
   onClose?: () => void;
+  /**
+   * Zähler statt Schalter: jede Erhöhung rollt die weiteren Termine ins Bild.
+   * Nur so lässt sich derselbe Wunsch zweimal hintereinander äussern.
+   */
+  revealPerformances?: number;
 }
 
 /**
@@ -31,6 +37,7 @@ export function DetailPanel({
   onSelectPerformance,
   onBackToDay,
   onClose,
+  revealPerformances = 0,
 }: Props) {
   const { format, t } = useSettings();
 
@@ -69,7 +76,12 @@ export function DetailPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
         {event ? (
-          <EventDetail event={event} definitions={definitions} onSelectPerformance={onSelectPerformance} />
+          <EventDetail
+            event={event}
+            definitions={definitions}
+            onSelectPerformance={onSelectPerformance}
+            revealPerformances={revealPerformances}
+          />
         ) : (
           <AgendaList
             events={dayEvents}
@@ -87,15 +99,23 @@ function EventDetail({
   event,
   definitions,
   onSelectPerformance,
+  revealPerformances,
 }: {
   event: CalendarEvent;
   definitions: SourceDefinition[];
   onSelectPerformance: (performance: EventPerformance) => void;
+  revealPerformances: number;
 }) {
   const { format, t } = useSettings();
   const color = sourceColor(definitions, event.sourceId);
   const day = event.start.slice(0, 10);
   const availability = displayAvailability(event);
+  const performances = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!revealPerformances) return;
+    performances.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [revealPerformances, event.id]);
 
   return (
     <article className="px-4 py-4">
@@ -143,7 +163,7 @@ function EventDetail({
       )}
 
       {event.relatedPerformances && event.relatedPerformances.length > 0 && (
-        <section className="mt-5 border-t border-line pt-3">
+        <section ref={performances} className="mt-5 border-t border-line pt-3">
           <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
             {t('otherPerformances')}
           </h4>
@@ -247,7 +267,6 @@ function PerformanceButton({
           <span className="truncate">{t(availabilityKeys[availability])}</span>
         </span>
       </span>
-      <span className="shrink-0 truncate text-faint">{performance.venue.name}</span>
     </button>
   );
 }

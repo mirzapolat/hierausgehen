@@ -11,6 +11,8 @@ interface Props {
   min?: number;
   max?: number;
   className?: string;
+  /** Meldet den Ziehvorgang – währenddessen darf die Spalte nicht animiert folgen. */
+  onDragChange?: (dragging: boolean) => void;
 }
 
 /**
@@ -24,6 +26,7 @@ export function ResizeHandle({
   min = 180,
   max = 480,
   className = '',
+  onDragChange,
 }: Props) {
   const { t } = useSettings();
   const dragging = useRef<{ startX: number; startWidth: number } | null>(null);
@@ -42,6 +45,7 @@ export function ResizeHandle({
       dragging.current = null;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      onDragChange?.(false);
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
@@ -49,7 +53,7 @@ export function ResizeHandle({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [clamp, onChange, side]);
+  }, [clamp, onChange, onDragChange, side]);
 
   return (
     <div
@@ -64,6 +68,7 @@ export function ResizeHandle({
         dragging.current = { startX: e.clientX, startWidth: width };
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
+        onDragChange?.(true);
       }}
       onDoubleClick={() => onChange(side === 'left' ? 228 : 336)}
       onKeyDown={(e) => {

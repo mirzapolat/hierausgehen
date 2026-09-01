@@ -1,0 +1,65 @@
+# Spiegel für Quellen, die der eigene Server nicht erreicht.
+#
+# Das Staatstheater am Gärtnerplatz liegt bei 1blu hinter einer Firewall, die
+# TCP von der Hetzner-Adresse des Servers verwirft (ICMP kommt an, Port 80 und
+# 443 laufen ins Leere). Von einem GitHub-Runner aus antwortet dieselbe Seite
+# normal. Der Lauf erhebt die Quelle also hier und legt das Ergebnis auf dem
+# Server ab, wo `src/lib/events/mirror.ts` es liest.
+#
+# Läuft vor der täglichen Erhebung der App (5 Uhr Ortszeit).
+
+name: Spiegel blockierter Quellen
+
+on:
+  schedule:
+    # 03:30 UTC – im Sommer 05:30, im Winter 04:30 Ortszeit. Der genaue
+    # Zeitpunkt ist unkritisch: die App greift zum Spiegel, wann immer sie die
+    # Quelle nicht erreicht, und nicht nur um 5 Uhr.
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+env:
+  APP_NAME: "hierausgehen"
+  # Quellen, die gespiegelt werden müssen. Erreicht der Server eine Quelle
+  # wieder selbst, kann sie hier ersatzlos raus.
+  MIRRORED_SOURCES: "gaertnerplatz"
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Collect Sources
+        run: npm run mirror -- ${{ env.MIRRORED_SOURCES }}
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Upload Mirror to VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "mkdir -p ~/docker/apps/${{ env.APP_NAME }}/.mirror"
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }}" \
+            ./.mirror/ \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker/apps/${{ env.APP_NAME }}/.mirror/

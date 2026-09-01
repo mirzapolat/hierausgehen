@@ -61,6 +61,15 @@ export const PanelLeft = (p: Props) => (
 export const PanelRight = (p: Props) => (
   <Svg {...p}><path d="M2.5 3h11v10h-11z" /><path d="M9.5 3v10" /></Svg>
 );
+export const Link = (p: Props) => (
+  <Svg {...p}><path d="M6.5 9.5a2.5 2.5 0 0 0 3.5 0l2-2a2.5 2.5 0 0 0-3.5-3.5l-.8.8" /><path d="M9.5 6.5a2.5 2.5 0 0 0-3.5 0l-2 2a2.5 2.5 0 0 0 3.5 3.5l.8-.8" /></Svg>
+);
+export const Calendar = (p: Props) => (
+  <Svg {...p}><path d="M2.5 4.5h11v9h-11z" /><path d="M2.5 7h11M5.5 2.5v3M10.5 2.5v3" /></Svg>
+);
+export const Keyboard = (p: Props) => (
+  <Svg {...p}><path d="M1.5 4.5h13v7h-13z" /><path d="M4 7v.01M6.5 7v.01M9 7v.01M11.5 7v.01M5 9.5h6" /></Svg>
+);
 export const Check = (p: Props) => <Svg {...p}><path d="m3 8.4 3.2 3.1L13 4.5" /></Svg>;
 export const MoreHorizontal = (p: Props) => (
   <Svg {...p}>

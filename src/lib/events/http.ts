@@ -169,7 +169,15 @@ interface Response {
   body: string;
 }
 
-/** Erst HTTP/2 mit Chrome-Profil; kann der Server das nicht, normaler fetch. */
+/**
+ * Erst HTTP/2 mit Chrome-Profil; kann der Server das nicht, normaler fetch.
+ *
+ * Das Zeitlimit gilt für beide Versuche zusammen. Sonst zahlte ein Host, der
+ * gar nicht antwortet – etwa weil er die Adresse dieses Servers auf TCP-Ebene
+ * verwirft – das volle Limit zweimal, und mit einem Wiederholungsversuch am
+ * Ende viermal. Eine Quelle liefe damit selbst bei grosszügiger Frist ins
+ * Zeitlimit, statt zügig aufzugeben.
+ */
 async function request(
   url: string,
   headers: Record<string, string>,
@@ -177,11 +185,15 @@ async function request(
   signal?: AbortSignal,
   body?: string,
 ): Promise<Response> {
+  const startedAt = Date.now();
   try {
     return await requestHttp2(url, headers, timeoutMs, signal, body);
   } catch (error) {
     if (error instanceof SourceHttpError || signal?.aborted) throw error;
-    return requestFetch(url, headers, timeoutMs, signal, body);
+    const remainingMs = timeoutMs - (Date.now() - startedAt);
+    // Nichts mehr übrig: der zweite Versuch wäre nur Wartezeit ohne Aussicht.
+    if (remainingMs < 500) throw error;
+    return requestFetch(url, headers, remainingMs, signal, body);
   }
 }
 

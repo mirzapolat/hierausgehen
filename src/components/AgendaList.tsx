@@ -30,6 +30,7 @@ export function AgendaList({ events, definitions, selectedId, onSelect, emptyLab
         <li key={event.id}>
           <button
             type="button"
+            data-event-id={event.id}
             onClick={() => onSelect(event)}
             aria-current={selectedId === event.id}
             className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hairline-b
