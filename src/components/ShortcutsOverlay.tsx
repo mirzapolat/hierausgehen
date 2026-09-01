@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import type { MessageKey } from '@/lib/i18n';
@@ -11,8 +12,19 @@ interface Props {
   onClose: () => void;
 }
 
+interface Row {
+  label: MessageKey;
+  /** Feste Beschriftung – für alles, was auf jedem Layout gleich heisst. */
+  keys?: string[];
+  /**
+   * Kürzel auf einer Taste, deren Zeichen vom Tastaturlayout abhängt. Die
+   * Beschriftung wird erst im Browser aufgelöst (siehe `@/lib/keyboard`).
+   */
+  layoutKey?: 'sidebar' | 'detail';
+}
+
 /** Gruppen genau in der Reihenfolge, in der man sie beim Arbeiten braucht. */
-const groups: { title: MessageKey; rows: { keys: string[]; label: MessageKey }[] }[] = [
+const groups: { title: MessageKey; rows: Row[] }[] = [
   {
     title: 'shortcutsNavigation',
     rows: [
@@ -34,8 +46,8 @@ const groups: { title: MessageKey; rows: { keys: string[]; label: MessageKey }[]
   {
     title: 'shortcutsLayout',
     rows: [
-      { keys: ['['], label: 'scSidebar' },
-      { keys: [']'], label: 'scDetail' },
+      { layoutKey: 'sidebar', label: 'scSidebar' },
+      { layoutKey: 'detail', label: 'scDetail' },
       { keys: ['/'], label: 'scSearch' },
       { keys: ['Esc'], label: 'scClear' },
       { keys: ['?'], label: 'scHelp' },
@@ -48,6 +60,13 @@ export function ShortcutsOverlay({ open, onClose }: Props) {
   const { t } = useSettings();
   const { mounted, shown } = useOverlayTransition(open, 160);
   const panel = useRef<HTMLDivElement>(null);
+
+  // Auf QWERTZ liegen die Spaltenkürzel auf „Ü“ und „+“ statt auf „[“ und
+  // „]“ – dieselbe Stelle der Tastatur, ein anderes Zeichen darauf.
+  const layoutKeys = {
+    sidebar: useKeyLabel(SIDEBAR_KEY),
+    detail: useKeyLabel(DETAIL_KEY),
+  };
 
   useEffect(() => {
     if (mounted) panel.current?.focus({ preventScroll: true });
@@ -102,7 +121,7 @@ export function ShortcutsOverlay({ open, onClose }: Props) {
                 {group.rows.map((row) => (
                   <div key={row.label} className="flex items-center gap-3 py-[3px]">
                     <dt className="flex shrink-0 gap-1">
-                      {row.keys.map((key) => (
+                      {(row.layoutKey ? [layoutKeys[row.layoutKey]] : (row.keys ?? [])).map((key) => (
                         <kbd
                           key={key}
                           className="grid h-[20px] min-w-[20px] place-items-center rounded-[var(--radius-xs)]

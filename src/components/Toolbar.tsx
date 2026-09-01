@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ViewMode } from '@/lib/calendar';
+import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
 import { CityPicker } from './CityPicker';
 import {
@@ -58,6 +59,9 @@ export function Toolbar({
   onOpenShortcuts,
 }: Props) {
   const { format, t } = useSettings();
+  // Auf QWERTZ heissen die Spaltenkürzel „Ü“ und „+“ statt „[“ und „]“.
+  const sidebarKey = useKeyLabel(SIDEBAR_KEY);
+  const detailKey = useKeyLabel(DETAIL_KEY);
   const title = format.rangeLabel(view, anchor);
   const mobileTitle = view === 'month' ? format.monthYearShort(anchor) : title;
 
@@ -88,7 +92,7 @@ export function Toolbar({
       <button
         type="button"
         onClick={onToggleSidebar}
-        title={`${sidebarCollapsed ? t('expand') : t('collapse')} ([)`}
+        title={`${sidebarCollapsed ? t('expand') : t('collapse')} (${sidebarKey})`}
         aria-label={sidebarCollapsed ? t('expand') : t('collapse')}
         aria-pressed={!sidebarCollapsed}
         className={`hidden ${iconButton} lg:grid`}
@@ -183,7 +187,7 @@ export function Toolbar({
         <button
           type="button"
           onClick={onToggleDetail}
-          title={`${detailCollapsed ? t('expand') : t('collapse')} (])`}
+          title={`${detailCollapsed ? t('expand') : t('collapse')} (${detailKey})`}
           aria-label={detailCollapsed ? t('expand') : t('collapse')}
           aria-pressed={!detailCollapsed}
           className={`hidden ${iconButton} lg:grid`}

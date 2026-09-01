@@ -13,6 +13,7 @@ import {
   loadRange,
 } from '@/lib/calendar';
 import { isKnownCityId } from '@/lib/cities';
+import { DETAIL_KEY, SIDEBAR_KEY, matchesKey } from '@/lib/keyboard';
 import { sourceColor, sourceName } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
@@ -539,16 +540,21 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   // Tastatur: Pfeile blättern und wählen, Buchstaben schalten Ansicht und
   // Spalten. Kürzel bleiben absichtlich einzeln und ohne Modifikator – sie
   // sollen im Kalender liegen, nicht mit denen des Browsers streiten.
+  //
+  // Buchstaben und `/` `?` liefert `key` auf jedem Layout richtig. Die beiden
+  // Spaltenkürzel liegen dagegen auf einer Taste, deren Zeichen vom Layout
+  // abhängt – die laufen über `matchesKey` und werden vor der
+  // Modifikatorsperre geprüft, weil AltGr unter Windows als Strg+Alt ankommt.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
       const typing =
         !!target &&
         (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
 
-      // Escape wirkt überall, auch aus dem Suchfeld heraus.
-      if (e.key === 'Escape') {
+      // Escape wirkt überall, auch aus dem Suchfeld heraus – aber nur für
+      // sich allein, damit Tastenfolgen des Systems unberührt bleiben.
+      if (e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (typing) target.blur();
         dismiss();
         setSelectedEventId(undefined);
@@ -562,6 +568,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       if (typing || menu) return;
       if (shortcutsOpen && e.key !== '?') return;
 
+      if (matchesKey(e, SIDEBAR_KEY)) {
+        setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }));
+        e.preventDefault();
+        return;
+      }
+      if (matchesKey(e, DETAIL_KEY)) {
+        setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
+        e.preventDefault();
+        return;
+      }
+
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
       switch (e.key) {
         case 'ArrowLeft': step(-1); break;
         case 'ArrowRight': step(1); break;
@@ -574,12 +593,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         case 'r': case 'R': void refresh(); break;
         case 'o': case 'O':
           if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
-          break;
-        case '[':
-          setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }));
-          break;
-        case ']':
-          setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
           break;
         case '/': focusSearch(); break;
         case '?': setShortcutsOpen((open) => !open); break;
