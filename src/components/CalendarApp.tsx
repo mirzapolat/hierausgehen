@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AggregateResult, CalendarEvent } from '@/lib/events/types';
+import type { AggregateResult, CalendarEvent, EventPerformance } from '@/lib/events/types';
 import { dedupeEvents } from '@/lib/events/normalize';
 import {
   type ViewMode,
@@ -12,6 +12,7 @@ import {
   isSameMonth,
   loadRange,
 } from '@/lib/calendar';
+import { isKnownCityId } from '@/lib/cities';
 import { useSettings } from '@/lib/settings/context';
 import { AgendaList } from './AgendaList';
 import { DetailPanel } from './DetailPanel';
@@ -33,26 +34,35 @@ interface Props {
 
 const LAYOUT_STORAGE_KEY = 'hierausgehen.layout.v1';
 
-interface LayoutPrefs {
-  view: ViewMode;
+interface CitySpacePrefs {
   disabledSources: string[];
   availableOnly: boolean;
   disabledCategories: string[];
+}
+
+interface LayoutPrefs {
+  view: ViewMode;
   sidebarWidth: number;
   detailWidth: number;
   sidebarCollapsed: boolean;
   detailCollapsed: boolean;
+  /** Dauerhafte Filter pro Stadt-Space. */
+  spaces: Record<string, CitySpacePrefs>;
 }
 
-const defaultLayout: LayoutPrefs = {
-  view: 'month',
+const defaultSpacePrefs: CitySpacePrefs = {
   disabledSources: [],
   availableOnly: false,
   disabledCategories: [],
+};
+
+const defaultLayout: LayoutPrefs = {
+  view: 'month',
   sidebarWidth: 228,
   detailWidth: 336,
   sidebarCollapsed: false,
   detailCollapsed: false,
+  spaces: {},
 };
 
 export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
@@ -89,6 +99,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    * Durchlauf mit den Anfangswerten und würde den Deeplink überschreiben.
    */
   const [restored, setRestored] = useState(false);
+  const [restoredSpaceCityId, setRestoredSpaceCityId] = useState<string>();
 
   /* --------------------- Einstellungen und Deeplinks --------------------- */
 
@@ -98,17 +109,17 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    let stored: Partial<LayoutPrefs> = {};
-    try {
-      stored = JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) ?? '{}') as Partial<LayoutPrefs>;
-    } catch {
-      // Unlesbare Werte ignorieren.
-    }
+    const urlCity = params.get('city');
+    const startupCityId = urlCity && isKnownCityId(urlCity) ? urlCity : settings.cityId;
+    const stored = readLayoutPrefs(startupCityId);
+    const storedSpace = spacePrefs(stored, startupCityId);
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLayout({ ...defaultLayout, ...stored });
-    if (stored.disabledSources) setDisabled(new Set(stored.disabledSources));
-    if (typeof stored.availableOnly === 'boolean') setAvailableOnly(stored.availableOnly);
-    if (stored.disabledCategories) setDisabledCategories(new Set(stored.disabledCategories));
+    setLayout(stored);
+    setDisabled(new Set(storedSpace.disabledSources));
+    setAvailableOnly(storedSpace.availableOnly);
+    setDisabledCategories(new Set(storedSpace.disabledCategories));
+    setRestoredSpaceCityId(startupCityId);
 
     // Die URL hat Vorrang vor dem, was zuletzt lokal gemerkt wurde.
     const urlView = params.get('view');
@@ -125,8 +136,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     const urlEvent = params.get('event');
     if (urlEvent) setSelectedEventId(urlEvent);
 
-    const urlCity = params.get('city');
-    if (urlCity && urlCity !== settings.cityId) update({ cityId: urlCity });
+    if (urlCity && isKnownCityId(urlCity) && urlCity !== settings.cityId) update({ cityId: urlCity });
 
     setRestored(true);
     // Absichtlich nur beim Mounten – danach schreibt der Effekt unten zurück.
@@ -145,19 +155,44 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   useEffect(() => {
     if (!restored) return;
+    if (restoredSpaceCityId === cityId) return;
+
+    const storedSpace = spacePrefs(readLayoutPrefs(cityId), cityId);
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setDisabled(new Set(storedSpace.disabledSources));
+    setAvailableOnly(storedSpace.availableOnly);
+    setDisabledCategories(new Set(storedSpace.disabledCategories));
+    setSolo(new Set());
+    setCategorySolo(new Set());
+    setSelectedEventId(undefined);
+    setLoadingSources(new Set());
+    setRestoredSpaceCityId(cityId);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [restored, restoredSpaceCityId, cityId]);
+
+  useEffect(() => {
+    if (!restored || restoredSpaceCityId !== cityId) return;
     try {
+      const current = readLayoutPrefs(cityId);
       const prefs: LayoutPrefs = {
+        ...current,
         ...layout,
         view,
-        disabledSources: [...disabled],
-        availableOnly,
-        disabledCategories: [...disabledCategories],
+        spaces: {
+          ...current.spaces,
+          ...layout.spaces,
+          [cityId]: {
+            disabledSources: [...disabled],
+            availableOnly,
+            disabledCategories: [...disabledCategories],
+          },
+        },
       };
       localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(prefs));
     } catch {
       // Privater Modus – nicht kritisch.
     }
-  }, [restored, layout, view, disabled, availableOnly, disabledCategories]);
+  }, [restored, restoredSpaceCityId, cityId, layout, view, disabled, availableOnly, disabledCategories]);
 
   /* ------------------------------- Laden -------------------------------- */
 
@@ -165,7 +200,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    * Der Server erhebt zwölf Monate im Voraus; weiter kommt der Kalender nicht.
    * Alles, was den Anker verschiebt, geht durch `clampDay`.
    */
-  const coverage = useMemo(() => coverageRange(format.today()), [format]);
+  const coverageDay = restored ? format.today() : initialAnchor;
+  const coverage = useMemo(() => coverageRange(coverageDay), [coverageDay]);
 
   const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
 
@@ -359,6 +395,24 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     [format, coverage],
   );
 
+  const selectPerformance = useCallback(
+    (performance: EventPerformance) => {
+      const event = events.find((candidate) => candidate.id === performance.id);
+      if (event) {
+        selectEvent(event);
+        return;
+      }
+
+      const day = clampDay(format.localDay(performance.start), coverage);
+      setAnchor(day);
+      setSelectedDay(day);
+      setSelectedEventId(performance.id);
+      setSheetOpen(true);
+      setLayout((current) => ({ ...current, detailCollapsed: false }));
+    },
+    [events, selectEvent, format, coverage],
+  );
+
   // Tastatur: Pfeile blättern, t = heute, d/w/m = Ansicht.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -458,7 +512,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           anchor={anchor}
           loading={loading}
           cityId={cityId}
-          onCityChange={(id) => update({ cityId: id })}
+          onCityChange={(id) => update({ cityId: id, citySelection: 'manual' })}
           onViewChange={setView}
           onStep={step}
           canStepBack={canStep(-1)}
@@ -585,6 +639,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   event={selectedEvent}
                   definitions={data.definitions}
                   onSelectEvent={selectEvent}
+                  onSelectPerformance={selectPerformance}
                   onBackToDay={() => setSelectedEventId(undefined)}
                 />
               </aside>
@@ -648,6 +703,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 event={selectedEvent}
                 definitions={data.definitions}
                 onSelectEvent={selectEvent}
+                onSelectPerformance={selectPerformance}
                 onBackToDay={() => {
                   setSelectedEventId(undefined);
                   setSheetOpen(false);
@@ -665,6 +721,75 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
 function key(cityId: string, range: { from: string; to: string }): string {
   return `${cityId}_${range.from}_${range.to}`;
+}
+
+type StoredLayoutPrefs = Partial<Omit<LayoutPrefs, 'spaces'>> &
+  Partial<CitySpacePrefs> & {
+    spaces?: Record<string, Partial<CitySpacePrefs>>;
+  };
+
+function readLayoutPrefs(cityId: string): LayoutPrefs {
+  try {
+    return normalizeLayoutPrefs(
+      JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) ?? '{}') as StoredLayoutPrefs,
+      cityId,
+    );
+  } catch {
+    return defaultLayout;
+  }
+}
+
+function normalizeLayoutPrefs(stored: StoredLayoutPrefs, cityId: string): LayoutPrefs {
+  const spaces = Object.fromEntries(
+    Object.entries(stored.spaces ?? {}).map(([id, prefs]) => [id, normalizeSpacePrefs(prefs)]),
+  );
+
+  if (stored.disabledSources || stored.availableOnly !== undefined || stored.disabledCategories) {
+    spaces[cityId] = normalizeSpacePrefs({
+      ...spaces[cityId],
+      disabledSources: stored.disabledSources,
+      availableOnly: stored.availableOnly,
+      disabledCategories: stored.disabledCategories,
+    });
+  }
+
+  return {
+    ...defaultLayout,
+    view: isViewMode(stored.view) ? stored.view : defaultLayout.view,
+    sidebarWidth:
+      typeof stored.sidebarWidth === 'number' ? stored.sidebarWidth : defaultLayout.sidebarWidth,
+    detailWidth: typeof stored.detailWidth === 'number' ? stored.detailWidth : defaultLayout.detailWidth,
+    sidebarCollapsed:
+      typeof stored.sidebarCollapsed === 'boolean'
+        ? stored.sidebarCollapsed
+        : defaultLayout.sidebarCollapsed,
+    detailCollapsed:
+      typeof stored.detailCollapsed === 'boolean'
+        ? stored.detailCollapsed
+        : defaultLayout.detailCollapsed,
+    spaces,
+  };
+}
+
+function spacePrefs(layout: LayoutPrefs, cityId: string): CitySpacePrefs {
+  return normalizeSpacePrefs(layout.spaces[cityId]);
+}
+
+function normalizeSpacePrefs(prefs: Partial<CitySpacePrefs> | undefined): CitySpacePrefs {
+  return {
+    disabledSources: stringList(prefs?.disabledSources),
+    availableOnly:
+      typeof prefs?.availableOnly === 'boolean' ? prefs.availableOnly : defaultSpacePrefs.availableOnly,
+    disabledCategories: stringList(prefs?.disabledCategories),
+  };
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
+}
+
+function isViewMode(value: unknown): value is ViewMode {
+  return value === 'day' || value === 'week' || value === 'month';
 }
 
 function mergeSourceResult(current: AggregateResult, next: AggregateResult): AggregateResult {

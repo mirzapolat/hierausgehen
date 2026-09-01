@@ -1,4 +1,4 @@
-import type { CalendarEvent, SourceDefinition } from './types.ts';
+import type { CalendarEvent, EventPerformance, SourceDefinition } from './types.ts';
 import { clean } from './text.ts';
 
 /**
@@ -75,7 +75,7 @@ export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
     result.push(...kept);
   }
 
-  return result;
+  return withRelatedPerformances(result);
 }
 
 function isDuplicate(a: CalendarEvent, b: CalendarEvent): boolean {
@@ -107,6 +107,66 @@ function eventScore(event: CalendarEvent): number {
 
 function eventTitleKey(title: string): string {
   return comparable(title);
+}
+
+function withRelatedPerformances(events: CalendarEvent[]): CalendarEvent[] {
+  const buckets = new Map<string, CalendarEvent[]>();
+  for (const event of events) {
+    const key = performanceKey(event);
+    if (!key) continue;
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(event);
+    else buckets.set(key, [event]);
+  }
+
+  const relatedById = new Map<string, EventPerformance[]>();
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2) continue;
+    const sorted = [...bucket].sort(
+      (a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title, 'de'),
+    );
+    for (const event of sorted) {
+      relatedById.set(
+        event.id,
+        sorted.filter((other) => other.id !== event.id).map(performanceSummary),
+      );
+    }
+  }
+
+  return events.map((event) => {
+    const relatedPerformances = relatedById.get(event.id);
+    if (!relatedPerformances?.length) {
+      const single = { ...event };
+      delete single.relatedPerformances;
+      return single;
+    }
+    return { ...event, relatedPerformances };
+  });
+}
+
+function performanceSummary(event: CalendarEvent): EventPerformance {
+  return {
+    id: event.id,
+    start: event.start,
+    end: event.end,
+    allDay: event.allDay,
+    venue: event.venue,
+    availability: event.availability,
+    availabilityLabel: event.availabilityLabel,
+    ticketUrl: event.ticketUrl,
+    url: event.url,
+    icsUrl: event.icsUrl,
+  };
+}
+
+function performanceKey(event: CalendarEvent): string {
+  return [
+    event.sourceId,
+    comparable(event.title),
+    comparable(event.subtitle ?? ''),
+    comparable(event.venue.name),
+    comparable(event.venue.city ?? ''),
+  ].join('|');
 }
 
 function comparable(text: string): string {

@@ -3,7 +3,11 @@
 import Link from 'next/link';
 import { cityById, cities } from '@/lib/cities';
 import { locales } from '@/lib/i18n';
-import { useSettings, type ThemePreference } from '@/lib/settings/context';
+import {
+  useSettings,
+  type Settings,
+  type ThemePreference,
+} from '@/lib/settings/context';
 import { ChevronLeft } from './icons';
 
 /**
@@ -18,6 +22,10 @@ export function SettingsScreen() {
     { value: 'light', label: t('themeLight') },
     { value: 'dark', label: t('themeDark') },
     { value: 'system', label: t('themeSystem') },
+  ];
+  const citySelectionOptions: { value: Settings['citySelection']; label: string }[] = [
+    { value: 'automatic', label: t('citySelectionAutomatic') },
+    { value: 'manual', label: t('citySelectionManual') },
   ];
 
   return (
@@ -57,10 +65,17 @@ export function SettingsScreen() {
           </Section>
 
           <Section title={t('regional')}>
+            <Field label={t('citySelection')}>
+              <Segmented
+                value={settings.citySelection}
+                options={citySelectionOptions}
+                onChange={(value) => update({ citySelection: value })}
+              />
+            </Field>
             <Field label={t('city')}>
               <Select
                 value={settings.cityId}
-                onChange={(value) => update({ cityId: value })}
+                onChange={(value) => update({ cityId: value, citySelection: 'manual' })}
                 options={cities.map((c) => ({ value: c.id, label: c.name }))}
               />
             </Field>

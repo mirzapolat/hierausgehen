@@ -6,10 +6,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import { cityById } from '@/lib/cities';
+import { cityById, nearestCityId } from '@/lib/cities';
 import { type MessageKey, translate } from '@/lib/i18n';
 import { createFormatter, type Formatter } from '@/lib/format';
 import {
@@ -39,8 +40,32 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Server und erster Client-Durchlauf sehen die Standardwerte, danach zieht
   // der Store die gespeicherten nach – ohne Effekt und ohne Hydrationskonflikt.
   const settings = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const locationRequested = useRef(false);
 
   const update = useCallback((patch: Partial<Settings>) => writeSettings(patch), []);
+
+  useEffect(() => {
+    if (settings.citySelection !== 'automatic' || locationRequested.current) return;
+    if (!navigator.geolocation) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('city')) return;
+
+    locationRequested.current = true;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const cityId = nearestCityId({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+        update({ cityId });
+      },
+      (error) => {
+        console.info('[settings] Standort fuer Stadtauswahl nicht verfuegbar', error.message);
+      },
+      { enableHighAccuracy: false, maximumAge: 60 * 60 * 1000, timeout: 5000 },
+    );
+  }, [settings.citySelection, update]);
 
   const timeZone =
     settings.timeZone === 'auto' ? cityById(settings.cityId).timeZone : settings.timeZone;

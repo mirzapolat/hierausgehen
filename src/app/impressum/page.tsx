@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { ImprintScreen } from '@/components/ImprintScreen';
-import { sourceDefinitions } from '@/lib/events/registry';
 
 export const metadata: Metadata = {
   title: 'Impressum',
@@ -9,7 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function ImprintPage() {
-  // Die Quellen kommen vom Server – die Registry zieht Adapter-Code nach,
-  // der nicht in den Browser gehört.
-  return <ImprintScreen sources={sourceDefinitions} />;
+  return <ImprintScreen />;
 }

@@ -184,6 +184,61 @@ test('filtert dopplungen über quellen hinweg und behält die reichere fassung',
   assert.equal(result.events[0].ticketUrl, 'https://tickets.example.invalid/macbeth');
 });
 
+test('verknüpft mehrere Aufführungen derselben Veranstaltung', async () => {
+  const id = `performances-${counter++}`;
+  const source: EventSource = {
+    definition: {
+      id,
+      name: id,
+      cityId: 'muenchen',
+      group: 'Theater',
+      color: '#000',
+      homepage: 'https://example.invalid',
+    },
+    async fetchEvents() {
+      return [
+        sampleEvent(id, {
+          id: `${id}:macbeth-1`,
+          title: 'Macbeth',
+          subtitle: 'William Shakespeare',
+          start: '2026-10-10T19:00:00+02:00',
+          venue: { name: 'Testbühne' },
+        }),
+        sampleEvent(id, {
+          id: `${id}:macbeth-2`,
+          title: 'Macbeth',
+          subtitle: 'William Shakespeare',
+          start: '2026-10-12T19:30:00+02:00',
+          venue: { name: 'Testbühne' },
+          availability: 'limited',
+        }),
+        sampleEvent(id, {
+          id: `${id}:macbeth-gastspiel`,
+          title: 'Macbeth',
+          subtitle: 'William Shakespeare',
+          start: '2026-10-13T19:00:00+02:00',
+          venue: { name: 'Andere Bühne' },
+        }),
+      ];
+    },
+  };
+
+  const result = await aggregateEvents(RANGE, { cityId: 'muenchen', sources: [source] });
+  const first = result.events.find((event) => event.id === `${id}:macbeth-1`)!;
+  const second = result.events.find((event) => event.id === `${id}:macbeth-2`)!;
+  const guest = result.events.find((event) => event.id === `${id}:macbeth-gastspiel`)!;
+
+  assert.equal(result.events.length, 3);
+  assert.deepEqual(first.relatedPerformances?.map((performance) => performance.id), [
+    `${id}:macbeth-2`,
+  ]);
+  assert.equal(first.relatedPerformances?.[0].availability, 'limited');
+  assert.deepEqual(second.relatedPerformances?.map((performance) => performance.id), [
+    `${id}:macbeth-1`,
+  ]);
+  assert.equal(guest.relatedPerformances, undefined);
+});
+
 test('reicht längere Fristen an explizite Quellenabrufe weiter', async () => {
   const id = `retry-options-${counter++}`;
   let received: EventFetchOptions | undefined;

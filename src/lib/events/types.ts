@@ -21,6 +21,19 @@ export interface EventVenue {
   city?: string;
 }
 
+export interface EventPerformance {
+  id: string;
+  start: string;
+  end?: string;
+  allDay: boolean;
+  venue: EventVenue;
+  availability: Availability;
+  availabilityLabel?: string;
+  ticketUrl?: string;
+  url: string;
+  icsUrl?: string;
+}
+
 export interface CalendarEvent {
   /** Global eindeutig: `${sourceId}:${sourceEventId}`. */
   id: string;
@@ -56,6 +69,8 @@ export interface CalendarEvent {
 
   /** Freie Zusatzinfos (Preise, Festival, Hinweise). */
   notes?: string[];
+  /** Weitere Aufführungstermine derselben Veranstaltung. */
+  relatedPerformances?: EventPerformance[];
 }
 
 /** Eine Quelle beschreibt sich selbst – daraus baut die UI die Sidebar. */

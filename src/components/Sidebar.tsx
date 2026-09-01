@@ -276,7 +276,7 @@ export function Sidebar({
 
       </div>
 
-      <SourceFootnote status={status} />
+      <SourceFootnote />
     </div>
   );
 }
@@ -429,22 +429,12 @@ function isSolo(solo: Set<string>, ids: string[]): boolean {
   return solo.size === ids.length && ids.every((id) => solo.has(id));
 }
 
-function SourceFootnote({ status }: { status: SourceResult[] }) {
-  const { format, t } = useSettings();
-  const problems = status.filter((s) => s.status === 'stale' || s.status === 'error');
-  const newest = status.reduce<string | undefined>(
-    (acc, s) => (!acc || s.fetchedAt > acc ? s.fetchedAt : acc),
-    undefined,
-  );
+function SourceFootnote() {
+  const { t } = useSettings();
 
   return (
     <div className="shrink-0 bg-[var(--chrome)] px-4 py-3 hairline-t">
-      <p className="text-[11px] leading-relaxed text-faint">
-        {newest ? t('asOf', { time: format.stamp(newest) }) : t('noDataYet')}
-        {problems.length === 1 && ` ${t('sourceUnavailableOne')}`}
-        {problems.length > 1 && ` ${t('sourceUnavailableMany', { count: problems.length })}`}
-      </p>
-      <div className="mt-1.5 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <Link
           href="/status"
           className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"

@@ -1,6 +1,6 @@
 'use client';
 
-import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
+import type { CalendarEvent, EventPerformance, SourceDefinition } from '@/lib/events/types';
 import { availabilityKeys, displayAvailability, sourceColor, sourceName } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { AgendaList } from './AgendaList';
@@ -13,6 +13,7 @@ interface Props {
   event?: CalendarEvent;
   definitions: SourceDefinition[];
   onSelectEvent: (event: CalendarEvent) => void;
+  onSelectPerformance: (performance: EventPerformance) => void;
   onBackToDay: () => void;
   onClose?: () => void;
 }
@@ -27,6 +28,7 @@ export function DetailPanel({
   event,
   definitions,
   onSelectEvent,
+  onSelectPerformance,
   onBackToDay,
   onClose,
 }: Props) {
@@ -67,7 +69,7 @@ export function DetailPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
         {event ? (
-          <EventDetail event={event} definitions={definitions} />
+          <EventDetail event={event} definitions={definitions} onSelectPerformance={onSelectPerformance} />
         ) : (
           <AgendaList
             events={dayEvents}
@@ -81,7 +83,15 @@ export function DetailPanel({
   );
 }
 
-function EventDetail({ event, definitions }: { event: CalendarEvent; definitions: SourceDefinition[] }) {
+function EventDetail({
+  event,
+  definitions,
+  onSelectPerformance,
+}: {
+  event: CalendarEvent;
+  definitions: SourceDefinition[];
+  onSelectPerformance: (performance: EventPerformance) => void;
+}) {
   const { format, t } = useSettings();
   const color = sourceColor(definitions, event.sourceId);
   const day = event.start.slice(0, 10);
@@ -130,6 +140,23 @@ function EventDetail({ event, definitions }: { event: CalendarEvent; definitions
             </p>
           ))}
         </div>
+      )}
+
+      {event.relatedPerformances && event.relatedPerformances.length > 0 && (
+        <section className="mt-5 border-t border-line pt-3">
+          <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {t('otherPerformances')}
+          </h4>
+          <div className="mt-2 flex flex-col gap-1.5">
+            {event.relatedPerformances.map((performance) => (
+              <PerformanceButton
+                key={performance.id}
+                performance={performance}
+                onSelect={() => onSelectPerformance(performance)}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {availability === 'past' && (
@@ -189,6 +216,39 @@ function EventDetail({ event, definitions }: { event: CalendarEvent; definitions
         </section>
       )}
     </article>
+  );
+}
+
+function PerformanceButton({
+  performance,
+  onSelect,
+}: {
+  performance: EventPerformance;
+  onSelect: () => void;
+}) {
+  const { format, t } = useSettings();
+  const day = performance.start.slice(0, 10);
+  const availability = displayAvailability(performance);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--canvas)] px-2.5 py-2 text-left
+                 text-[12px] hover:bg-[var(--accent-soft)]"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-text">
+          {format.dayNoWeekday(day)}
+          {!performance.allDay && ` · ${format.time(performance.start)}`}
+        </span>
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-muted">
+          <AvailabilityDot value={availability} />
+          <span className="truncate">{t(availabilityKeys[availability])}</span>
+        </span>
+      </span>
+      <span className="shrink-0 truncate text-faint">{performance.venue.name}</span>
+    </button>
   );
 }
 

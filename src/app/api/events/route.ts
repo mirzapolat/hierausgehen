@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { eventsInRange, snapshotRange } from '@/lib/events/snapshot';
-import { DEFAULT_CITY_ID, cities } from '@/lib/cities';
+import { DEFAULT_CITY_ID, isKnownCityId } from '@/lib/cities';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     );
   }
   const requestedCity = params.get('city') ?? DEFAULT_CITY_ID;
-  if (!cities.some((city) => city.id === requestedCity)) {
+  if (!isKnownCityId(requestedCity)) {
     return NextResponse.json({ error: `Unbekannte Stadt "${requestedCity}".` }, { status: 400 });
   }
 

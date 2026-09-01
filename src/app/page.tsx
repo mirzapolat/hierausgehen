@@ -2,7 +2,7 @@ import { CalendarApp } from '@/components/CalendarApp';
 import { eventsInRange } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { coverageRange, loadRange } from '@/lib/calendar';
-import { DEFAULT_CITY_ID, cities, cityById } from '@/lib/cities';
+import { DEFAULT_CITY_ID, cityById, isKnownCityId } from '@/lib/cities';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export default async function Page({ searchParams }: PageProps<'/'>) {
   const params = await searchParams;
   const requested = typeof params.city === 'string' ? params.city : DEFAULT_CITY_ID;
-  const cityId = cities.some((c) => c.id === requested) ? requested : DEFAULT_CITY_ID;
+  const cityId = isKnownCityId(requested) ? requested : DEFAULT_CITY_ID;
 
   // Der Server kennt die Einstellungen des Geräts nicht und nimmt die Zeitzone
   // der Stadt an; der Client lädt bei abweichender Einstellung nach.

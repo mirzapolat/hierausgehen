@@ -25,14 +25,17 @@ export const availabilityKeys: Record<DisplayAvailability, MessageKey> = {
  * zwischengespeicherter Termin kann diese Grenze überschreiten, ohne dass
  * die Quelle erneut abgefragt wird.
  */
-export function isPast(event: CalendarEvent, now: Date = new Date()): boolean {
+export function isPast(event: Pick<CalendarEvent, 'start' | 'end'>, now: Date = new Date()): boolean {
   const end = event.end
     ? Date.parse(event.end)
     : Date.parse(event.start) + DEFAULT_DURATION_MINUTES * 60_000;
   return end < now.getTime();
 }
 
-export function displayAvailability(event: CalendarEvent, now?: Date): DisplayAvailability {
+export function displayAvailability(
+  event: Pick<CalendarEvent, 'start' | 'end' | 'availability'>,
+  now?: Date,
+): DisplayAvailability {
   return isPast(event, now) ? 'past' : event.availability;
 }
 

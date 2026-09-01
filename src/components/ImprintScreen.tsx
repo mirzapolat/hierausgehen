@@ -2,15 +2,14 @@
 
 import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
-import type { SourceDefinition } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
-import { ChevronLeft, External } from './icons';
+import { ChevronLeft } from './icons';
 
 /**
  * Impressum. Bewusst schmucklos: eine Spalte, klare Reihenfolge,
  * kein Marketing – es soll schnell zu lesen sein.
  */
-export function ImprintScreen({ sources }: { sources: SourceDefinition[] }) {
+export function ImprintScreen() {
   const { t } = useSettings();
 
   return (
@@ -42,30 +41,6 @@ export function ImprintScreen({ sources }: { sources: SourceDefinition[] }) {
 
           <Section title={t('imprintContentTitle')}>
             <p className="text-[13px] leading-relaxed text-muted">{t('imprintContent')}</p>
-          </Section>
-
-          <Section title={t('imprintSources')}>
-            <ul className="flex flex-col">
-              {sources.map((source) => (
-                <li key={source.id} className="flex items-center gap-2 py-1.5 hairline-b">
-                  <span
-                    aria-hidden="true"
-                    className="h-[7px] w-[7px] shrink-0 rounded-full"
-                    style={{ background: source.color }}
-                  />
-                  <span className="flex-1 text-[13px]">{source.name}</span>
-                  <a
-                    href={source.homepage}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[12px] text-muted hover:text-text"
-                  >
-                    {new URL(source.homepage).hostname.replace(/^www\./, '')}
-                    <External className="h-3 w-3" />
-                  </a>
-                </li>
-              ))}
-            </ul>
           </Section>
 
           <Section title={t('imprintLinksTitle')}>
