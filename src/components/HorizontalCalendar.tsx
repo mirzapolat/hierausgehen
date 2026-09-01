@@ -18,6 +18,8 @@ interface Props {
   onSelectDay: (day: string) => void;
   onSelectEvent: (event: CalendarEvent) => void;
   onStep: (direction: -1 | 1) => void;
+  /** Ob es in diese Richtung überhaupt noch einen Zeitraum gibt. */
+  canStep: (direction: -1 | 1) => boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export function HorizontalCalendar({
   onSelectDay,
   onSelectEvent,
   onStep,
+  canStep,
 }: Props) {
   const { format, t } = useSettings();
   const scroller = useRef<HTMLDivElement>(null);
@@ -45,8 +48,11 @@ export function HorizontalCalendar({
   const navigating = useRef(false);
   const [pageSpan, setPageSpan] = useState(0);
 
-  const offsets = [-1, 0, 1];
-  const centerPage = 1;
+  // Am Rand des erhobenen Zeitraums entfällt die Seite – dann lässt sich dort
+  // auch nicht hinwischen.
+  const back = canStep(-1);
+  const offsets = [...(back ? [-1] : []), 0, ...(canStep(1) ? [1] : [])];
+  const centerPage = back ? 1 : 0;
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -130,7 +136,7 @@ function WeekLists({
   selectedEventId,
   onSelectDay,
   onSelectEvent,
-}: Omit<Props, 'mode' | 'onStep'>) {
+}: Omit<Props, 'mode' | 'onStep' | 'canStep'>) {
   const { format, t } = useSettings();
   const from = startOfWeek(anchor);
   const to = addDays(from, 6);
@@ -140,37 +146,43 @@ function WeekLists({
 
   return (
     <div className="h-full min-h-0">
-      <div className="hidden h-full min-h-0 grid-cols-7 lg:grid">
-        {desktopDays.map((day) => {
-          const dayEvents = grouped.get(day) ?? [];
-          const isToday = day === today;
-          return (
-            <section
-              key={day}
-              className={`flex min-h-0 min-w-0 flex-col hairline-r ${
-                day === selectedDay ? 'bg-[var(--accent-soft)]/35' : ''
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => onSelectDay(day)}
-                className="flex shrink-0 items-center gap-1 px-1.5 py-2 text-left hairline-b hover:bg-[var(--chrome)]"
+      {/* Desktop: eine Bildlaufleiste für die ganze Woche, die Tagesköpfe bleiben oben stehen. */}
+      <div className="hidden h-full min-h-0 overflow-y-auto scroll-quiet lg:block">
+        <div className="grid min-h-full grid-cols-7">
+          {desktopDays.map((day) => {
+            const dayEvents = grouped.get(day) ?? [];
+            const isToday = day === today;
+            const selected = day === selectedDay;
+            return (
+              <section
+                key={day}
+                className={`flex min-w-0 flex-col hairline-r ${
+                  selected ? 'bg-[var(--accent-soft)]/35' : ''
+                }`}
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] uppercase tracking-[0.05em] text-faint">
-                    {format.weekdayShort(day)}
-                  </span>
-                  <span className="block truncate text-[10px] text-muted">{format.monthName(day)}</span>
-                </span>
-                <span
-                  className={`grid h-6 min-w-6 place-items-center rounded-full px-1 text-[13px] tabular-nums ${
-                    isToday ? 'bg-accent font-semibold text-white' : 'text-text'
-                  }`}
+                <button
+                  type="button"
+                  onClick={() => onSelectDay(day)}
+                  className="sticky top-0 z-10 flex items-center gap-1 px-1.5 py-2 text-left hairline-b
+                             hover:bg-[var(--chrome)]"
+                  style={{ background: selected ? 'var(--accent-soft)' : 'var(--canvas)' }}
                 >
-                  {format.dayNumber(day)}
-                </span>
-              </button>
-              <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[11px] uppercase tracking-[0.05em] text-faint">
+                      {format.weekdayShort(day)}
+                    </span>
+                    <span className="block truncate text-[10px] text-muted">
+                      {format.monthName(day)}
+                    </span>
+                  </span>
+                  <span
+                    className={`grid h-6 min-w-6 place-items-center rounded-full px-1 text-[13px] tabular-nums ${
+                      isToday ? 'bg-accent font-semibold text-white' : 'text-text'
+                    }`}
+                  >
+                    {format.dayNumber(day)}
+                  </span>
+                </button>
                 <WeekDayList
                   events={dayEvents}
                   definitions={definitions}
@@ -178,10 +190,10 @@ function WeekLists({
                   onSelectEvent={onSelectEvent}
                   emptyLabel={t('noEventsDay')}
                 />
-              </div>
-            </section>
-          );
-        })}
+              </section>
+            );
+          })}
+        </div>
       </div>
 
       <div className="h-full overflow-y-auto scroll-quiet lg:hidden">

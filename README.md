@@ -31,7 +31,10 @@ src/
       types.ts             CalendarEvent, SourceDefinition, EventSource
       registry.ts          Liste aller Quellen  ← hier wird registriert
       aggregate.ts         parallel laden, Fehler je Quelle isolieren
+      snapshot.ts          täglicher Datenstand einer Stadt (zwölf Monate)
+      schedule.ts          Zeitrechnung der Erhebung (5 Uhr Ortszeit)
       cache.ts             TTL-Cache mit Rückfall auf veraltete Daten
+      ics.ts               ein Termin als .ics-Datei (RFC 5545)
       http.ts              Timeout, Retry, Browser-Header
       favicon.ts           Favicon einer Quelle finden und zwischenspeichern
       text.ts                geteilte Textwerkzeuge (Versalien, Leerraum)
@@ -41,6 +44,7 @@ src/
         gaertnerplatz/     Termine nur über einen nachgeladenen Endpunkt
         residenztheater/   Monatsseite ohne Jahresangabe
   components/              Kalender, Sidebar, Detailspalte, Einstellungen
+  instrumentation.ts       startet die tägliche Erhebung beim Serverstart
   app/
     page.tsx               Serverseitige Erstansicht
     settings/page.tsx      Einstellungen
@@ -209,6 +213,32 @@ Drei Eigenheiten:
   bewusst zurück: er speichert nur das Gerüst und die Offline-Seite,
   **Termine kommen immer aus dem Netz** – ein Kalender aus dem Cache wäre
   schlimmer als keiner. Angemeldet wird er nur im Produktionsbetrieb.
+
+## Erhebung: einmal am Tag, zwölf Monate
+
+Die Häuser werden nicht pro Seitenaufruf befragt, sondern **einmal täglich um
+5 Uhr Ortszeit der Stadt** – für den laufenden Monat und die elf folgenden.
+Daraus entsteht ein Datenstand je Stadt (`events/snapshot.ts`); jeder
+Seitenaufruf und jeder API-Aufruf bekommt nur einen Ausschnitt daraus. Egal wie
+viele Leute den Kalender öffnen: die Quellen sehen eine Abfrage am Tag.
+
+- **Der Zeitplan** hängt in `src/instrumentation.ts` am Serverstart. Beim
+  Hochfahren wird der Stand aufgewärmt (liegt er auf der Platte, kostet das
+  nichts), danach läuft ein Timer auf die nächste 5 Uhr. `EVENT_REFRESH_SCHEDULE=0`
+  schaltet ihn ab, etwa in der Entwicklung.
+- **Kein Zeitplan gelaufen?** Ist der Stand über 5 Uhr hinaus alt geworden
+  (Neustart, schlafender Prozess), wird er trotzdem sofort ausgeliefert und im
+  Hintergrund nachgezogen. Ein leerer Kalender wäre die schlechtere Antwort.
+- **Die geplante Erhebung darf lange dauern** (3 Minuten je Quelle) – es wartet
+  niemand darauf. Nur der seltene Fall „gar kein Stand vorhanden, Besuch schon
+  da" arbeitet mit knapperen Fristen.
+- **„Daten neu laden" und Ziehen zum Aktualisieren** holen den aktuellen Stand,
+  fragen aber keine Quelle neu ab. Erneut erhoben wird nur eine einzelne Quelle
+  über die Sidebar (`refresh=1&retry=source`).
+- **Zwölf Monate sind das Ende der Fahnenstange.** Der Kalender lässt sich nicht
+  darüber hinaus bewegen: Pfeile werden am Rand inaktiv, der Monatsstreifen
+  endet dort, und ein Deeplink auf ein Datum ausserhalb landet am Rand
+  (`coverageRange`, `clampDay` in `lib/calendar.ts`).
 
 ## Verhalten bei Störungen
 

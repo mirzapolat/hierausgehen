@@ -7,6 +7,9 @@ import {
   type ViewMode,
   addDays,
   addMonths,
+  clampDay,
+  coverageRange,
+  isSameMonth,
   loadRange,
 } from '@/lib/calendar';
 import { useSettings } from '@/lib/settings/context';
@@ -113,7 +116,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     else if (stored.view) setView(stored.view);
 
     const urlDate = params.get('date');
-    const startDay = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : format.today();
+    const wanted = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : format.today();
+    // Auch ein alter Link führt nur in den Zeitraum, den der Server vorhält.
+    const startDay = clampDay(wanted, coverageRange(format.today()));
     setAnchor(startDay);
     setSelectedDay(startDay);
 
@@ -156,7 +161,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   /* ------------------------------- Laden -------------------------------- */
 
-  const range = useMemo(() => loadRange(view, anchor), [view, anchor]);
+  /**
+   * Der Server erhebt zwölf Monate im Voraus; weiter kommt der Kalender nicht.
+   * Alles, was den Anker verschiebt, geht durch `clampDay`.
+   */
+  const coverage = useMemo(() => coverageRange(format.today()), [format]);
+
+  const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
 
   const load = useCallback(
     async (target: { from: string; to: string }, city: string, force = false) => {
@@ -286,17 +297,36 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   /* ------------------------------ Aktionen ------------------------------ */
 
+  /** Wohin ein Schritt führt – auf den abgedeckten Zeitraum begrenzt. */
+  const steppedAnchor = useCallback(
+    (current: string, direction: -1 | 1) => {
+      const raw =
+        view === 'day'
+          ? addDays(current, direction)
+          : view === 'week'
+            ? addDays(current, direction * 7)
+            : addMonths(current, direction);
+      return clampDay(raw, coverage);
+    },
+    [view, coverage],
+  );
+
+  const canStep = useCallback(
+    (direction: -1 | 1) => {
+      const next = steppedAnchor(anchor, direction);
+      return view === 'month' ? !isSameMonth(next, anchor) : next !== anchor;
+    },
+    [anchor, view, steppedAnchor],
+  );
+
   const step = useCallback(
     (direction: -1 | 1) => {
+      if (!canStep(direction)) return;
+      setAnchor(steppedAnchor(anchor, direction));
       const amount = view === 'day' ? direction : view === 'week' ? direction * 7 : 0;
-      setAnchor((current) => {
-        if (view === 'day') return addDays(current, direction);
-        if (view === 'week') return addDays(current, direction * 7);
-        return addMonths(current, direction);
-      });
-      if (amount) setSelectedDay((current) => addDays(current, amount));
+      if (amount) setSelectedDay((current) => clampDay(addDays(current, amount), coverage));
     },
-    [view],
+    [anchor, view, coverage, canStep, steppedAnchor],
   );
 
   const goToday = useCallback(() => {
@@ -307,22 +337,26 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     setCalendarFocusKey((current) => current + 1);
   }, [format]);
 
-  const selectDay = useCallback((day: string) => {
-    setAnchor(day);
-    setSelectedDay(day);
-    setSelectedEventId(undefined);
-  }, []);
+  const selectDay = useCallback(
+    (day: string) => {
+      const target = clampDay(day, coverage);
+      setAnchor(target);
+      setSelectedDay(target);
+      setSelectedEventId(undefined);
+    },
+    [coverage],
+  );
 
   const selectEvent = useCallback(
     (event: CalendarEvent) => {
-      const day = format.localDay(event.start);
+      const day = clampDay(format.localDay(event.start), coverage);
       setAnchor(day);
       setSelectedDay(day);
       setSelectedEventId(event.id);
       setSheetOpen(true);
       setLayout((current) => ({ ...current, detailCollapsed: false }));
     },
-    [format],
+    [format, coverage],
   );
 
   // Tastatur: Pfeile blättern, t = heute, d/w/m = Ansicht.
@@ -427,6 +461,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           onCityChange={(id) => update({ cityId: id })}
           onViewChange={setView}
           onStep={step}
+          canStepBack={canStep(-1)}
+          canStepForward={canStep(1)}
           onToday={goToday}
           onRefresh={() => void refresh()}
           onOpenFilters={() => setFiltersOpen(true)}
@@ -479,6 +515,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 onSelectDay={selectDay}
                 onSelectEvent={selectEvent}
                 onStep={step}
+                canStep={canStep}
               />
             )}
 
@@ -493,6 +530,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   onSelectDay={selectDay}
                   onSelectEvent={selectEvent}
                   onAnchorChange={setAnchor}
+                  coverage={coverage}
                   focusKey={calendarFocusKey}
                 />
               </div>
@@ -504,7 +542,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 <div className="h-[288px] shrink-0 hairline-b">
                   <MonthView
                     compact
-                    currentWeekFirst
                     anchor={anchor}
                     events={events}
                     definitions={data.definitions}
@@ -597,14 +634,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           />
           <div
             className="absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
-                       rounded-t-[var(--radius-lg)] bg-[var(--chrome)]"
+                       rounded-t-[var(--radius-sheet)] bg-[var(--chrome)]"
             style={{
               boxShadow: 'var(--shadow-overlay)',
               height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
               paddingBottom: 'env(safe-area-inset-bottom)',
             }}
           >
-            <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-[var(--line-strong)]" />
             <div className="min-h-0 flex-1 overflow-hidden">
               <DetailPanel
                 day={selectedDay}

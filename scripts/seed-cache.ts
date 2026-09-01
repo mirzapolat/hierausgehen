@@ -15,7 +15,9 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseCalendarFragment } from '../src/lib/events/sources/staatsoper/parse.ts';
 import { writeCache } from '../src/lib/events/cache.ts';
-import { endOfMonth, startOfMonth, addMonths } from '../src/lib/calendar.ts';
+import { coverageRange } from '../src/lib/calendar.ts';
+import { todayInZone } from '../src/lib/events/schedule.ts';
+import { cityById, DEFAULT_CITY_ID } from '../src/lib/cities.ts';
 
 const fixture = path.join(
   import.meta.dirname,
@@ -29,18 +31,16 @@ if (events.length === 0) {
 }
 
 const month = events[0].start.slice(0, 7);
-const first = `${month}-01`;
 
-// Die Oberfläche lädt immer Vormonat–Folgemonat; beide Zuschnitte ablegen.
-const ranges = [
-  { from: first, to: endOfMonth(first) },
-  { from: startOfMonth(addMonths(first, -1)), to: endOfMonth(addMonths(first, 1)) },
-];
+// Der Server erhebt in einem Zug zwölf Monate; unter diesem Zuschnitt sucht
+// die Aggregation die Quelle im Cache.
+const range = coverageRange(todayInZone(cityById(DEFAULT_CITY_ID).timeZone));
+const key = `staatsoper_${range.from}_${range.to}`;
+await writeCache(key, events, 60 * 60 * 24 * 30);
+console.log(`✓ ${key} — ${events.length} Termine`);
 
-for (const range of ranges) {
-  const key = `staatsoper_${range.from}_${range.to}`;
-  await writeCache(key, events, 60 * 60 * 24 * 30);
-  console.log(`✓ ${key} — ${events.length} Termine`);
+if (month < range.from.slice(0, 7) || month > range.to.slice(0, 7)) {
+  console.warn(`\nAchtung: die Fixture-Termine (${month}) liegen ausserhalb von ${range.from}–${range.to}.`);
 }
 
 console.log(`\nIm Kalender zu ${month} blättern, um die Daten zu sehen.`);

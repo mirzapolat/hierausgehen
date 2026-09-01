@@ -73,15 +73,38 @@ export function visibleRange(view: ViewMode, anchor: string): { from: string; to
   return { from: grid[0], to: grid[41] };
 }
 
+/** So viele Monate im Voraus werden erhoben – mehr zeigt der Kalender nicht. */
+export const COVERAGE_MONTHS = 12;
+
+/**
+ * Der gesamte Zeitraum, den der Server vorhält: der laufende Monat und die
+ * elf folgenden. Ausserhalb davon gibt es keine Daten, und der Kalender lässt
+ * sich auch nicht dorthin bewegen.
+ */
+export function coverageRange(today: string): { from: string; to: string } {
+  const first = startOfMonth(today);
+  return { from: first, to: endOfMonth(addMonths(first, COVERAGE_MONTHS - 1)) };
+}
+
+/** Hält einen Tag innerhalb des abgedeckten Zeitraums. */
+export function clampDay(day: string, range: { from: string; to: string }): string {
+  if (day < range.from) return range.from;
+  if (day > range.to) return range.to;
+  return day;
+}
+
 /**
  * Zeitraum, der geladen wird: die Sichtbarkeit plus Puffer, damit Blättern
- * nicht bei jedem Klick einen Netzwerkzugriff auslöst.
+ * nicht bei jedem Klick einen Netzwerkzugriff auslöst – begrenzt auf das,
+ * was der Server überhaupt vorhält.
  */
-export function loadRange(view: ViewMode, anchor: string): { from: string; to: string } {
-  const month = anchor.slice(0, 7);
-  void view;
+export function loadRange(anchor: string, coverage: { from: string; to: string }): {
+  from: string;
+  to: string;
+} {
+  const month = `${anchor.slice(0, 7)}-01`;
   return {
-    from: startOfMonth(addMonths(`${month}-01`, -1)),
-    to: endOfMonth(addMonths(`${month}-01`, 1)),
+    from: clampDay(startOfMonth(addMonths(month, -1)), coverage),
+    to: clampDay(endOfMonth(addMonths(month, 1)), coverage),
   };
 }

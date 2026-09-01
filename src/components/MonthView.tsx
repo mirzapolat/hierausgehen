@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
-import { addDays, isSameMonth, monthGrid, startOfWeek } from '@/lib/calendar';
+import { isSameMonth, monthGrid } from '@/lib/calendar';
 import { byDay } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { MonthDayCell } from './MonthDayCell';
@@ -17,8 +17,6 @@ interface Props {
   onSelectEvent: (event: CalendarEvent) => void;
   /** Kompakte Punktdarstellung statt Titelzeilen (Mobile). */
   compact?: boolean;
-  /** Den Ankertag in die erste sichtbare Woche setzen. */
-  currentWeekFirst?: boolean;
 }
 
 /** Festes 6×7-Raster eines Monats. Auf dem Desktop scrollt stattdessen `MonthScrollView`. */
@@ -31,16 +29,11 @@ export function MonthView({
   onSelectDay,
   onSelectEvent,
   compact = false,
-  currentWeekFirst = false,
 }: Props) {
   const { format } = useSettings();
-  const days = useMemo(
-    () =>
-      currentWeekFirst
-        ? Array.from({ length: 42 }, (_, index) => addDays(startOfWeek(anchor), index))
-        : monthGrid(anchor),
-    [anchor, currentWeekFirst],
-  );
+  // Bewusst immer das Raster des Ankermonats: die Ansicht bleibt beim Monat
+  // stehen, statt sich um den gewählten Tag herum neu zu ordnen.
+  const days = useMemo(() => monthGrid(anchor), [anchor]);
   const grouped = useMemo(() => byDay(events, format), [events, format]);
   const currentDay = format.today();
 

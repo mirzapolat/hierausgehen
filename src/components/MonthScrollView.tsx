@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { addDays, startOfWeek } from '@/lib/calendar';
 import { byDay } from '@/lib/events/display';
@@ -17,26 +17,22 @@ interface Props {
   onSelectEvent: (event: CalendarEvent) => void;
   /** Meldet den Monat, der oben im Bild steht – die Kopfzeile folgt ihm. */
   onAnchorChange: (day: string) => void;
+  /** Erhobener Zeitraum; darüber hinaus gibt es nichts zu scrollen. */
+  coverage: { from: string; to: string };
   /** Erzwingt einen Sprung zum Anker, auch wenn der Monat gleich bleibt. */
   focusKey?: number;
 }
 
-/** Feste Zeilenhöhe: nur damit lässt sich beim Nachladen exakt nachscrollen. */
+/** Feste Zeilenhöhe: nur damit lässt sich exakt an eine Woche scrollen. */
 const ROW_HEIGHT = 132;
-/** Wochen, die je Nachladevorgang oben oder unten dazukommen. */
-const CHUNK = 8;
-/** Obergrenze, damit der Baum bei langem Scrollen nicht unbegrenzt wächst. */
-const MAX_WEEKS = 240;
-const INITIAL_BEFORE = 12;
-const INITIAL_AFTER = 32;
 
 /**
  * Durchgehend scrollender Monatskalender.
  *
- * Statt Monat für Monat zu blättern, hängt die Ansicht beim Erreichen des
- * Randes weitere Wochen an und schneidet am anderen Ende ab. Die Kopfzeile
- * zeigt den Monat, der gerade oben steht; Pfeile, „Heute" und Deeplinks
- * springen weiterhin gezielt an eine Stelle.
+ * Statt Monat für Monat zu blättern, hängen alle Wochen des erhobenen
+ * Zeitraums untereinander – zwölf Monate, mehr hält der Server nicht vor. Die
+ * Kopfzeile zeigt den Monat, der gerade oben steht; Pfeile, „Heute" und
+ * Deeplinks springen weiterhin gezielt an eine Stelle.
  */
 /** Wievielte Woche des Fensters enthält diesen Tag? */
 function weekIndex(first: string, day: string): number {
@@ -55,6 +51,7 @@ export function MonthScrollView({
   onSelectDay,
   onSelectEvent,
   onAnchorChange,
+  coverage,
   focusKey = 0,
 }: Props) {
   const { format } = useSettings();
@@ -62,49 +59,25 @@ export function MonthScrollView({
   const currentDay = format.today();
 
   const scroller = useRef<HTMLDivElement>(null);
-  const [window_, setWindow] = useState(() => ({
-    first: addDays(startOfWeek(anchor), -INITIAL_BEFORE * 7),
-    count: INITIAL_BEFORE + INITIAL_AFTER,
-  }));
 
-  /** Nach dem nächsten Layout auszuführende Scrollkorrektur. */
-  const pending = useRef<{ top?: number; delta?: number }>({ top: INITIAL_BEFORE * ROW_HEIGHT });
+  const weeks = useMemo(() => {
+    const first = startOfWeek(coverage.from);
+    const count = weekIndex(first, coverage.to) + 1;
+    return Array.from({ length: count }, (_, i) => addDays(first, i * 7));
+  }, [coverage]);
+
   /** Monat, den wir zuletzt selbst gemeldet haben – verhindert Rückkopplung. */
-  const reported = useRef(anchor.slice(0, 7));
+  const reported = useRef('');
   /** Letzter ausdrücklicher Fokusauftrag von aussen. */
   const focused = useRef(focusKey);
   /** Während eines eigenen Sprungs keine Scroll-Ereignisse auswerten. */
   const suppress = useRef(false);
 
-  const weeks = useMemo(
-    () => Array.from({ length: window_.count }, (_, i) => addDays(window_.first, i * 7)),
-    [window_],
-  );
-
-  // Ausstehende Scrollkorrekturen anwenden, bevor der Browser zeichnet.
-  useLayoutEffect(() => {
-    const element = scroller.current;
-    if (!element) return;
-    const { top, delta } = pending.current;
-    if (top !== undefined) element.scrollTop = top;
-    else if (delta) element.scrollTop += delta;
-    pending.current = {};
-    if (top !== undefined || delta) {
-      suppress.current = true;
-      requestAnimationFrame(() => {
-        suppress.current = false;
-      });
-    }
-  }, [window_]);
-
   /**
    * Anker von aussen (Pfeile, „Heute", Deeplink): an die Stelle springen.
    *
    * Genau der Fall, für den Effekte gedacht sind – React mit einem externen
-   * System abgleichen, hier der Scrollposition des Containers. Liegt das Ziel
-   * ausserhalb der geladenen Wochen, muss dabei auch das Fenster neu gesetzt
-   * werden; die Regel unten kann diesen Fall nicht von einer Kaskade
-   * unterscheiden.
+   * System abgleichen, hier der Scrollposition des Containers.
    */
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -116,47 +89,19 @@ export function MonthScrollView({
     reported.current = month;
     focused.current = focusKey;
 
-    const target = weekIndex(window_.first, anchor);
-    if (target >= 1 && target <= window_.count - 6) {
-      suppress.current = true;
-      element.scrollTop = target * ROW_HEIGHT;
-      requestAnimationFrame(() => {
-        suppress.current = false;
-      });
-      return;
-    }
-
-    pending.current = { top: INITIAL_BEFORE * ROW_HEIGHT };
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setWindow({
-      first: addDays(startOfWeek(anchor), -INITIAL_BEFORE * 7),
-      count: INITIAL_BEFORE + INITIAL_AFTER,
+    suppress.current = true;
+    element.scrollTop = Math.max(0, weekIndex(weeks[0], anchor) * ROW_HEIGHT);
+    requestAnimationFrame(() => {
+      suppress.current = false;
     });
-  }, [anchor, focusKey, window_]);
+  }, [anchor, focusKey, weeks]);
 
   const onScroll = () => {
     const element = scroller.current;
     if (!element || suppress.current) return;
 
-    // Oben nachlegen und am unteren Ende abschneiden – und umgekehrt.
-    if (element.scrollTop < ROW_HEIGHT * 3) {
-      const trim = window_.count + CHUNK > MAX_WEEKS ? CHUNK : 0;
-      pending.current = { delta: CHUNK * ROW_HEIGHT };
-      setWindow((w) => ({ first: addDays(w.first, -CHUNK * 7), count: w.count + CHUNK - trim }));
-      return;
-    }
-    if (element.scrollHeight - element.scrollTop - element.clientHeight < ROW_HEIGHT * 3) {
-      const trim = window_.count + CHUNK > MAX_WEEKS ? CHUNK : 0;
-      pending.current = trim ? { delta: -trim * ROW_HEIGHT } : {};
-      setWindow((w) => ({
-        first: trim ? addDays(w.first, trim * 7) : w.first,
-        count: w.count + CHUNK - trim,
-      }));
-      return;
-    }
-
     // Die zweite sichtbare Zeile bestimmt den Monat in der Kopfzeile.
-    const row = weeks[Math.floor(element.scrollTop / ROW_HEIGHT) + 1];
+    const row = weeks[Math.floor(element.scrollTop / ROW_HEIGHT) + 1] ?? weeks.at(-1);
     if (!row) return;
     const month = addDays(row, 3).slice(0, 7);
     if (month !== reported.current) {

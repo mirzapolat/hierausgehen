@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { aggregateEvents } from '@/lib/events/aggregate';
+import { eventsInRange, snapshotRange } from '@/lib/events/snapshot';
 import { DEFAULT_CITY_ID, cities } from '@/lib/cities';
 
 export const dynamic = 'force-dynamic';
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
-/** Obergrenze, damit ein manipulierter Request nicht 100 Monate abruft. */
-const MAX_DAYS = 400;
 /** Mehr Zeit nur fuer explizite Einzelquellen-Retry aus der UI. */
 const SOURCE_RETRY_DEADLINE_MS = 30_000;
 const SOURCE_RETRY_REQUEST_MS = 15_000;
@@ -23,25 +21,27 @@ export async function GET(request: Request) {
       { status: 400 },
     );
   }
-  if ((Date.parse(to) - Date.parse(from)) / 86_400_000 > MAX_DAYS) {
-    return NextResponse.json({ error: `Zeitraum auf ${MAX_DAYS} Tage begrenzt.` }, { status: 400 });
-  }
-
   const requestedCity = params.get('city') ?? DEFAULT_CITY_ID;
   if (!cities.some((city) => city.id === requestedCity)) {
     return NextResponse.json({ error: `Unbekannte Stadt "${requestedCity}".` }, { status: 400 });
   }
 
   const sourceIds = params.get('sources')?.split(',').filter(Boolean);
-  const force = params.get('refresh') === '1';
-  const sourceRetry = force && sourceIds?.length === 1 && params.get('retry') === 'source';
+  const refresh = params.get('refresh') === '1';
+  // Neu erhoben wird nur auf ausdrücklichen Wunsch für eine einzelne Quelle
+  // (Sidebar). Ein allgemeines Neuladen zeigt den täglichen Stand – sonst
+  // könnte jeder Besuch alle Häuser erneut abfragen.
+  const sourceRetry = refresh && sourceIds?.length === 1 && params.get('retry') === 'source';
 
-  const result = await aggregateEvents(
-    { from, to },
+  // Der Kalender kennt nur den täglichen Datenstand; ein Zeitraum ausserhalb
+  // ist keine Fehlbedienung, er liefert schlicht nichts.
+  const covered = snapshotRange(requestedCity);
+  const result = await eventsInRange(
+    requestedCity,
+    { from: from < covered.from ? covered.from : from, to: to > covered.to ? covered.to : to },
     {
-      cityId: requestedCity,
-      sourceIds,
-      force,
+      force: sourceRetry,
+      sourceIds: sourceRetry ? sourceIds : undefined,
       fetchOptions: sourceRetry
         ? {
             deadlineMs: SOURCE_RETRY_DEADLINE_MS,

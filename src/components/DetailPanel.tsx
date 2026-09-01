@@ -103,17 +103,6 @@ function EventDetail({ event, definitions }: { event: CalendarEvent; definitions
       <h3 className="mt-2 text-[19px] font-semibold leading-snug tracking-[-0.015em]">{event.title}</h3>
       {event.subtitle && <p className="mt-1 text-[13px] text-muted">{event.subtitle}</p>}
 
-      {event.description && (
-        <section className="mt-4 border-t border-line pt-3">
-          <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
-            {t('program')}
-          </h4>
-          <p className="mt-1 whitespace-pre-line text-[13px] leading-relaxed text-muted">
-            {event.description}
-          </p>
-        </section>
-      )}
-
       <dl className="mt-5 flex flex-col">
         <Row label={t('date')} value={format.dayNoWeekday(day)} />
         <Row label={t('weekday')} value={format.weekdayLong(day)} />
@@ -174,17 +163,31 @@ function EventDetail({ event, definitions }: { event: CalendarEvent; definitions
           {t('toEvent')}
           <External className="h-3.5 w-3.5" />
         </a>
-        {event.icsUrl && (
-          <a
-            href={event.icsUrl}
-            className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-md)] text-[13px]
-                       text-muted hover:text-text"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" />
-            {t('addToCalendar')}
-          </a>
-        )}
+        {/* Jeder Termin lässt sich übernehmen: bietet die Quelle keine .ics an,
+            erzeugt der eigene Server sie aus dem Datenmodell. */}
+        <a
+          href={`/api/events/${encodeURIComponent(event.id)}/ics`}
+          download
+          className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-md)] text-[13px]
+                     text-muted hover:text-text"
+        >
+          <CalendarPlus className="h-3.5 w-3.5" />
+          {t('addToCalendar')}
+        </a>
       </div>
+
+      {/* Der Programmtext steht zuletzt: erst die Eckdaten und die Wege zur
+          Karte, dann der lange Text, der sonst alles darunter wegdrückt. */}
+      {event.description && (
+        <section className="mt-5 border-t border-line pt-3">
+          <h4 className="text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {t('program')}
+          </h4>
+          <p className="mt-1 whitespace-pre-line text-[13px] leading-relaxed text-muted">
+            {event.description}
+          </p>
+        </section>
+      )}
     </article>
   );
 }

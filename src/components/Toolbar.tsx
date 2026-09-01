@@ -22,6 +22,9 @@ interface Props {
   onCityChange: (id: string) => void;
   onViewChange: (view: ViewMode) => void;
   onStep: (direction: -1 | 1) => void;
+  /** Am Rand des erhobenen Zeitraums gibt es nichts mehr zu blättern. */
+  canStepBack: boolean;
+  canStepForward: boolean;
   onToday: () => void;
   onRefresh: () => void;
   onOpenFilters: () => void;
@@ -40,6 +43,8 @@ export function Toolbar({
   onCityChange,
   onViewChange,
   onStep,
+  canStepBack,
+  canStepForward,
   onToday,
   onRefresh,
   onOpenFilters,
@@ -61,6 +66,7 @@ export function Toolbar({
 
   const iconButton =
     'grid h-7 w-7 place-items-center rounded-[var(--radius-sm)] text-muted hover:bg-[var(--canvas)] hover:text-text';
+  const stepButton = `${iconButton} disabled:pointer-events-none disabled:opacity-30`;
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-1.5 bg-[var(--chrome)] px-2 hairline-b sm:px-3">
@@ -92,10 +98,22 @@ export function Toolbar({
       <CityPicker cityId={cityId} onChange={onCityChange} />
 
       <div className="mx-auto flex min-w-0 items-center gap-0.5 lg:mx-0 lg:ml-3">
-        <button type="button" onClick={() => onStep(-1)} className={iconButton} aria-label={t('previous')}>
+        <button
+          type="button"
+          onClick={() => onStep(-1)}
+          disabled={!canStepBack}
+          className={stepButton}
+          aria-label={t('previous')}
+        >
           <ChevronLeft />
         </button>
-        <button type="button" onClick={() => onStep(1)} className={iconButton} aria-label={t('next')}>
+        <button
+          type="button"
+          onClick={() => onStep(1)}
+          disabled={!canStepForward}
+          className={stepButton}
+          aria-label={t('next')}
+        >
           <ChevronRight />
         </button>
         {/* Auf schmalen Geräten ersetzt der Titel den "Heute"-Knopf. */}

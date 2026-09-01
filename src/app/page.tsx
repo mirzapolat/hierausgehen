@@ -1,15 +1,16 @@
 import { CalendarApp } from '@/components/CalendarApp';
 import { StructuredData } from '@/components/StructuredData';
-import { aggregateEvents } from '@/lib/events/aggregate';
-import { loadRange } from '@/lib/calendar';
+import { eventsInRange } from '@/lib/events/snapshot';
+import { todayInZone } from '@/lib/events/schedule';
+import { coverageRange, loadRange } from '@/lib/calendar';
 import { DEFAULT_CITY_ID, cities, cityById } from '@/lib/cities';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Erstansicht serverseitig: der aktuelle Monat samt Nachbarmonaten wird direkt
- * aggregiert, ohne Umweg über die eigene API. Alles Weitere lädt der Client
- * über `/api/events` nach.
+ * Erstansicht serverseitig: der aktuelle Monat samt Folgemonat kommt direkt aus
+ * dem täglichen Datenstand, ohne Umweg über die eigene API. Alles Weitere lädt
+ * der Client über `/api/events` nach.
  */
 export default async function Page({ searchParams }: PageProps<'/'>) {
   const params = await searchParams;
@@ -18,15 +19,10 @@ export default async function Page({ searchParams }: PageProps<'/'>) {
 
   // Der Server kennt die Einstellungen des Geräts nicht und nimmt die Zeitzone
   // der Stadt an; der Client lädt bei abweichender Einstellung nach.
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone: cityById(cityId).timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
+  const today = todayInZone(cityById(cityId).timeZone);
 
-  const range = loadRange('month', today);
-  const data = await aggregateEvents(range, { cityId });
+  const range = loadRange(today, coverageRange(today));
+  const data = await eventsInRange(cityId, range);
 
   return (
     <>
