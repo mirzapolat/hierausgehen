@@ -67,10 +67,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   const [disabled, setDisabled] = useState<Set<string>>(new Set());
   const [availableOnly, setAvailableOnly] = useState(false);
-  /** Solo ist absichtlich flüchtig: es überlebt kein Neuladen. */
+  /** Quellenfokus ist absichtlich flüchtig: er überlebt kein Neuladen. */
   const [solo, setSolo] = useState<Set<string>>(new Set());
   const [disabledCategories, setDisabledCategories] = useState<Set<string>>(new Set());
-  /** Solo für Veranstaltungsarten – wie das Quellen-Solo bewusst flüchtig. */
+  /** Fokus für Veranstaltungsarten – wie der Quellenfokus bewusst flüchtig. */
   const [categorySolo, setCategorySolo] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
   const [layout, setLayout] = useState(defaultLayout);
@@ -234,7 +234,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   /* ------------------------------ Filtern ------------------------------- */
 
-  // Solo hat Vorrang vor der dauerhaften Auswahl, verändert sie aber nicht.
+  // Quellenfokus hat Vorrang vor der dauerhaften Auswahl, verändert sie aber nicht.
   const enabled = useMemo(
     () => new Set(data.definitions.filter((d) => !disabled.has(d.id)).map((d) => d.id)),
     [data.definitions, disabled],
@@ -254,7 +254,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, settings.locale));
   }, [data.events, visibleSources, settings.locale]);
 
-  // Solo hat Vorrang vor der Pillen-Auswahl, verändert sie aber nicht.
+  // Kategorienfokus hat Vorrang vor der Pillen-Auswahl, verändert sie aber nicht.
   const enabledCategories = useMemo(
     () =>
       categorySolo.size > 0
@@ -421,7 +421,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       categories={categories}
       enabledCategories={enabledCategories}
       onToggleCategory={(name) => {
-        // Bei aktivem Solo führt ein Klick zunächst dorthin zurück, wo man war.
+        // Bei aktivem Fokus führt ein Klick zunächst dorthin zurück, wo man war.
         if (categorySolo.size > 0) {
           setCategorySolo(new Set());
           return;

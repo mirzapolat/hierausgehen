@@ -60,7 +60,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="h-full">
+      <body className="h-full" suppressHydrationWarning>
         <SettingsProvider>{children}</SettingsProvider>
         <ServiceWorker />
       </body>

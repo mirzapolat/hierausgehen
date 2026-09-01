@@ -14,17 +14,17 @@ interface Props {
   enabled: Set<string>;
   onToggleSource: (id: string) => void;
   onToggleGroup: (ids: string[], next: boolean) => void;
-  /** Leer = kein Solo. Sonst sind ausschliesslich diese Quellen sichtbar. */
+  /** Leer = kein Quellenfokus. Sonst sind ausschliesslich diese Quellen sichtbar. */
   solo: Set<string>;
   onSolo: (ids: string[]) => void;
   reloadingSources: Set<string>;
   onReloadSource: (id: string) => void;
   /** Gattungen, die im geladenen Zeitraum tatsächlich vorkommen, mit Anzahl. */
   categories: { name: string; count: number }[];
-  /** Tatsächlich sichtbare Arten – bei aktivem Solo nur die solierte. */
+  /** Tatsächlich sichtbare Arten – bei aktivem Fokus nur die fokussierte. */
   enabledCategories: Set<string>;
   onToggleCategory: (name: string) => void;
-  /** Leer = kein Solo. Sonst sind ausschliesslich diese Arten sichtbar. */
+  /** Leer = kein Kategorienfokus. Sonst sind ausschliesslich diese Arten sichtbar. */
   categorySolo: Set<string>;
   onCategorySolo: (name: string) => void;
   onShowAllCategories: () => void;
@@ -169,12 +169,6 @@ export function Sidebar({
                       }`}
                     />
                   </button>
-                  <SoloButton
-                    active={isSolo(solo, ids)}
-                    onClick={() => onSolo(ids)}
-                    label={isSolo(solo, ids) ? t('soloOff') : t('soloOn')}
-                    text={t('solo')}
-                  />
                 </div>
 
                 {!isCollapsed && (
@@ -184,13 +178,13 @@ export function Sidebar({
                       const isEnabled = enabled.has(source.id);
                       const retryable = info?.status === 'stale' || info?.status === 'error';
                       const reloading = reloadingSources.has(source.id);
+                      const sourceFocused = isSolo(solo, [source.id]);
                       return (
                         <li key={source.id}>
                           <div
-                            onClick={() => onToggleSource(source.id)}
-                            className="group relative flex cursor-pointer items-center gap-2
+                            className={`group relative flex items-center gap-2
                                        rounded-[var(--radius-sm)] py-1.5 pl-[22px] pr-1.5
-                                       hover:bg-[var(--canvas)]"
+                                       ${sourceFocused ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--canvas)]'}`}
                           >
                             <Checkbox
                               state={isEnabled ? 'on' : 'off'}
@@ -198,18 +192,23 @@ export function Sidebar({
                               label={source.name}
                               onChange={() => onToggleSource(source.id)}
                             />
-                            <SourceIcon source={source} />
-                            <span
-                              className={`flex-1 truncate text-[13px] ${isEnabled ? 'text-text' : 'text-faint'}`}
-                            >
-                              {source.name}
-                            </span>
-                            <SoloButton
-                              active={isSolo(solo, [source.id])}
+                            <button
+                              type="button"
+                              aria-pressed={sourceFocused}
+                              title={sourceFocused ? t('soloOff') : t('soloOn')}
                               onClick={() => onSolo([source.id])}
-                              label={isSolo(solo, [source.id]) ? t('soloOff') : t('soloOn')}
-                              text={t('solo')}
-                            />
+                              className="flex min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-xs)]
+                                         text-left focus-visible:outline-offset-2"
+                            >
+                              <SourceIcon source={source} />
+                              <span
+                                className={`flex-1 truncate text-[13px] ${
+                                  sourceFocused ? 'font-medium text-accent' : isEnabled ? 'text-text' : 'text-faint'
+                                }`}
+                              >
+                                {source.name}
+                              </span>
+                            </button>
                             {retryable && (
                               <button
                                 type="button"
@@ -284,7 +283,7 @@ export function Sidebar({
 
 /**
  * Eine Veranstaltungsart als Pille. Klick schaltet sie an oder aus; über das
- * Drei-Punkte-Menü lässt sie sich für einen Moment allein anzeigen (Solo).
+ * Drei-Punkte-Menü lässt sie sich für einen Moment allein anzeigen.
  */
 function CategoryPill({
   name,
@@ -425,46 +424,7 @@ function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
-/**
- * Solo blendet für einen Moment alles ausser der gewählten Quelle bzw. dem
- * gewählten Ordner aus, ohne die eigentliche Auswahl zu verlieren. Nochmal
- * klicken stellt sie wieder her.
- */
-function SoloButton({
-  active,
-  onClick,
-  label,
-  text,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  text: string;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      className={`shrink-0 rounded-[var(--radius-xs)] px-1 py-[1px] text-[10px] font-medium uppercase
-                  tracking-[0.05em] transition-opacity
-                  ${
-                    active
-                      ? 'relative bg-accent text-white opacity-100'
-                      : 'absolute right-1.5 z-10 border border-line bg-[var(--raised)] text-muted opacity-0 hover:text-text group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'
-                  }`}
-    >
-      {text}
-    </button>
-  );
-}
-
-/** Trifft die Solo-Auswahl genau diese Quellen? */
+/** Trifft die temporäre Quellen-Auswahl genau diese Quellen? */
 function isSolo(solo: Set<string>, ids: string[]): boolean {
   return solo.size === ids.length && ids.every((id) => solo.has(id));
 }
@@ -484,12 +444,20 @@ function SourceFootnote({ status }: { status: SourceResult[] }) {
         {problems.length === 1 && ` ${t('sourceUnavailableOne')}`}
         {problems.length > 1 && ` ${t('sourceUnavailableMany', { count: problems.length })}`}
       </p>
-      <Link
-        href="/impressum"
-        className="mt-1.5 inline-block text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
-      >
-        {t('imprint')}
-      </Link>
+      <div className="mt-1.5 flex items-center gap-3">
+        <Link
+          href="/status"
+          className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
+        >
+          {t('status')}
+        </Link>
+        <Link
+          href="/impressum"
+          className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
+        >
+          {t('imprint')}
+        </Link>
+      </div>
     </div>
   );
 }
