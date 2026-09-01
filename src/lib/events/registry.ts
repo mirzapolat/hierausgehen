@@ -3,6 +3,7 @@ import { deutschesTheater } from './sources/deutsches-theater/index.ts';
 import { gasteig } from './sources/gasteig/index.ts';
 import { gaertnerplatz } from './sources/gaertnerplatz/index.ts';
 import { hmtm } from './sources/hmtm/index.ts';
+import { kinomondsterne } from './sources/kinomondsterne/index.ts';
 import { literaturhaus } from './sources/literaturhaus/index.ts';
 import { lostweekend } from './sources/lostweekend/index.ts';
 import { muenchenmusik } from './sources/muenchenmusik/index.ts';
@@ -27,6 +28,7 @@ export const sources: EventSource[] = [
   hmtm,
   lostweekend,
   literaturhaus,
+  kinomondsterne,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));
