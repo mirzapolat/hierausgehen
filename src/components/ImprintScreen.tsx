@@ -99,6 +99,8 @@ const ADDRESS_LINES = [
   [68, 97, 99, 104, 97, 117, 101, 114, 32, 83, 116, 114, 46, 32, 49, 53, 57],
   [56, 48, 54, 51, 54, 32, 77, 252, 110, 99, 104, 101, 110],
 ];
+const EMPTY_ADDRESS: string[] = [];
+const DECODED_ADDRESS = ADDRESS_LINES.map((line) => String.fromCharCode(...line));
 
 function ObfuscatedAddress() {
   const lines = useSyncExternalStore(emptySubscribe, decodeAddress, emptyAddress);
@@ -115,11 +117,11 @@ function ObfuscatedAddress() {
 }
 
 function decodeAddress(): string[] {
-  return ADDRESS_LINES.map((line) => String.fromCharCode(...line));
+  return DECODED_ADDRESS;
 }
 
 function emptyAddress(): string[] {
-  return [];
+  return EMPTY_ADDRESS;
 }
 
 function emptySubscribe() {
