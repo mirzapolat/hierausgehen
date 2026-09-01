@@ -3,6 +3,7 @@ import { deutschesTheater } from './sources/deutsches-theater/index.ts';
 import { gasteig } from './sources/gasteig/index.ts';
 import { gaertnerplatz } from './sources/gaertnerplatz/index.ts';
 import { hmtm } from './sources/hmtm/index.ts';
+import { kinoamolympiasee } from './sources/kinoamolympiasee/index.ts';
 import { kinomondsterne } from './sources/kinomondsterne/index.ts';
 import { literaturhaus } from './sources/literaturhaus/index.ts';
 import { lostweekend } from './sources/lostweekend/index.ts';
@@ -28,6 +29,7 @@ export const sources: EventSource[] = [
   hmtm,
   lostweekend,
   literaturhaus,
+  kinoamolympiasee,
   kinomondsterne,
 ];
 

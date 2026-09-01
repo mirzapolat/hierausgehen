@@ -40,6 +40,7 @@ const de = {
   imprint: 'Impressum',
   imprintHeading: 'Angaben gemäß § 5 DDG',
   imprintName: 'Verantwortlich',
+  imprintAddress: 'Anschrift',
   imprintContact: 'Kontakt',
   imprintContentTitle: 'Zu den Inhalten',
   imprintContent:
@@ -143,6 +144,7 @@ const en: Record<MessageKey, string> = {
   imprint: 'Imprint',
   imprintHeading: 'Information pursuant to § 5 DDG',
   imprintName: 'Responsible',
+  imprintAddress: 'Address',
   imprintContact: 'Contact',
   imprintContentTitle: 'About the content',
   imprintContent:

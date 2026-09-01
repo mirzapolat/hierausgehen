@@ -18,9 +18,9 @@ export const metadata: Metadata = {
   creator: 'Mirza Polat',
   alternates: { canonical: '/' },
   robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false, 'max-image-preview': 'none', 'max-snippet': 0 },
   },
   openGraph: {
     type: 'website',

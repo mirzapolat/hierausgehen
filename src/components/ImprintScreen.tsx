@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import type { SourceDefinition } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
@@ -30,6 +31,9 @@ export function ImprintScreen({ sources }: { sources: SourceDefinition[] }) {
         <div className="mx-auto w-full max-w-[560px] px-5 py-8">
           <Section title={t('imprintHeading')}>
             <Row label={t('imprintName')}>Mirza Polat</Row>
+            <Row label={t('imprintAddress')}>
+              <ObfuscatedAddress />
+            </Row>
             <Row label={t('imprintContact')}>
               {/* Absichtlich als Text mit „(at)" – so hat der Betreiber sie angegeben. */}
               <span className="select-all">kontakt(at)hierausgehen.de</span>
@@ -89,4 +93,35 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span className="text-[13px] text-text">{children}</span>
     </div>
   );
+}
+
+const ADDRESS_LINES = [
+  [68, 97, 99, 104, 97, 117, 101, 114, 32, 83, 116, 114, 46, 32, 49, 53, 57],
+  [56, 48, 54, 51, 54, 32, 77, 252, 110, 99, 104, 101, 110],
+];
+
+function ObfuscatedAddress() {
+  const lines = useSyncExternalStore(emptySubscribe, decodeAddress, emptyAddress);
+
+  return (
+    <address className="not-italic" suppressHydrationWarning>
+      {lines.map((line) => (
+        <span key={line} className="block select-all">
+          {line}
+        </span>
+      ))}
+    </address>
+  );
+}
+
+function decodeAddress(): string[] {
+  return ADDRESS_LINES.map((line) => String.fromCharCode(...line));
+}
+
+function emptyAddress(): string[] {
+  return [];
+}
+
+function emptySubscribe() {
+  return () => {};
 }

@@ -5,7 +5,7 @@ import { sourceDefinitions } from '@/lib/events/registry';
 export const metadata: Metadata = {
   title: 'Impressum',
   description: 'Angaben gemäß § 5 DDG zu HIERAUSGEHEN.DE.',
-  robots: { index: true, follow: true },
+  robots: { index: false, follow: false },
 };
 
 export default function ImprintPage() {

@@ -1,5 +1,4 @@
 import { CalendarApp } from '@/components/CalendarApp';
-import { StructuredData } from '@/components/StructuredData';
 import { eventsInRange } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { coverageRange, loadRange } from '@/lib/calendar';
@@ -25,14 +24,11 @@ export default async function Page({ searchParams }: PageProps<'/'>) {
   const data = await eventsInRange(cityId, range);
 
   return (
-    <>
-      <StructuredData events={data.events} definitions={data.definitions} />
-      <CalendarApp
-        initialData={data}
-        initialRange={range}
-        initialCityId={cityId}
-        initialAnchor={today}
-      />
-    </>
+    <CalendarApp
+      initialData={data}
+      initialRange={range}
+      initialCityId={cityId}
+      initialAnchor={today}
+    />
   );
 }
