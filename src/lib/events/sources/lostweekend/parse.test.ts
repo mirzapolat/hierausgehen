@@ -41,7 +41,8 @@ test('normalisiert einen Termin vollständig', () => {
   assert.equal(slam.end, undefined, 'die Liste kennt keine Endzeit');
   assert.equal(slam.allDay, false);
   assert.deepEqual(slam.venue, { name: 'Lost Weekend' });
-  assert.equal(slam.availability, 'unknown');
+  assert.equal(slam.availability, 'available');
+  assert.equal(slam.availabilityLabel, 'Unlimitierte Kapazität');
   assert.equal(slam.ticketUrl, undefined, 'kein Kartenlink in der Liste');
   assert.equal(
     slam.url,
@@ -70,7 +71,7 @@ test('vergibt eindeutige IDs und gültige Zeitstempel', () => {
     assert.ok(!Number.isNaN(Date.parse(event.start)), `${event.id} hat gültiges Datum`);
     assert.ok(event.title.length > 0);
     assert.ok(event.url.startsWith('https://lostweekend.de/'));
-    assert.equal(event.availability, 'unknown', 'die Quelle sagt nichts über Karten');
+    assert.equal(event.availability, 'available', 'Lost Weekend hat unlimitierte Kapazität');
   }
 });
 

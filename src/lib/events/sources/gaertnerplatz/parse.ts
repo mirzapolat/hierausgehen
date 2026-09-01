@@ -241,6 +241,7 @@ function uniqueParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
 
 function absolute(href: string): string {
   if (href.startsWith('http')) return href;
-  // Die Fragmente verlinken relativ zum Spielplan ("./produktionen/…").
-  return new URL(href.replace(/^\.\//, ''), `${BASE}/de/spielplan/`).toString();
+  // Die Fragmente verlinken relativ zu dem <base> der Seite ("./produktionen/…"),
+  // nicht relativ zum Ajax-Endpunkt /de/spielplan/index.html.
+  return new URL(href.replace(/^\.\//, ''), `${BASE}/de/`).toString();
 }

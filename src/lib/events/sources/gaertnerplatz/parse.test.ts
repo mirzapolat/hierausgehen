@@ -51,7 +51,7 @@ test('normalisiert einen Opernabend vollständig', () => {
   assert.match(traviata.ticketUrl!, /^https:\/\/tickets\.staatstheater\.bayern\/gpt\.webshop\//);
   assert.equal(
     traviata.url,
-    'https://www.gaertnerplatztheater.de/de/spielplan/produktionen/la-traviata.html?ID_Vorstellung=5397&m=489',
+    'https://www.gaertnerplatztheater.de/de/produktionen/la-traviata.html?ID_Vorstellung=5397&m=489',
   );
   assert.deepEqual(traviata.notes, ['U30']);
 });

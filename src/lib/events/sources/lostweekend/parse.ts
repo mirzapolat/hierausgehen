@@ -93,9 +93,10 @@ export function parseMonthFragment(html: string, month: string): Omit<ParseResul
       start: berlinIso(date, time?.hour ?? 0, time?.minute ?? 0),
       allDay: !time,
       venue: { name: clean(article.find('.mec-venue-details > span').first().text()) || 'Lost Weekend' },
-      // Die Liste sagt nichts über Karten; der Knopf "View Detail" führt nur
-      // auf dieselbe Veranstaltungsseite.
-      availability: 'unknown',
+      // Lost Weekend arbeitet hier nicht mit begrenzten Ticketkontingenten.
+      // Ohne Kartenangabe sollen die Termine im Verfügbarkeitsfilter bleiben.
+      availability: 'available',
+      availabilityLabel: 'Unlimitierte Kapazität',
       url: href ? absolute(href) : `${BASE}/events/`,
     });
   });
