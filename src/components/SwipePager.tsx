@@ -98,7 +98,7 @@ export function SwipePager({
       // Ohne Rolle bleibt die Beschriftung an einem blossen `div` wirkungslos.
       role="group"
       aria-label={label}
-      className={`snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-quiet ${className}`}
+      className={`snap-x snap-mandatory overflow-x-auto overflow-y-hidden ${className}`}
     >
       {offsets.map((offset) => {
         const day = offset === 0 ? anchor : pageAnchor(offset);

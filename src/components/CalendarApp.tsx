@@ -825,7 +825,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   onStep={step}
                   canStep={canStep}
                   label={t('month')}
-                  className="flex h-[288px] shrink-0 hairline-b"
+                  className="flex h-[288px] shrink-0 scroll-hidden hairline-b"
                 >
                   {(pageAnchor) => (
                     <MonthView

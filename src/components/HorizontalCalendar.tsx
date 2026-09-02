@@ -52,7 +52,7 @@ export function HorizontalCalendar({
       canStep={canStep}
       resetKey={mode}
       label={mode === 'day' ? t('day') : t('week')}
-      className="flex h-full min-h-0 min-w-0 flex-1"
+      className="flex h-full min-h-0 min-w-0 flex-1 scroll-quiet"
     >
       {(pageAnchor) =>
         mode === 'day' ? (

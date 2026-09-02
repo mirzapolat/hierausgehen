@@ -140,6 +140,16 @@ body {
 }
 
 /*
+ * Gar keine Bildlaufleiste. Für Flächen, die gewischt und nicht gescrollt
+ * werden: dort ist die Leiste keine Hilfe, sondern ein Strich quer durchs
+ * Bild – die Geste selbst ist der Hinweis.
+ */
+@utility scroll-hidden {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { width: 0; height: 0; }
+}
+
+/*
  * Aktive Suche: ein laufender Farbverlauf als Rahmen. Das ist der einzige
  * bunte Akzent der Oberfläche – er soll auffallen, damit niemand vergisst,
  * dass die Ansicht gefiltert ist.
