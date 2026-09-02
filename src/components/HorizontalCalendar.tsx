@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { addDays, daysBetween, startOfWeek, type ViewMode } from '@/lib/calendar';
 import { byDay, sourceColor } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { DayView } from './DayView';
 import { MobileAgenda } from './MobileAgenda';
+import { SwipePager } from './SwipePager';
 
 interface Props {
   mode: Exclude<ViewMode, 'month'>;
@@ -23,12 +24,10 @@ interface Props {
 }
 
 /**
- * Horizontaler, endlos wirkender Tages-/Wochenstreifen.
+ * Tages- und Wochenansicht als wischbarer Streifen.
  *
- * Es stehen immer Seiten vor und nach dem aktuellen Zeitraum bereit.
- * Nach einem Wischen wird der Anker verschoben und der Streifen unsichtbar auf
- * die mittlere Seite zurückgesetzt. So bleibt der DOM klein, egal wie weit man
- * blättert.
+ * Das Blättern selbst steckt in `SwipePager`; hier steht nur, was auf einer
+ * Seite zu sehen ist.
  */
 export function HorizontalCalendar({
   mode,
@@ -42,89 +41,72 @@ export function HorizontalCalendar({
   onStep,
   canStep,
 }: Props) {
-  const { format, t } = useSettings();
-  const scroller = useRef<HTMLDivElement>(null);
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const navigating = useRef(false);
-  const [pageSpan, setPageSpan] = useState(0);
-
-  // Am Rand des erhobenen Zeitraums entfällt die Seite – dann lässt sich dort
-  // auch nicht hinwischen.
-  const back = canStep(-1);
-  const offsets = [...(back ? [-1] : []), 0, ...(canStep(1) ? [1] : [])];
-  const centerPage = back ? 1 : 0;
-
-  useLayoutEffect(() => {
-    const element = scroller.current;
-    if (!element) return;
-    const measure = () => setPageSpan(element.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  // Der aktuelle Zeitraum liegt stets auf der mittleren Seite.
-  useLayoutEffect(() => {
-    const element = scroller.current;
-    if (!element || pageSpan === 0) return;
-    element.scrollLeft = pageSpan * centerPage;
-    navigating.current = false;
-  }, [anchor, centerPage, mode, pageSpan]);
-
-  useEffect(
-    () => () => {
-      if (settleTimer.current) clearTimeout(settleTimer.current);
-    },
-    [],
-  );
-
-  const onScroll = () => {
-    const element = scroller.current;
-    if (!element || pageSpan === 0 || navigating.current) return;
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(() => {
-      const page = Math.round(element.scrollLeft / pageSpan);
-      if (page === centerPage) return;
-      navigating.current = true;
-      onStep(page < centerPage ? -1 : 1);
-    }, 90);
-  };
-
+  const { t } = useSettings();
   const step = mode === 'day' ? 1 : 7;
-  const pages = offsets.map((offset) => addDays(anchor, offset * step));
 
   return (
-    <div
-      ref={scroller}
-      onScroll={onScroll}
-      aria-label={mode === 'day' ? t('day') : t('week')}
-      className="flex h-full min-h-0 min-w-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-quiet"
+    <SwipePager
+      anchor={anchor}
+      pageAnchor={(offset) => addDays(anchor, offset * step)}
+      onStep={onStep}
+      canStep={canStep}
+      resetKey={mode}
+      label={mode === 'day' ? t('day') : t('week')}
+      className="flex h-full min-h-0 min-w-0 flex-1"
     >
-      {pages.map((pageAnchor) => (
-        <div key={pageAnchor} className="h-full w-full max-w-full flex-none snap-start snap-always overflow-hidden">
-          {mode === 'day' ? (
-            <DayView
-              day={pageAnchor}
-              events={events.filter((event) => format.localDay(event.start) === pageAnchor)}
-              definitions={definitions}
-              selectedEventId={selectedEventId}
-              onSelectEvent={onSelectEvent}
-            />
-          ) : (
-            <WeekLists
-              anchor={pageAnchor}
-              events={events}
-              definitions={definitions}
-              selectedDay={selectedDay}
-              selectedEventId={selectedEventId}
-              onSelectDay={onSelectDay}
-              onSelectEvent={onSelectEvent}
-            />
-          )}
-        </div>
-      ))}
-    </div>
+      {(pageAnchor) =>
+        mode === 'day' ? (
+          <DayPage
+            day={pageAnchor}
+            events={events}
+            definitions={definitions}
+            selectedEventId={selectedEventId}
+            onSelectEvent={onSelectEvent}
+          />
+        ) : (
+          <WeekLists
+            anchor={pageAnchor}
+            events={events}
+            definitions={definitions}
+            selectedDay={selectedDay}
+            selectedEventId={selectedEventId}
+            onSelectDay={onSelectDay}
+            onSelectEvent={onSelectEvent}
+          />
+        )
+      }
+    </SwipePager>
+  );
+}
+
+/** Ein Tag des Streifens – filtert die Termine in der Zeitzone der Anzeige. */
+function DayPage({
+  day,
+  events,
+  definitions,
+  selectedEventId,
+  onSelectEvent,
+}: {
+  day: string;
+  events: CalendarEvent[];
+  definitions: SourceDefinition[];
+  selectedEventId?: string;
+  onSelectEvent: (event: CalendarEvent) => void;
+}) {
+  const { format } = useSettings();
+  const dayEvents = useMemo(
+    () => events.filter((event) => format.localDay(event.start) === day),
+    [events, format, day],
+  );
+
+  return (
+    <DayView
+      day={day}
+      events={dayEvents}
+      definitions={definitions}
+      selectedEventId={selectedEventId}
+      onSelectEvent={onSelectEvent}
+    />
   );
 }
 

@@ -3,12 +3,45 @@ name: Deploy to VPS
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
 env:
   APP_NAME: "hierausgehen"
 
 jobs:
+  # Vor dem Ausliefern dieselbe Prüfung wie lokal (siehe CLAUDE.md). Ohne sie
+  # landet ein kaputter Parser unbemerkt auf hierausgehen.de.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Parser gegen die gespeicherten Antworten
+        run: npm test
+
+      - name: Typen
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
   deploy:
+    needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

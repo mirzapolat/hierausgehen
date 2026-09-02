@@ -164,6 +164,31 @@ body {
   }
 }
 
+/*
+ * Kein Hineinzoomen beim Antippen eines Feldes.
+ *
+ * Safari auf dem iPhone zieht die Seite heran, sobald ein Formularfeld den
+ * Fokus bekommt und dessen Schrift kleiner als 16 px ist – danach steht der
+ * Kalender schief im Bild. Die Felder tragen deshalb auf Zeigegeräten ohne
+ * Maus genau diese 16 px; auf dem Desktop bleibt es bei den 13 px der
+ * Gestaltung.
+ *
+ * Der andere Weg wäre `maximum-scale=1` im Viewport gewesen – der nimmt aber
+ * auch das Aufziehen mit zwei Fingern, und das ist für manche Leute die
+ * einzige Art, die Seite zu lesen.
+ *
+ * Bewusst ausserhalb jeder Ebene: die Utilities von Tailwind stehen in
+ * `@layer`, unbeschichtete Regeln gewinnen darüber – sonst bekäme das
+ * `text-[13px]` am Feld den Vorrang.
+ */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* Das native Kreuz von type="search" ersetzen wir durch einen eigenen Knopf. */
 input[type='search']::-webkit-search-cancel-button,
 input[type='search']::-webkit-search-decoration {

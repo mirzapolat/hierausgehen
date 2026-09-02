@@ -26,6 +26,7 @@ import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
+import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
 import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
 
@@ -817,18 +818,28 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             {/* Mobile */}
             {view === 'month' && (
               <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-                <div className="h-[288px] shrink-0 hairline-b">
-                  <MonthView
-                    compact
-                    anchor={anchor}
-                    events={events}
-                    definitions={data.definitions}
-                    selectedDay={selectedDay}
-                    selectedEventId={selectedEventId}
-                    onSelectDay={selectDay}
-                    onSelectEvent={selectEvent}
-                  />
-                </div>
+                {/* Wischen blättert den Monat – wie in Tages- und Wochenansicht. */}
+                <SwipePager
+                  anchor={anchor}
+                  pageAnchor={(offset) => addMonths(anchor, offset)}
+                  onStep={step}
+                  canStep={canStep}
+                  label={t('month')}
+                  className="flex h-[288px] shrink-0 hairline-b"
+                >
+                  {(pageAnchor) => (
+                    <MonthView
+                      compact
+                      anchor={pageAnchor}
+                      events={events}
+                      definitions={data.definitions}
+                      selectedDay={selectedDay}
+                      selectedEventId={selectedEventId}
+                      onSelectDay={selectDay}
+                      onSelectEvent={selectEvent}
+                    />
+                  )}
+                </SwipePager>
                 <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
                   <AgendaList
                     events={dayEvents}
