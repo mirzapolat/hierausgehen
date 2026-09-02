@@ -34,6 +34,8 @@ jobs:
             --filter="- .env.*" \
             --filter="- instance/" \
             --filter="- data/" \
+            --filter="- .mirror/" \
+            --filter="- .cache/" \
             -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.SSH_PORT }}" \
             ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/docker/apps/${{ env.APP_NAME }}/
 

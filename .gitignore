@@ -44,6 +44,15 @@ next-env.d.ts
 /.cache
 .probe/
 
+# Rohantworten einer Quelle, lokal abgelegt. Auf dem Server schreibt der
+# Container in dieses Verzeichnis – deshalb darf der Deploy es nicht anfassen
+# (rsync bekäme "Permission denied" und bräche den ganzen Lauf ab).
+/.mirror
+
+# Ausgeleitete Datenstände (CSV-Export, Tabellen daraus)
+/hierausgehen-*.csv
+/*.numbers
+
 # Umgebungsvariablen (die echte Datei liegt auf dem Server)
 .env
 .env.*
