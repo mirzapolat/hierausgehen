@@ -43,5 +43,5 @@ als Sheet.
 ## Prüfen
 
 ```bash
-npm test && npx tsc --noEmit && npm run build
+npm test && npm run typecheck && npm run build
 ```

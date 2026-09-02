@@ -30,8 +30,10 @@ jobs:
       - name: Parser gegen die gespeicherten Antworten
         run: npm test
 
+      # `next typegen` legt die generierten Typen (PageProps, LayoutProps) an,
+      # die sonst nur nach einem Build im Arbeitsverzeichnis liegen.
       - name: Typen
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint

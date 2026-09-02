@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "node --test --experimental-strip-types \"src/**/*.test.ts\"",
     "seed": "node --experimental-strip-types scripts/seed-cache.ts",
     "probe": "node --experimental-strip-types scripts/probe-source.ts",
