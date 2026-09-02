@@ -6,7 +6,7 @@ import test from 'node:test';
 process.env.EVENT_CACHE_DISK = '0';
 process.env.EVENT_SOURCE_DEADLINE_MS = '300';
 
-const { eventsInRange, snapshotRange } = await import('./snapshot.ts');
+const { eventsInRange, pendingRepairs, snapshotRange } = await import('./snapshot.ts');
 const { writeCache } = await import('./cache.ts');
 const { sources } = await import('./registry.ts');
 import type { AggregateResult } from './types.ts';
@@ -15,6 +15,7 @@ const CITY = 'muenchen';
 const range = snapshotRange(CITY);
 const snapshotKey = `snapshot_${CITY}_${range.from}_${range.to}`;
 const registered = sources.map((source) => source.definition.id);
+const NOW = new Date().toISOString();
 
 /**
  * Jede Quelle bekommt einen frischen, leeren Eigencache. Damit bleibt auch
@@ -99,4 +100,38 @@ test('holt die fehlenden Quellen im Hintergrund nach', async () => {
   for (const status of result.sources) {
     assert.equal(status.status, 'ok', `${status.sourceId} wurde nachgeholt`);
   }
+});
+
+test('erkennt eine bei der Erhebung ausgefallene Quelle als nachzuholen', () => {
+  const stand: AggregateResult = {
+    events: [],
+    sources: [
+      { sourceId: 'a', status: 'ok', fetchedAt: NOW, eventCount: 12 },
+      { sourceId: 'b', status: 'revalidating', fetchedAt: NOW, eventCount: 3 },
+      { sourceId: 'c', status: 'error', fetchedAt: NOW, eventCount: 0, error: 'nicht erreichbar' },
+      { sourceId: 'd', status: 'stale', fetchedAt: NOW, eventCount: 7, error: 'nicht erreichbar' },
+    ],
+    definitions: [],
+  };
+
+  const { missing, failed } = pendingRepairs(['a', 'b', 'c', 'd', 'e'], stand);
+
+  // Ohne das bliebe eine Quelle bis zur nächsten Erhebung kaputt, auch wenn
+  // die Ursache längst behoben ist.
+  assert.deepEqual(failed, ['c', 'd']);
+  assert.deepEqual(missing, ['e']);
+});
+
+test('lässt einen vollständigen Stand in Ruhe', () => {
+  const stand: AggregateResult = {
+    events: [],
+    sources: [
+      { sourceId: 'a', status: 'ok', fetchedAt: NOW, eventCount: 12 },
+      // Eine leere Quelle ist keine kaputte – ein Haus darf Pause haben.
+      { sourceId: 'b', status: 'ok', fetchedAt: NOW, eventCount: 0 },
+    ],
+    definitions: [],
+  };
+
+  assert.deepEqual(pendingRepairs(['a', 'b'], stand), { missing: [], failed: [] });
 });

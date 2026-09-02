@@ -45,6 +45,14 @@ const COLD_FETCH: EventFetchOptions = {
   descriptionBudgetMs: 30_000,
 };
 
+/**
+ * Abstand zwischen zwei Versuchen, eine bei der Erhebung ausgefallene Quelle
+ * nachzuholen. Lang genug, dass eine dauerhaft tote Seite nicht an jedem
+ * Seitenaufruf hängt, kurz genug, dass eine behobene Ursache noch am selben
+ * Tag greift.
+ */
+const REPAIR_INTERVAL_SECONDS = 30 * 60;
+
 /** Zeitraum, den ein Datenstand abdeckt. */
 export function snapshotRange(cityId: string): FetchRange {
   return coverageRange(todayInZone(cityById(cityId).timeZone));
@@ -76,9 +84,10 @@ export async function getSnapshot(
   }
 
   if (cached && isFresh(cached)) {
-    // Der Stand ist gültig, kennt aber womöglich eine Quelle nicht, die es
-    // beim letzten Lauf noch nicht gab. Die wird im Hintergrund nachgeholt.
-    collectMissingSources(cityId, range, key, cached.value, city);
+    // Der Stand ist gültig, aber vielleicht lückenhaft: eine Quelle, die es
+    // beim letzten Lauf noch nicht gab, oder eine, die dabei ausgefallen ist.
+    // Beides wird im Hintergrund nachgeholt.
+    repairSnapshot(cityId, range, key, cached.value, city);
     return withRegistrySources(cityId, cached.value);
   }
 
@@ -155,39 +164,82 @@ function notCollectedYet(definition: SourceDefinition): SourceResult {
 }
 
 /**
- * Fehlende Quellen nachholen, ohne den gültigen Stand anzutasten. Niemand
- * wartet darauf: der Seitenaufruf bekommt sofort, was da ist, und der nächste
- * sieht die nachgeholte Quelle.
+ * Was am Stand zu reparieren ist: `missing` kennt er gar nicht, `failed` hat
+ * er angefasst und nichts Brauchbares bekommen. Getrennt, weil sich beides
+ * unterschiedlich holen lässt – die eine darf ihren Eigencache nutzen, die
+ * andere nicht.
  */
-function collectMissingSources(
+export function pendingRepairs(
+  ids: string[],
+  current: AggregateResult,
+): { missing: string[]; failed: string[] } {
+  const known = new Map(current.sources.map((source) => [source.sourceId, source]));
+  return {
+    missing: ids.filter((id) => !known.has(id)),
+    failed: ids.filter((id) => {
+      const status = known.get(id)?.status;
+      return status === 'error' || status === 'stale';
+    }),
+  };
+}
+
+/**
+ * Lücken im gültigen Stand nachholen, ohne ihn anzutasten. Niemand wartet
+ * darauf: der Seitenaufruf bekommt sofort, was da ist, und der nächste sieht
+ * die nachgeholte Quelle.
+ *
+ * Zwei Arten von Lücke gibt es. Eine Quelle, die der Stand nicht kennt, ist
+ * neu registriert – die wird sofort geholt. Eine Quelle, die bei der Erhebung
+ * ausgefallen ist (`error` ohne Termine, `stale` mit denen von gestern), wäre
+ * sonst bis zur nächsten Erhebung kaputt, auch wenn die Ursache längst behoben
+ * ist: eine Seite, die nur kurz nicht antwortete, oder ein Adapter, dessen
+ * Korrektur erst nach der Erhebung ausgeliefert wurde. Ein erneuter Versuch
+ * kostet die Häuser nichts, die geantwortet haben – angefasst wird nur, was
+ * misslang – und höchstens einen Anlauf je `REPAIR_INTERVAL_SECONDS`.
+ */
+function repairSnapshot(
   cityId: string,
   range: FetchRange,
   key: string,
   current: AggregateResult,
   city: City,
 ): void {
-  const known = new Set(current.sources.map((source) => source.sourceId));
-  const missing = sourcesForCity(cityId)
-    .map((source) => source.definition.id)
-    .filter((id) => !known.has(id));
-  if (missing.length === 0) return;
+  const { missing, failed } = pendingRepairs(
+    sourcesForCity(cityId).map((source) => source.definition.id),
+    current,
+  );
+  if (missing.length === 0 && failed.length === 0) return;
 
-  void dedupe(`snapshot_missing_${key}_${missing.join('_')}`, async () => {
+  void dedupe(`snapshot_repair_${key}`, async () => {
+    // Der zweite Anlauf für eine ausgefallene Quelle darf nicht an jedem
+    // Seitenaufruf hängen; eine neu registrierte Quelle wartet nicht.
+    const retry = failed.length > 0 && !isFresh(await readCache(repairKey(key)));
+    if (retry) await writeCache(repairKey(key), true, REPAIR_INTERVAL_SECONDS);
+
+    const pending = retry ? [...missing, ...failed] : missing;
+    if (pending.length === 0) return;
+
     try {
-      const fetched = await collect(cityId, range, {
-        sourceIds: missing,
-        fetchOptions: SCHEDULED_FETCH,
-      });
+      // Die neue Quelle darf ihren Eigencache nutzen, die ausgefallene nicht:
+      // deren letzter Stand ist ja gerade das Problem.
+      const fetched = mergeSources(
+        await collectSome(cityId, range, missing, false),
+        await collectSome(cityId, range, retry ? failed : [], true),
+      );
       // Neu einlesen: zwischenzeitlich kann der Zeitplan geschrieben haben.
       const latest = await readCache<AggregateResult>(key);
       await store(key, mergeSources(latest?.value ?? current, fetched), city);
-      console.log(`[snapshot] "${cityId}": ${missing.join(', ')} nachgeholt`);
+      console.log(`[snapshot] "${cityId}": ${pending.join(', ')} nachgeholt`);
     } catch (error) {
-      console.warn(`[snapshot] Nachholen von "${missing.join(', ')}" für "${cityId}" fehlgeschlagen`, error);
+      console.warn(`[snapshot] Nachholen von "${pending.join(', ')}" für "${cityId}" fehlgeschlagen`, error);
     }
   }).catch(() => {
     // Oben bereits vermerkt.
   });
+}
+
+function repairKey(key: string): string {
+  return `${key}_repair`;
 }
 
 /** Ausschnitt eines Datenstands – mehr als den Datenstand gibt es nicht. */
@@ -213,6 +265,21 @@ function collect(
     force: options.force,
     fetchOptions: options.fetchOptions,
   });
+}
+
+/** Ein Teil des Stands – ohne Quellen bleibt es beim leeren Ergebnis. */
+async function collectSome(
+  cityId: string,
+  range: FetchRange,
+  sourceIds: string[],
+  force: boolean,
+): Promise<AggregateResult> {
+  // Leer heisst „nichts zu holen", nicht „keine Quellen": die Definitionen
+  // gehören zur Stadt und dürfen beim Zusammenführen nicht wegfallen.
+  if (sourceIds.length === 0) {
+    return { events: [], sources: [], definitions: sourcesForCity(cityId).map((s) => s.definition) };
+  }
+  return collect(cityId, range, { sourceIds, force, fetchOptions: SCHEDULED_FETCH });
 }
 
 /** Ein Stand hält bis zur nächsten Erhebung. */
