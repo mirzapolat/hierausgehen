@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AggregateResult, CalendarEvent, EventPerformance } from '@/lib/events/types';
 import {
@@ -8,6 +9,7 @@ import {
   addMonths,
   clampDay,
   coverageRange,
+  isDayView,
   isSameMonth,
   loadRange,
 } from '@/lib/calendar';
@@ -29,6 +31,15 @@ import { Sidebar } from './Sidebar';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
 import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
+
+/**
+ * Die Karte bringt Leaflet und dessen Stilvorlage mit. Beides wird erst
+ * geladen, wenn jemand die Ansicht zum ersten Mal öffnet – wer nur den
+ * Kalender benutzt, lädt es nie.
+ */
+const MapView = dynamic(() => import('./MapView').then((module) => module.MapView), {
+  ssr: false,
+});
 
 /** Dauer der Spalten- und Overlay-Bewegungen; identisch zu den Klassen unten. */
 const MOTION_MS = 200;
@@ -139,7 +150,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
     // Die URL hat Vorrang vor dem, was zuletzt lokal gemerkt wurde.
     const urlView = params.get('view');
-    if (urlView === 'day' || urlView === 'week' || urlView === 'month') setView(urlView);
+    if (isViewMode(urlView)) setView(urlView);
     else if (stored.view) setView(stored.view);
 
     const urlDate = params.get('date');
@@ -322,12 +333,11 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   /** Wohin ein Schritt führt – auf den abgedeckten Zeitraum begrenzt. */
   const steppedAnchor = useCallback(
     (current: string, direction: -1 | 1) => {
-      const raw =
-        view === 'day'
-          ? addDays(current, direction)
-          : view === 'week'
-            ? addDays(current, direction * 7)
-            : addMonths(current, direction);
+      const raw = isDayView(view)
+        ? addDays(current, direction)
+        : view === 'week'
+          ? addDays(current, direction * 7)
+          : addMonths(current, direction);
       return clampDay(raw, coverage);
     },
     [view, coverage],
@@ -345,7 +355,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     (direction: -1 | 1) => {
       if (!canStep(direction)) return;
       setAnchor(steppedAnchor(anchor, direction));
-      const amount = view === 'day' ? direction : view === 'week' ? direction * 7 : 0;
+      const amount = isDayView(view) ? direction : view === 'week' ? direction * 7 : 0;
       if (amount) setSelectedDay((current) => clampDay(addDays(current, amount), coverage));
     },
     [anchor, view, coverage, canStep, steppedAnchor],
@@ -562,6 +572,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         case 'd': case 'D': setView('day'); break;
         case 'w': case 'W': setView('week'); break;
         case 'm': case 'M': setView('month'); break;
+        case 'k': case 'K': setView('map'); break;
         case 'o': case 'O':
           if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
           break;
@@ -782,7 +793,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
               <SearchField query={query} onQueryChange={setQuery} />
             </div>
 
-            {view !== 'month' && (
+            {(view === 'day' || view === 'week') && (
               <HorizontalCalendar
                 key={calendarFocusKey}
                 mode={view}
@@ -796,6 +807,39 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 onStep={step}
                 canStep={canStep}
               />
+            )}
+
+            {view === 'map' && (
+              <>
+                <div className="hidden min-h-0 flex-1 lg:flex lg:flex-col">
+                  <MapView
+                    day={selectedDay}
+                    events={dayEvents}
+                    definitions={data.definitions}
+                    cityId={cityId}
+                    selectedEventId={selectedEventId}
+                    onSelectEvent={selectEvent}
+                  />
+                </div>
+                {/* Schmale Geräte bekommen die Karte (noch) nicht – dort ist
+                    zu wenig Platz für Pins, Ortskarte und Spalten. Statt einer
+                    gestauchten Karte lieber die Tagesliste. */}
+                <div className="flex min-h-0 flex-1 flex-col lg:hidden">
+                  <HorizontalCalendar
+                    key={calendarFocusKey}
+                    mode="day"
+                    anchor={anchor}
+                    events={events}
+                    definitions={data.definitions}
+                    selectedDay={selectedDay}
+                    selectedEventId={selectedEventId}
+                    onSelectDay={selectDay}
+                    onSelectEvent={selectEvent}
+                    onStep={step}
+                    canStep={canStep}
+                  />
+                </div>
+              </>
             )}
 
             {view === 'month' && (
@@ -1047,5 +1091,5 @@ function stringList(value: unknown): string[] {
 }
 
 function isViewMode(value: unknown): value is ViewMode {
-  return value === 'day' || value === 'week' || value === 'month';
+  return value === 'day' || value === 'week' || value === 'month' || value === 'map';
 }

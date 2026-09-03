@@ -1,5 +1,5 @@
 import { intlLocale, type Locale } from './i18n';
-import { addDays, isSameMonth, startOfWeek, type ViewMode } from './calendar';
+import { addDays, isDayView, isSameMonth, startOfWeek, type ViewMode } from './calendar';
 
 /**
  * Alle sichtbaren Datums- und Zeitangaben laufen über einen `Formatter`, der
@@ -118,7 +118,7 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
     hourLabel: (hour) => hourFmt.format(new Date(Date.UTC(2000, 0, 1, hour % 24))),
     stamp: (iso) => stampFmt.format(new Date(iso)),
     rangeLabel: (view, anchor) => {
-      if (view === 'day') return dayLong.format(noon(anchor));
+      if (isDayView(view)) return dayLong.format(noon(anchor));
       if (view === 'month') return monthYear.format(noon(anchor));
       const from = startOfWeek(anchor);
       const to = addDays(from, 6);

@@ -37,6 +37,10 @@ function normalizeEvent(event: CalendarEvent, definition?: SourceDefinition): Ca
     venue: {
       name: clean(event.venue.name) || definition?.name || 'Unbekannter Ort',
       city: event.venue.city ? clean(event.venue.city) : undefined,
+      // Der aufgelöste Punkt entsteht nach den Adaptern (`geocode.ts`) und
+      // überlebt jede weitere Normalisierung – sonst verlöre ihn der Stand
+      // beim nächsten Durchlauf wieder.
+      place: event.venue.place,
     },
     availabilityLabel: event.availabilityLabel ? clean(event.availabilityLabel) : undefined,
     ticketUrl: event.ticketUrl || undefined,

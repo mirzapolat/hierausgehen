@@ -13,16 +13,19 @@
     "seed": "node --experimental-strip-types scripts/seed-cache.ts",
     "probe": "node --experimental-strip-types scripts/probe-source.ts",
     "check": "node --experimental-strip-types scripts/check-source.ts",
-    "categories": "node --experimental-strip-types scripts/categories.ts"
+    "categories": "node --experimental-strip-types scripts/categories.ts",
+    "venues": "node --experimental-strip-types scripts/venues.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
+    "leaflet": "^1.9.4",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.20",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

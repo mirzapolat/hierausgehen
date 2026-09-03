@@ -40,6 +40,7 @@ const groups: { title: MessageKey; rows: Row[] }[] = [
       { keys: ['D'], label: 'day' },
       { keys: ['W'], label: 'week' },
       { keys: ['M'], label: 'month' },
+      { keys: ['K'], label: 'map' },
     ],
   },
   {

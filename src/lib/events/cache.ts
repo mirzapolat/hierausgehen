@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -7,6 +7,18 @@ import path from 'node:path';
  *
  * In-Memory für Geschwindigkeit, zusätzlich auf Platte, damit ein Neustart
  * (oder ein Deploy) nicht mit leerem Kalender startet.
+ *
+ * **Die Platte ist dabei die gemeinsame Wahrheit, nicht bloss die Sicherung.**
+ * Denselben Prozess teilen sich mehrere Modulinstanzen: Next bündelt Server
+ * Components und Route Handler getrennt, jede bekommt ihren eigenen
+ * Speicher-Cache. Ohne Abgleich lieferte die Startansicht wochenlang einen
+ * Stand, den die API längst überholt hat – genau so ist die Kartenansicht
+ * einmal ohne Punkte dagestanden, während `/api/events` welche hatte.
+ * Dasselbe gilt für alles, was von aussen schreibt: `npm run seed`, ein
+ * Skript, ein zweiter Prozess.
+ *
+ * Der Abgleich kostet ein `stat` je Lesevorgang. Neu eingelesen wird nur,
+ * wenn die Datei jünger ist als das, was im Speicher liegt.
  */
 
 export interface CacheEntry<T> {
@@ -17,7 +29,14 @@ export interface CacheEntry<T> {
   expiresAt: number;
 }
 
-const memory = new Map<string, CacheEntry<unknown>>();
+/** Was im Speicher liegt – und aus welchem Stand der Datei es stammt. */
+interface Slot {
+  entry: CacheEntry<unknown>;
+  /** Änderungszeit der Datei beim Lesen bzw. Schreiben. */
+  mtimeMs: number;
+}
+
+const memory = new Map<string, Slot>();
 
 const CACHE_DIR = path.join(process.cwd(), '.cache', 'events');
 const diskEnabled = process.env.EVENT_CACHE_DISK !== '0';
@@ -27,16 +46,21 @@ function diskPath(key: string) {
 }
 
 export async function readCache<T>(key: string): Promise<CacheEntry<T> | undefined> {
-  const hit = memory.get(key);
-  if (hit) return hit as CacheEntry<T>;
-  if (!diskEnabled) return undefined;
+  const slot = memory.get(key);
+  if (!diskEnabled) return slot?.entry as CacheEntry<T> | undefined;
+
+  const mtimeMs = await modifiedAt(diskPath(key));
+  // Keine Datei (oder keine jüngere) – dann gilt, was im Speicher liegt.
+  if (mtimeMs === undefined) return slot?.entry as CacheEntry<T> | undefined;
+  if (slot && mtimeMs <= slot.mtimeMs) return slot.entry as CacheEntry<T>;
+
   try {
-    const raw = await readFile(diskPath(key), 'utf8');
-    const entry = JSON.parse(raw) as CacheEntry<T>;
-    memory.set(key, entry);
+    const entry = JSON.parse(await readFile(diskPath(key), 'utf8')) as CacheEntry<T>;
+    memory.set(key, { entry, mtimeMs });
     return entry;
   } catch {
-    return undefined;
+    // Halb geschriebene oder kaputte Datei: der Speicher ist die bessere Wahl.
+    return slot?.entry as CacheEntry<T> | undefined;
   }
 }
 
@@ -46,16 +70,27 @@ export async function writeCache<T>(key: string, value: T, ttlSeconds: number): 
     fetchedAt: new Date().toISOString(),
     expiresAt: Date.now() + ttlSeconds * 1000,
   };
-  memory.set(key, entry);
+  memory.set(key, { entry, mtimeMs: Date.now() });
   if (diskEnabled) {
     try {
       await mkdir(CACHE_DIR, { recursive: true });
       await writeFile(diskPath(key), JSON.stringify(entry), 'utf8');
+      // Die eigene Datei nicht gleich wieder für fremd halten.
+      const written = await modifiedAt(diskPath(key));
+      if (written !== undefined) memory.set(key, { entry, mtimeMs: written });
     } catch {
       // Platte optional – der Speicher-Cache genügt.
     }
   }
   return entry;
+}
+
+async function modifiedAt(path: string): Promise<number | undefined> {
+  try {
+    return (await stat(path)).mtimeMs;
+  } catch {
+    return undefined;
+  }
 }
 
 export function isFresh(entry: CacheEntry<unknown> | undefined): boolean {

@@ -24,6 +24,10 @@
   --danger: #b4472e;
   --overlay: rgb(0 0 0 / 0.28);
   --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 32px rgb(0 0 0 / 0.10);
+  /* Milchglas – nur für das, was frei über der Karte schwebt (siehe unten). */
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-line: rgb(0 0 0 / 0.10);
+  --glass-sheen: rgb(255 255 255 / 0.7);
 }
 
 /*
@@ -46,6 +50,9 @@
     --danger: #e0785e;
     --overlay: rgb(0 0 0 / 0.55);
     --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
+    --glass: rgb(30 30 34 / 0.58);
+    --glass-line: rgb(255 255 255 / 0.12);
+    --glass-sheen: rgb(255 255 255 / 0.12);
   }
 }
 
@@ -64,6 +71,9 @@
   --danger: #e0785e;
   --overlay: rgb(0 0 0 / 0.55);
   --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
+  --glass: rgb(30 30 34 / 0.58);
+  --glass-line: rgb(255 255 255 / 0.12);
+  --glass-sheen: rgb(255 255 255 / 0.12);
   }
 
 @theme inline {
@@ -172,6 +182,177 @@ body {
   to {
     background-position: -300% 0;
   }
+}
+
+/*
+ * Milchglas für die Bedienelemente der Karte.
+ *
+ * Die Gestaltung der App kommt sonst ohne Schatten und ohne Transparenz aus –
+ * feine Linien statt Flächen. Über der Karte gilt das nicht: dort schwebt ein
+ * Knopf wirklich über etwas, und was darunter liegt, soll sichtbar bleiben,
+ * statt von einem weissen Kasten verdeckt zu werden. Deshalb hier – und nur
+ * hier – die durchscheinende Fläche mit Unschärfe, einer feinen Kante und
+ * einem Lichtstreifen an der Oberkante.
+ *
+ * Ohne `backdrop-filter` (ältere Browser) bleibt die Fläche schlicht deckend.
+ */
+@utility map-glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 6px 20px rgb(0 0 0 / 0.12),
+    inset 0 1px 0 var(--glass-sheen);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .map-glass {
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+}
+
+/*
+ * Kartenansicht
+ * -------------
+ * Leaflet bringt eigene Gestaltung mit; hier wird sie auf die Tokens der
+ * Oberfläche gezogen. Die Kacheln selbst kommen in zwei Fassungen (hell und
+ * dunkel) – das erledigt die Komponente.
+ */
+.leaflet-container {
+  background: var(--sunken);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+/*
+ * Der Standardstil von OpenStreetMap ist für diese Oberfläche zu bunt. Der
+ * Filter nimmt ihm die Farbe, ohne die Lesbarkeit zu nehmen; im dunklen
+ * Schema kehrt er ihn zusätzlich um – der bekannte Weg zu einer dunklen
+ * Karte, ohne einen zweiten Kachelanbieter zu brauchen.
+ *
+ * Nur die Kachelebene, nicht die ganze Karte: die Pins tragen die Farben der
+ * Ordner, und die sollen Farben bleiben.
+ */
+[data-tiles='light'] .leaflet-tile-pane {
+  filter: grayscale(0.92) contrast(0.82) brightness(1.12);
+}
+
+[data-tiles='dark'] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) grayscale(0.9) contrast(0.78) brightness(0.86);
+}
+
+.leaflet-container a {
+  color: var(--accent);
+}
+
+/*
+ * Ein Pin ist ein Ort, nicht ein Termin.
+ *
+ * Ein einzelner Termin ist eine getönte Glasperle in der Farbe seines Ordners,
+ * mehrere werden zu einer Scheibe mit der Anzahl, deren Ring die beteiligten
+ * Ordner in ihren Anteilen zeigt (ein Kegelverlauf, siehe `MapView`).
+ *
+ * Dasselbe Material wie die Knöpfe: durchscheinend, unscharf hinterlegt, mit
+ * einer feinen Kante und einem Glanz an der Oberkante (`::after`). Die Farbe
+ * bleibt kräftig genug, um den Ordner zu tragen – sie ist die Information,
+ * das Glas nur die Fassung. Der Schlagschatten hebt die Perle von der Karte
+ * ab, die darunter jede Helligkeit haben kann.
+ */
+.map-pin-wrap {
+  background: none;
+  border: 0;
+}
+
+.map-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 160ms ease;
+}
+
+/* Der Glanz: ein Lichtbogen auf der oberen Hälfte, wie auf einer Glaskugel. */
+.map-pin::after {
+  content: '';
+  position: absolute;
+  inset: 1px 1px 52% 1px;
+  border-radius: 999px;
+  background: linear-gradient(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0));
+  pointer-events: none;
+}
+
+.map-pin--single {
+  width: 18px;
+  height: 18px;
+  background: color-mix(in srgb, var(--pin) 82%, transparent);
+  -webkit-backdrop-filter: blur(6px) saturate(180%);
+  backdrop-filter: blur(6px) saturate(180%);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pin) 55%, transparent),
+    0 2px 6px rgb(0 0 0 / 0.3),
+    inset 0 -1px 2px rgb(0 0 0 / 0.18);
+}
+
+.map-pin--group {
+  width: 30px;
+  height: 30px;
+  box-shadow:
+    0 0 0 1px var(--glass-line),
+    0 2px 8px rgb(0 0 0 / 0.32);
+}
+
+/*
+ * Das Loch im Ring: mattiertes Glas, damit die Zahl auf jeder Karte steht.
+ * Deutlich dichter als die Knöpfe – hinter der Scheibe liegt nicht die Karte,
+ * sondern der farbige Ring, und der würde die Ziffer sonst einfärben.
+ */
+.map-pin--group::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--canvas) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(180%);
+  backdrop-filter: blur(10px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-sheen);
+}
+
+.map-pin__count {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaflet-marker-icon:hover .map-pin,
+.map-pin--open {
+  transform: scale(1.18);
+}
+
+.map-pin--open.map-pin--single {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--pin) 55%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 2px 8px rgb(0 0 0 / 0.35);
+}
+
+.map-pin--open.map-pin--group {
+  box-shadow:
+    0 0 0 1px var(--glass-line),
+    0 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 2px 10px rgb(0 0 0 / 0.35);
+}
+
+.leaflet-marker-icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 999px;
 }
 
 /*

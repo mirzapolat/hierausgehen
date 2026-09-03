@@ -29,6 +29,13 @@ const de = {
   dayShort: 'T',
   weekShort: 'W',
   monthShort: 'M',
+  map: 'Karte',
+  mapShort: 'K',
+  mapNoPlaces: 'Für diesen Tag ist kein Ort bekannt.',
+  mapUnplaced: '{count} ohne Ort auf der Karte',
+  mapFit: 'Alle Orte zeigen',
+  zoomIn: 'Vergrössern',
+  zoomOut: 'Verkleinern',
   filters: 'Filter',
   openFilters: 'Filter öffnen',
   closeFilters: 'Filter schliessen',
@@ -60,6 +67,9 @@ const de = {
   imprintContentTitle: 'Zu den Inhalten',
   imprintContent:
     'Dieser Kalender führt öffentlich zugängliche Spielpläne Münchner Häuser zusammen. Die Termine stammen von den jeweiligen Veranstaltern; verbindlich ist immer deren eigene Ankündigung. Für Karten, Preise und Änderungen sind die Veranstalter zuständig.',
+  imprintMapsTitle: 'Karten',
+  imprintMaps:
+    'Die Kartenansicht lädt ihre Kacheln direkt von den Servern der OpenStreetMap Foundation (tile.openstreetmap.org). Dabei erfährt deren Betreiber die IP-Adresse des Geräts – wie bei jedem Aufruf einer fremden Seite. Das passiert nur, wenn die Kartenansicht geöffnet wird; alle anderen Ansichten kommen ohne aus. Kartendaten: © OpenStreetMap-Mitwirkende, ODbL.',
   imprintLinksTitle: 'Links',
   imprintLinks:
     'Für die Inhalte verlinkter Seiten sind deren Betreiber verantwortlich. Zum Zeitpunkt der Verlinkung waren dort keine Rechtsverstöße erkennbar.',
@@ -172,6 +182,13 @@ const en: Record<MessageKey, string> = {
   dayShort: 'D',
   weekShort: 'W',
   monthShort: 'M',
+  map: 'Map',
+  mapShort: 'K',
+  mapNoPlaces: 'No known location for this day.',
+  mapUnplaced: '{count} without a location on the map',
+  mapFit: 'Show all places',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
   filters: 'Filters',
   openFilters: 'Open filters',
   closeFilters: 'Close filters',
@@ -203,6 +220,9 @@ const en: Record<MessageKey, string> = {
   imprintContentTitle: 'About the content',
   imprintContent:
     'This calendar brings together publicly available programmes of Munich venues. The events come from the respective organisers; their own announcement is always the binding one. Tickets, prices and changes are the organisers\u2019 responsibility.',
+  imprintMapsTitle: 'Maps',
+  imprintMaps:
+    'The map view loads its tiles directly from the servers of the OpenStreetMap Foundation (tile.openstreetmap.org), which sees the device IP address in the process – as with any request to a third-party site. This only happens when the map view is open; every other view works without it. Map data: © OpenStreetMap contributors, ODbL.',
   imprintLinksTitle: 'Links',
   imprintLinks:
     'The operators of linked pages are responsible for their content. No infringements were apparent at the time of linking.',

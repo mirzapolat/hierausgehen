@@ -13,9 +13,11 @@ npm run build
 ```
 
 Ist eine Quelle gerade nicht erreichbar, füllt `npm run seed` den Cache aus den
-mitgelieferten Fixtures, damit die Oberfläche mit echten Daten läuft. Der Cache
-liegt auch im Arbeitsspeicher des Servers – nach dem Seeden den Dev-Server neu
-starten, sonst gilt weiter, was er schon geladen hat.
+mitgelieferten Fixtures, damit die Oberfläche mit echten Daten läuft. Ein
+Neustart ist dafür nicht nötig: der Speicher-Cache gleicht sich mit der Platte
+ab und übernimmt, was von aussen geschrieben wurde (siehe `events/cache.ts`).
+Nur ein *gelöschtes* `.cache` merkt der laufende Server nicht – dann neu
+starten.
 
 ## Aufbau
 
@@ -37,6 +39,7 @@ src/
       ics.ts               ein Termin als .ics-Datei (RFC 5545)
       http.ts              Timeout, Retry, Browser-Header
       favicon.ts           Favicon einer Quelle finden und zwischenspeichern
+      geocode.ts           Ortsnamen zu Koordinaten (OpenStreetMap, mit Cache)
       categories.ts        Veranstaltungsarten: ein Wortschatz für alle Quellen
       text.ts                geteilte Textwerkzeuge (Versalien, Leerraum)
       sources/
@@ -239,6 +242,70 @@ Tabelle im Code veraltet. Die Sparten teilen die Liste vollständig und
 Was der Shop **nicht** kann: er führt nur, was gerade im Verkauf ist – je nach
 Vorverkauf zwei bis drei Monate statt der zwölf des Spielplans. Vergangenes gibt
 er gar nicht heraus, Endzeiten und lange Programmtexte führt er nicht.
+
+## Kartenansicht
+
+Neben Tag, Woche und Monat gibt es **Karte** (Taste `K`, ab Bildschirmbreite
+`lg`). Das ist eine Tagesansicht mit anderen Mitteln: dieselben gefilterten
+Termine wie in „Tag", nur nach Ort sortiert statt nach Uhrzeit. Die Frage
+dahinter ist eine andere – nicht „was läuft heute", sondern „was läuft heute in
+meiner Nähe". Seitenleiste, Filter und Detailspalte bleiben unverändert.
+
+**Ein Pin ist ein Ort, kein Termin.** Sechs Vorstellungen im Deutschen Theater
+sind ein Punkt mit einer Sechs, nicht sechs Punkte übereinander; der Ring darum
+zeigt die Ordnerfarben der beteiligten Quellen als Kreissegmente. Ein Klick
+öffnet die Liste des Ortes, ein Termin daraus füllt wie überall die
+Detailspalte. Umgekehrt gilt dasselbe: wer mit den Pfeiltasten durch die
+Termine geht, sieht die Karte mitwandern.
+
+Die Kacheln kommen ohne Schlüssel und ohne Registrierung direkt von
+OpenStreetMap. Deren Standardstil ist bunter, als es hierher passt – ein Filter
+auf der Kachelebene entsättigt ihn und kehrt ihn im dunklen Schema um, während
+die Pins ihre Farben behalten. Leaflet und die Kacheln werden erst geladen,
+wenn die Ansicht zum ersten Mal geöffnet wird.
+
+### Woher die Koordinaten kommen
+
+Die Quellen nennen nur Namen, und meistens sind es Raumnamen: „Silbersaal",
+„Bühne 1", „Foyer", „Saal & Stream". `events/geocode.ts` macht daraus Punkte –
+über Nominatim (OpenStreetMap), einmal je Name, danach ein halbes Jahr aus dem
+Zwischenspeicher. Gefragt wird während der täglichen Erhebung auf dem Server;
+kein Seitenaufruf fasst je einen Kartendienst an.
+
+Ein falscher Pin ist schlimmer als gar keiner, deshalb zählt ein Treffer nur,
+wenn drei Dinge stimmen:
+
+- **Der Name passt.** „Bühne 1" findet in München eine „Kleine Bühne" in
+  Pasing – acht Kilometer daneben.
+- **Die Art passt.** „Nationaltheater" liefert zuerst drei Tramhaltestellen und
+  erst danach das Theater; Verkehrswege und Ortsteile zählen nicht.
+- **Die Entfernung passt.** Über 50 km vom Stadtzentrum ist es ein anderer Ort
+  gleichen Namens – oder ein Gastspiel in einer anderen Stadt, das auf dieser
+  Karte nichts zu suchen hat.
+
+Findet sich der Raumname nicht, greift das **Haus der Quelle**: der Silbersaal
+liegt im Deutschen Theater. Zwei Sonderregeln sichern das ab. Ein Name, der nur
+aus Allerweltswörtern besteht („Saal", „Foyer", „Theatersaal", „Bibliothek"),
+zählt nur als eigener Ort, wenn er direkt am Haus liegt – sonst landete das
+Literaturhaus beim Kongress-Saal der Zeugen Jehovas und das Deutsche Theater in
+Solln. Und hat ein Name weit weg einen guten Treffer („Baden-Baden",
+„Ludwigsburg, Forum am Schloßpark"), gibt es *keinen* Rückfall aufs Haus: das
+wäre ein erfundener Ort.
+
+Was übrig bleibt, verschwindet nicht, sondern steht unter der Karte als „ohne
+Ort" – zuletzt 7 von 2608 Terminen, darunter „Gastspiel" und „per Zoom", die
+tatsächlich keinen Ort haben. `npm run venues` zeigt die ganze Tabelle:
+
+```bash
+npm run venues                  # alle Quellen, laufender Monat
+npm run venues -- staatsoper    # nur eine Quelle
+```
+
+Mit `*` markiert ist, was ohne Ort blieb; `Haus` heisst, dass nicht der
+Raumname gefunden wurde, sondern das Haus der Quelle. Das ist die Stelle zum
+Hinschauen, wenn ein Haus auf der Karte fehlt. Für die Ausnahme, dass
+OpenStreetMap einen Ort ganz anders nennt, gibt es `OVERRIDES` in
+`geocode.ts` – Handarbeit, und deshalb bewusst die Ausnahme.
 
 ## Suchmaschinen und Installation
 

@@ -7,6 +7,7 @@
  */
 
 import type { EventGroup } from './groups.ts';
+import type { GeoPoint } from '../cities.ts';
 
 /** Ticketlage, so grob wie sie sich quellenübergreifend verlässlich abbilden lässt. */
 export type Availability =
@@ -21,6 +22,24 @@ export interface EventVenue {
   name: string;
   /** Optionaler Ort, falls die Quelle mehrere Städte bedient. */
   city?: string;
+  /**
+   * Punkt auf der Karte. Kommt nicht aus der Quelle – die nennt nur Namen,
+   * oft nur Raumnamen ("Silbersaal") – sondern wird nachträglich aufgelöst
+   * (`geocode.ts`). Fehlt er, kennt niemand den Ort: der Termin steht dann in
+   * der Kartenansicht unter "ohne Ort" statt an einer geratenen Stelle.
+   */
+  place?: EventPlace;
+}
+
+/** Ein aufgelöster Ort: wie ihn OpenStreetMap nennt und wo er liegt. */
+export interface EventPlace {
+  name: string;
+  point: GeoPoint;
+  /**
+   * `venue` – der Name des Veranstaltungsortes selbst wurde gefunden.
+   * `house` – nur das Haus der Quelle; der Raumname liegt darin.
+   */
+  from: 'venue' | 'house';
 }
 
 export interface EventPerformance {

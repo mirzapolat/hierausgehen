@@ -70,6 +70,19 @@ export const Calendar = (p: Props) => (
 export const Keyboard = (p: Props) => (
   <Svg {...p}><path d="M1.5 4.5h13v7h-13z" /><path d="M4 7v.01M6.5 7v.01M9 7v.01M11.5 7v.01M5 9.5h6" /></Svg>
 );
+export const Plus = (p: Props) => <Svg {...p}><path d="M8 3.5v9M3.5 8h9" /></Svg>;
+export const Minus = (p: Props) => <Svg {...p}><path d="M3.5 8h9" /></Svg>;
+/** Fadenkreuz – "alle Orte zeigen". */
+export const Target = (p: Props) => (
+  <Svg {...p}><circle cx="8" cy="8" r="4" /><path d="M8 1v2M8 13v2M1 8h2M13 8h2" /></Svg>
+);
+/** Karte – die vierte Ansicht neben Tag, Woche und Monat. */
+export const Map = (p: Props) => (
+  <Svg {...p}>
+    <path d="M1.5 4 5.5 2.5l5 2 4-1.5v9l-4 1.5-5-2-4 1.5z" />
+    <path d="M5.5 2.5v9M10.5 4.5v9" />
+  </Svg>
+);
 export const Check = (p: Props) => <Svg {...p}><path d="m3 8.4 3.2 3.1L13 4.5" /></Svg>;
 export const MoreHorizontal = (p: Props) => (
   <Svg {...p}>

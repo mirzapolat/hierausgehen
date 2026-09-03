@@ -74,10 +74,13 @@ export function Toolbar({
     { offset: 2, label: t('dayAfterTomorrow') },
   ].map((jump) => ({ ...jump, day: addDays(format.today(), jump.offset) }));
 
-  const views: { id: ViewMode; label: string; short: string }[] = [
+  const views: { id: ViewMode; label: string; short: string; wide?: boolean }[] = [
     { id: 'day', label: t('day'), short: t('dayShort') },
     { id: 'week', label: t('week'), short: t('weekShort') },
     { id: 'month', label: t('month'), short: t('monthShort') },
+    // Die Karte braucht Platz für Pins, Ortskarte und die Spalten daneben –
+    // auf schmalen Geräten steht sie deshalb (noch) nicht zur Wahl.
+    { id: 'map', label: t('map'), short: t('mapShort'), wide: true },
   ];
 
   const iconButton =
@@ -188,7 +191,7 @@ export function Toolbar({
               type="button"
               onClick={() => onViewChange(item.id)}
               title={`${item.label} (${item.short})`}
-              className={`h-[22px] rounded-[3px] px-2 text-[12px] transition-colors ${
+              className={`h-[22px] rounded-[3px] px-2 text-[12px] transition-colors ${item.wide ? 'hidden lg:block' : ''} ${
                 view === item.id
                   ? 'bg-[var(--canvas)] text-text shadow-[0_0_0_1px_var(--line)]'
                   : 'text-muted hover:text-text'

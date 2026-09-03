@@ -1,11 +1,13 @@
 import type {
   AggregateResult,
+  CalendarEvent,
   EventFetchOptions,
   FetchRange,
   SourceDefinition,
   SourceResult,
 } from './types.ts';
 import { aggregateEvents } from './aggregate.ts';
+import { locateEvents } from './geocode.ts';
 import { sourcesForCity } from './registry.ts';
 import { dedupe, isFresh, readCache, writeCache } from './cache.ts';
 import { dedupeEvents, normalizeAndDedupeEvents } from './normalize.ts';
@@ -315,17 +317,35 @@ export async function eventsInRange(cityId: string, range: FetchRange): Promise<
   };
 }
 
-function collect(
+async function collect(
   cityId: string,
   range: FetchRange,
   options: { force?: boolean; sourceIds?: string[]; fetchOptions?: EventFetchOptions },
 ): Promise<AggregateResult> {
-  return aggregateEvents(range, {
+  const result = await aggregateEvents(range, {
     cityId,
     sourceIds: options.sourceIds,
     force: options.force,
     fetchOptions: options.fetchOptions,
   });
+
+  return { ...result, events: await locate(cityId, result) };
+}
+
+/**
+ * Die Orte für die Kartenansicht auflösen. Passiert genau hier, weil hier
+ * ohnehin einmal am Tag gearbeitet wird und das Ergebnis mit dem Datenstand
+ * auf der Platte landet – kein Seitenaufruf fragt je einen Kartendienst.
+ *
+ * Ein Fehlschlag ist folgenlos: dann fehlen Punkte, nicht Termine.
+ */
+async function locate(cityId: string, result: AggregateResult): Promise<CalendarEvent[]> {
+  try {
+    return await locateEvents(result.events, result.definitions, { cityId });
+  } catch (error) {
+    console.warn(`[snapshot] Ortsauflösung für "${cityId}" fehlgeschlagen`, error);
+    return result.events;
+  }
 }
 
 /** Ein Teil des Stands – ohne Quellen bleibt es beim leeren Ergebnis. */
@@ -384,6 +404,39 @@ export function startDailyRefresh(): void {
 }
 
 /**
+ * Orte in einem bestehenden Datenstand nachtragen.
+ *
+ * Der Stand auf der Platte kann älter sein als die Ortsauflösung selbst –
+ * nach dem Deployment dieser Funktion etwa, oder wenn sie beim letzten Lauf
+ * ins Zeitbudget gelaufen ist. Ohne dies bliebe die Kartenansicht bis zur
+ * nächsten Erhebung leer, obwohl alle Daten da sind.
+ *
+ * Gelaufen wird, sobald **irgendein** Termin ohne Ort dasteht – auch wenn die
+ * meisten schon einen haben. Genau so sieht ein Lauf aus, der ins Budget
+ * gelaufen ist: die Hälfte verortet, der Rest offen. Gespeichert wird nur,
+ * wenn dabei wirklich etwas dazugekommen ist; die Namen liegen im
+ * Zwischenspeicher, ein Lauf ohne neue Namen kostet nichts.
+ */
+export async function locateSnapshot(cityId: string): Promise<number> {
+  const city = cityById(cityId);
+  const range = snapshotRange(cityId);
+  const key = cacheKey(cityId, range);
+  const cached = await readCache<AggregateResult>(key);
+  if (!cached || cached.value.events.length === 0) return 0;
+
+  const before = cached.value.events.filter((event) => event.venue.place).length;
+  if (before === cached.value.events.length) return 0;
+
+  const events = await locateEvents(cached.value.events, cached.value.definitions, { cityId });
+  const added = events.filter((event) => event.venue.place).length - before;
+  if (added <= 0) return 0;
+
+  const latest = await readCache<AggregateResult>(key);
+  await store(key, { ...(latest?.value ?? cached.value), events }, city);
+  return added;
+}
+
+/**
  * Aufwärmen beim Hochfahren – und der eigentliche Grund dafür: heute
  * hinzugekommene Quellen.
  *
@@ -416,6 +469,13 @@ async function warmUp(city: City): Promise<void> {
     await getSnapshot(city.id, { patient: true });
   } catch (error) {
     console.error(`[snapshot] Aufwärmen für "${city.id}" fehlgeschlagen`, error);
+  }
+
+  try {
+    const located = await locateSnapshot(city.id);
+    if (located > 0) console.log(`[snapshot] "${city.id}": ${located} Termine nachträglich verortet`);
+  } catch (error) {
+    console.warn(`[snapshot] Nachträgliche Ortsauflösung für "${city.id}" fehlgeschlagen`, error);
   }
 }
 

@@ -7,7 +7,17 @@
  * Einstellungen abhängen.
  */
 
-export type ViewMode = 'day' | 'week' | 'month';
+/**
+ * "map" ist eine Tagesansicht mit anderen Mitteln: derselbe Zeitraum, dieselbe
+ * Schrittweite, nur nach Ort statt nach Uhrzeit sortiert. Überall dort, wo es
+ * um Datumsrechnung geht, verhält sie sich deshalb wie "day".
+ */
+export type ViewMode = 'day' | 'week' | 'month' | 'map';
+
+/** Ansichten, die genau einen Tag zeigen. */
+export function isDayView(view: ViewMode): boolean {
+  return view === 'day' || view === 'map';
+}
 
 function utc(day: string): Date {
   return new Date(`${day}T12:00:00Z`);
@@ -64,7 +74,7 @@ export function monthGrid(anchor: string): string[] {
 
 /** Sichtbarer Zeitraum einer Ansicht. */
 export function visibleRange(view: ViewMode, anchor: string): { from: string; to: string } {
-  if (view === 'day') return { from: anchor, to: anchor };
+  if (isDayView(view)) return { from: anchor, to: anchor };
   if (view === 'week') {
     const from = startOfWeek(anchor);
     return { from, to: addDays(from, 6) };

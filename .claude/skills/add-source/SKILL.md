@@ -199,9 +199,9 @@ dazu stehen in `referenzen/felder-und-fallen.md`.
 Die ausgegebenen Zahlen mit der Website vergleichen, nicht nur „es kommt etwas".
 Dann ein Ereignis vollständig ansehen: stimmen Uhrzeit, Spielstätte,
 Ticketlink? Für die Oberfläche zusätzlich `npm run dev` — dabei zwei Fallen:
-der Cache liegt auch im Arbeitsspeicher des Servers (nach `npm run seed` oder
-dem Löschen von `.cache` neu starten), und `npm run seed` legt Fixture-Daten in
-den Cache, die danach wieder raus müssen.
+ein gelöschtes `.cache` merkt der laufende Server nicht (dann neu starten;
+Schreibvorgänge von aussen übernimmt er von selbst), und `npm run seed` legt
+Fixture-Daten in den Cache, die danach wieder raus müssen.
 
 ## 8. Berichten
 

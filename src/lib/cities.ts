@@ -54,7 +54,8 @@ export function nearestCity(point: GeoPoint, candidates: City[] = cities): City 
     .sort((a, b) => a.distance - b.distance)[0].city;
 }
 
-function distanceKm(a: GeoPoint, b: GeoPoint): number {
+/** Luftlinie zwischen zwei Punkten in Kilometern. */
+export function distanceKm(a: GeoPoint, b: GeoPoint): number {
   const earthRadiusKm = 6371;
   const lat1 = toRadians(a.latitude);
   const lat2 = toRadians(b.latitude);

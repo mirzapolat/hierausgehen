@@ -43,6 +43,10 @@ export function ImprintScreen() {
             <p className="text-[13px] leading-relaxed text-muted">{t('imprintContent')}</p>
           </Section>
 
+          <Section title={t('imprintMapsTitle')}>
+            <p className="text-[13px] leading-relaxed text-muted">{t('imprintMaps')}</p>
+          </Section>
+
           <Section title={t('imprintLinksTitle')}>
             <p className="text-[13px] leading-relaxed text-muted">{t('imprintLinks')}</p>
           </Section>
