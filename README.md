@@ -26,6 +26,7 @@ src/
   lib/
     cities.ts              Städte (Name, Zeitzone) – Grundlage der Stadtauswahl
     calendar.ts            reine Datumsrechnung auf ISO-Tagen
+    map.ts                 reine Rechnung der Karte: Orte und ihre Bündelung
     format.ts              alle sichtbaren Datums- und Zeitformate
     i18n.ts                Wörterbuch Deutsch / Englisch
     settings/context.tsx   Erscheinungsbild, Sprache, Zeitformat, Zeitzone, Stadt
@@ -253,10 +254,17 @@ meiner Nähe". Seitenleiste, Filter und Detailspalte bleiben unverändert.
 
 **Ein Pin ist ein Ort, kein Termin.** Sechs Vorstellungen im Deutschen Theater
 sind ein Punkt mit einer Sechs, nicht sechs Punkte übereinander; der Ring darum
-zeigt die Ordnerfarben der beteiligten Quellen als Kreissegmente. Ein Klick
-öffnet die Liste des Ortes, ein Termin daraus füllt wie überall die
-Detailspalte. Umgekehrt gilt dasselbe: wer mit den Pfeiltasten durch die
-Termine geht, sieht die Karte mitwandern.
+zeigt die Ordnerfarben der beteiligten Quellen als Kreissegmente. Und was sich
+bei der aktuellen Zoomstufe überdecken würde, wird zusammengefasst: die Häuser
+am Max-Joseph-Platz liegen keine 200 Meter auseinander und sind herausgezoomt
+ein Punkt, hineingezoomt wieder vier. Gerechnet wird das in Bildpunkten, nicht
+in Metern – das ist die Frage, um die es geht (`lib/map.ts`, mit Tests).
+
+Beim Überfahren steht am Zeiger, was hier läuft. Ein Klick auf einen Punkt mit
+mehreren Terminen öffnet die Ortskarte, einer mit genau einem Termin führt
+direkt in die Detailspalte – eine Liste mit einem Eintrag ist kein Gewinn.
+Umgekehrt gilt dasselbe: wer mit den Pfeiltasten durch die Termine geht, sieht
+die Karte mitwandern.
 
 Die Kacheln kommen ohne Schlüssel und ohne Registrierung direkt von
 OpenStreetMap. Deren Standardstil ist bunter, als es hierher passt – ein Filter

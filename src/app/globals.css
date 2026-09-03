@@ -250,15 +250,15 @@ body {
 /*
  * Ein Pin ist ein Ort, nicht ein Termin.
  *
- * Ein einzelner Termin ist eine getönte Glasperle in der Farbe seines Ordners,
+ * Ein einzelner Termin ist ein kleiner Punkt in der Farbe seines Ordners,
  * mehrere werden zu einer Scheibe mit der Anzahl, deren Ring die beteiligten
  * Ordner in ihren Anteilen zeigt (ein Kegelverlauf, siehe `MapView`).
  *
- * Dasselbe Material wie die Knöpfe: durchscheinend, unscharf hinterlegt, mit
- * einer feinen Kante und einem Glanz an der Oberkante (`::after`). Die Farbe
- * bleibt kräftig genug, um den Ordner zu tragen – sie ist die Information,
- * das Glas nur die Fassung. Der Schlagschatten hebt die Perle von der Karte
- * ab, die darunter jede Helligkeit haben kann.
+ * Flach und klein: die Farbe trägt die Information, alles andere wäre Zierat
+ * auf einer ohnehin gemusterten Fläche. Was sie von der Karte abhebt, ist der
+ * Ring in Hintergrundfarbe und ein knapper Schatten – nicht Glanz und
+ * Unschärfe. (Die schwebenden Bedienelemente dürfen Glas sein, die Punkte
+ * liegen auf der Karte.)
  */
 .map-pin-wrap {
   background: none;
@@ -271,59 +271,39 @@ body {
   place-items: center;
   border-radius: 999px;
   cursor: pointer;
-  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 160ms ease;
-}
-
-/* Der Glanz: ein Lichtbogen auf der oberen Hälfte, wie auf einer Glaskugel. */
-.map-pin::after {
-  content: '';
-  position: absolute;
-  inset: 1px 1px 52% 1px;
-  border-radius: 999px;
-  background: linear-gradient(rgb(255 255 255 / 0.6), rgb(255 255 255 / 0));
-  pointer-events: none;
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms ease;
 }
 
 .map-pin--single {
-  width: 18px;
-  height: 18px;
-  background: color-mix(in srgb, var(--pin) 82%, transparent);
-  -webkit-backdrop-filter: blur(6px) saturate(180%);
-  backdrop-filter: blur(6px) saturate(180%);
+  width: 12px;
+  height: 12px;
+  background: var(--pin);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--pin) 55%, transparent),
-    0 2px 6px rgb(0 0 0 / 0.3),
-    inset 0 -1px 2px rgb(0 0 0 / 0.18);
+    0 0 0 2px var(--canvas),
+    0 1px 3px rgb(0 0 0 / 0.3);
 }
 
 .map-pin--group {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   box-shadow:
-    0 0 0 1px var(--glass-line),
-    0 2px 8px rgb(0 0 0 / 0.32);
+    0 0 0 1px var(--line-strong),
+    0 1px 4px rgb(0 0 0 / 0.25);
 }
 
-/*
- * Das Loch im Ring: mattiertes Glas, damit die Zahl auf jeder Karte steht.
- * Deutlich dichter als die Knöpfe – hinter der Scheibe liegt nicht die Karte,
- * sondern der farbige Ring, und der würde die Ziffer sonst einfärben.
- */
+/* Das Loch im Ring: darin steht die Zahl. */
 .map-pin--group::before {
   content: '';
   position: absolute;
-  inset: 4px;
+  inset: 3.5px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--canvas) 90%, transparent);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-  backdrop-filter: blur(10px) saturate(180%);
-  box-shadow: inset 0 1px 0 var(--glass-sheen);
+  background: var(--canvas);
 }
 
 .map-pin__count {
   position: relative;
   z-index: 1;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1;
   color: var(--text);
@@ -332,21 +312,21 @@ body {
 
 .leaflet-marker-icon:hover .map-pin,
 .map-pin--open {
-  transform: scale(1.18);
+  transform: scale(1.3);
 }
 
 .map-pin--open.map-pin--single {
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--pin) 55%, transparent),
-    0 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent),
-    0 2px 8px rgb(0 0 0 / 0.35);
+    0 0 0 2px var(--canvas),
+    0 0 0 4px var(--accent),
+    0 1px 3px rgb(0 0 0 / 0.3);
 }
 
 .map-pin--open.map-pin--group {
   box-shadow:
-    0 0 0 1px var(--glass-line),
-    0 0 0 4px color-mix(in srgb, var(--accent) 70%, transparent),
-    0 2px 10px rgb(0 0 0 / 0.35);
+    0 0 0 2px var(--canvas),
+    0 0 0 4px var(--accent),
+    0 1px 4px rgb(0 0 0 / 0.25);
 }
 
 .leaflet-marker-icon:focus-visible {

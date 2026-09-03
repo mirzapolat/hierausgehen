@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { cityById } from '@/lib/cities';
 import { availabilityKeys, displayAvailability, sourceColor } from '@/lib/events/display';
+import { clusterPlaces, groupByPlace, type Pin } from '@/lib/map';
 import { useSettings } from '@/lib/settings/context';
 import { AvailabilityDot } from './AvailabilityDot';
 import { Close, Minus, Plus, Target } from './icons';
@@ -31,8 +32,14 @@ interface Props {
  * Ein Pin ist deshalb ein **Ort**, kein Termin. Sechs Vorstellungen im
  * Deutschen Theater sind ein Punkt mit einer Sechs, nicht sechs Punkte
  * übereinander; der Ring darum zeigt die Ordnerfarben der beteiligten
- * Quellen. Ein Klick öffnet die Liste des Ortes, ein Termin daraus füllt wie
- * überall die Detailspalte rechts.
+ * Quellen. Was sich bei der aktuellen Zoomstufe ohnehin überdecken würde,
+ * wird zusammengefasst (`lib/map.ts`) – die vier Häuser am Max-Joseph-Platz
+ * sind herausgezoomt ein Punkt und hineingezoomt wieder vier.
+ *
+ * Zeigen genügt für einen ersten Blick: beim Überfahren steht am Zeiger, was
+ * hier läuft. Ein Klick auf einen Punkt mit mehreren Terminen öffnet die
+ * Ortskarte, einer mit genau einem Termin führt direkt in die Detailspalte –
+ * eine Liste mit einem Eintrag ist keine Hilfe, sondern ein Zwischenschritt.
  *
  * Karten brauchen sonst einen Schlüssel und eine Registrierung. Hier nicht:
  * die Kacheln kommen direkt von OpenStreetMap. Deren Standardstil ist bunter,
@@ -53,16 +60,11 @@ const glassButton =
   'map-glass grid h-9 w-9 place-items-center rounded-full text-muted ' +
   'transition-[transform,color] duration-150 hover:scale-105 hover:text-text active:scale-95';
 
-/** Ein Ort mit allem, was an ihm an diesem Tag stattfindet. */
-interface Place {
-  key: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  events: CalendarEvent[];
-  /** Farben der beteiligten Quellen, in der Reihenfolge der Termine. */
-  colors: string[];
-}
+/** So viele Termine zeigt die Vorschau am Zeiger; der Rest wird gezählt. */
+const PREVIEW_EVENTS = 6;
+
+/** Zoomstufe beim Öffnen und immer dann, wenn es nichts einzupassen gibt. */
+const START_ZOOM = 12;
 
 export function MapView({
   day,
@@ -85,6 +87,11 @@ export function MapView({
   const fitted = useRef<string>('');
   const [ready, setReady] = useState(false);
   /**
+   * Die Zoomstufe, weil das Zusammenfassen naher Punkte von ihr abhängt: was
+   * herausgezoomt ein Punkt ist, sind hineingezoomt drei Häuser.
+   */
+  const [zoom, setZoom] = useState(START_ZOOM);
+  /**
    * Der von Hand geöffnete Ort – mitsamt der Auswahl, unter der er geöffnet
    * wurde. Beides zusammen, weil zwei Wege denselben Ort öffnen: ein Klick auf
    * den Pin und die Auswahl eines Termins anderswo (Pfeiltasten, Detailspalte,
@@ -94,22 +101,34 @@ export function MapView({
   const [pinned, setPinned] = useState<{ key?: string; forSelection?: string }>({});
 
   const places = useMemo(() => groupByPlace(events, definitions), [events, definitions]);
+  const pins = useMemo(() => clusterPlaces(places, zoom), [places, zoom]);
   const unplaced = useMemo(() => events.filter((event) => !event.venue.place), [events]);
   const [unplacedOpen, setUnplacedOpen] = useState(false);
+  /** Vorschau am Zeiger: welche Nadel, an welcher Stelle der Fläche. */
+  const [hover, setHover] = useState<{ pin: Pin; x: number; y: number }>();
+  /** Grösse der Kartenfläche – damit die Vorschau am Rand die Seite wechselt. */
+  const [size, setSize] = useState({ width: 0, height: 0 });
 
-  const selectedKey = places.find((place) =>
+  /**
+   * Gemerkt wird der **Ort**, nicht die Stecknadel: Nadeln entstehen je
+   * Zoomstufe neu, ein Ort bleibt derselbe. Sonst verlöre ein Zoomschritt die
+   * offene Ortskarte.
+   */
+  const selectedPlaceKey = places.find((place) =>
     place.events.some((event) => event.id === selectedEventId),
   )?.key;
   // Die Ortskarte bleibt offen, solange sich die Auswahl nicht bewegt hat.
-  const openPlace = pinned.forSelection === selectedEventId ? pinned.key : selectedKey;
-  const active = places.find((place) => place.key === openPlace);
+  const openPlaceKey = pinned.forSelection === selectedEventId ? pinned.key : selectedPlaceKey;
+  const active = pins.find((pin) => pin.places.some((place) => place.key === openPlaceKey));
   /**
-   * Welcher Pin hervorgehoben ist. Nicht dasselbe wie die offene Ortskarte:
+   * Welche Nadel hervorgehoben ist. Nicht dasselbe wie die offene Ortskarte:
    * bei einem Ort mit nur einem Termin geht der Klick direkt in die
-   * Detailspalte, ohne Karte – der Pin soll trotzdem zeigen, dass er gemeint
-   * ist.
+   * Detailspalte, ohne Karte – die Nadel soll trotzdem zeigen, dass sie
+   * gemeint ist.
    */
-  const highlightKey = openPlace ?? selectedKey;
+  const highlighted = active ?? pins.find((pin) =>
+    pin.places.some((place) => place.key === selectedPlaceKey),
+  );
 
   const openPin = useCallback(
     (key?: string) => setPinned({ key, forSelection: selectedEventId }),
@@ -135,14 +154,20 @@ export function MapView({
         minZoom: 10,
         maxZoom: 18,
         zoomSnap: 0.5,
-      }).setView([city.coordinates.latitude, city.coordinates.longitude], 12);
+      }).setView([city.coordinates.latitude, city.coordinates.longitude], START_ZOOM);
 
       // Ein Klick ins Leere schliesst die Ortskarte – wie überall sonst auch.
       map.current.on('click', () => setPinned({ key: undefined }));
+      map.current.on('zoomend', () => setZoom(map.current?.getZoom() ?? START_ZOOM));
+      // Beim Ziehen und Zoomen wandern die Nadeln unter dem Zeiger weg.
+      map.current.on('movestart zoomstart', () => setHover(undefined));
 
       // Die Spalten links und rechts lassen sich ziehen und einklappen;
       // Leaflet merkt das von sich aus nur beim Fenster, nicht am Element.
-      observer = new ResizeObserver(() => map.current?.invalidateSize({ animate: false }));
+      observer = new ResizeObserver(([entry]) => {
+        map.current?.invalidateSize({ animate: false });
+        setSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      });
       observer.observe(container.current);
 
       setReady(true);
@@ -182,35 +207,43 @@ export function MapView({
     for (const marker of markers.current.values()) marker.remove();
     markers.current.clear();
 
-    for (const place of places) {
-      const marker = L.marker([place.latitude, place.longitude], {
+    for (const pin of pins) {
+      const marker = L.marker([pin.latitude, pin.longitude], {
         icon: L.divIcon({
-          html: pinHtml(place, place.key === highlightKey),
+          html: pinHtml(pin, pin === highlighted),
           className: 'map-pin-wrap',
           // Muss zu den Grössen in `globals.css` passen, sonst sitzt der
           // Punkt neben seinem Ort.
-          iconSize: place.events.length > 1 ? [30, 30] : [18, 18],
-          iconAnchor: place.events.length > 1 ? [15, 15] : [9, 9],
+          iconSize: pin.events.length > 1 ? [30, 30] : [18, 18],
+          iconAnchor: pin.events.length > 1 ? [15, 15] : [9, 9],
         }),
-        title: `${place.name} – ${count(place.events.length, t)}`,
+        title: `${pin.name} – ${count(pin.events.length, t)}`,
         keyboard: true,
         riseOnHover: true,
       });
+      // Zwei Ereignisse in einem Aufruf verlieren die genaue Typisierung;
+      // einzeln registriert bleibt `containerPoint` erhalten.
+      const follow = (event: Leaflet.LeafletMouseEvent) =>
+        setHover({ pin, x: event.containerPoint.x, y: event.containerPoint.y });
+      marker.on('mouseover', follow);
+      marker.on('mousemove', follow);
+      marker.on('mouseout', () => setHover(undefined));
       marker.on('click', () => {
-        // Ein Ort mit einem einzigen Termin braucht keine Zwischenliste: der
-        // Klick führt direkt in die Detailspalte. Die Auswahl steht dabei
+        // Eine Nadel mit einem einzigen Termin braucht keine Zwischenliste:
+        // der Klick führt direkt in die Detailspalte. Die Auswahl steht dabei
         // schon fest, deshalb kann die Ortskarte gleich zubleiben.
-        if (place.events.length === 1) {
-          setPinned({ key: undefined, forSelection: place.events[0].id });
-          onSelectEvent(place.events[0]);
+        setHover(undefined);
+        if (pin.events.length === 1) {
+          setPinned({ key: undefined, forSelection: pin.events[0].id });
+          onSelectEvent(pin.events[0]);
           return;
         }
-        openPin(place.key);
+        openPin(pin.places[0].key);
       });
       marker.addTo(map.current);
-      markers.current.set(place.key, marker);
+      markers.current.set(pin.key, marker);
     }
-  }, [ready, places, highlightKey, openPin, onSelectEvent, t]);
+  }, [ready, pins, highlighted, openPin, onSelectEvent, t]);
 
   /* ------------------------------ Ausschnitt ----------------------------- */
 
@@ -222,7 +255,9 @@ export function MapView({
       const L = leaflet.current;
       if (!L || !map.current) return;
       if (places.length === 0) {
-        map.current.setView([city.coordinates.latitude, city.coordinates.longitude], 12, { animate });
+        map.current.setView([city.coordinates.latitude, city.coordinates.longitude], START_ZOOM, {
+          animate,
+        });
         return;
       }
       map.current.fitBounds(
@@ -246,10 +281,10 @@ export function MapView({
   // Auswahl von aussen (Pfeiltasten, Detailspalte, Suche): den Ort ins Bild
   // holen. Geöffnet ist er durch die Ableitung oben bereits.
   useEffect(() => {
-    if (!ready || !selectedKey || !map.current) return;
-    const place = places.find((candidate) => candidate.key === selectedKey);
+    if (!ready || !selectedPlaceKey || !map.current) return;
+    const place = places.find((candidate) => candidate.key === selectedPlaceKey);
     if (place) map.current.panTo([place.latitude, place.longitude], { animate: true, duration: 0.4 });
-  }, [ready, selectedKey, places]);
+  }, [ready, selectedPlaceKey, places]);
 
   /* ------------------------------- Ansicht ------------------------------ */
 
@@ -303,6 +338,49 @@ export function MapView({
           </p>
         )}
 
+        {/* Vorschau am Zeiger: was hier läuft, ohne einen Klick. Bei einer
+            zusammengefassten Nadel ist das die ganze Auswahl – genau dafür
+            steht die Zahl darin. */}
+        {hover && (
+          <div
+            className="map-glass pointer-events-none absolute z-[700] w-[230px] overflow-hidden
+                       rounded-[14px] px-2.5 py-2"
+            style={{
+              // Neben dem Zeiger, und am Rand auf die andere Seite.
+              left: hover.x + 246 > size.width ? undefined : hover.x + 14,
+              right: hover.x + 246 > size.width ? size.width - hover.x + 14 : undefined,
+              top: hover.y + 12,
+              transform: hover.y + 160 > size.height ? 'translateY(calc(-100% - 26px))' : undefined,
+            }}
+          >
+            <div className="truncate text-[11px] font-semibold" title={hover.pin.name}>
+              {hover.pin.places.length === 1
+                ? hover.pin.name
+                : t('mapPinPlaces', { count: hover.pin.places.length })}
+            </div>
+            <ul className="mt-1 flex flex-col gap-0.5">
+              {hover.pin.events.slice(0, PREVIEW_EVENTS).map((event) => (
+                <li key={event.id} className="flex items-baseline gap-1.5">
+                  <span className="w-[34px] shrink-0 text-[10px] tabular-nums text-muted">
+                    {event.allDay ? '—' : format.time(event.start)}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="h-[6px] w-[6px] shrink-0 rounded-full"
+                    style={{ background: sourceColor(definitions, event.sourceId) }}
+                  />
+                  <span className="truncate text-[11px]">{event.title}</span>
+                </li>
+              ))}
+            </ul>
+            {hover.pin.events.length > PREVIEW_EVENTS && (
+              <div className="mt-1 text-[10px] text-faint">
+                {t('mapMore', { count: hover.pin.events.length - PREVIEW_EVENTS })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Ortskarte: was an diesem Punkt läuft. */}
         {active && (
           <div
@@ -311,7 +389,11 @@ export function MapView({
           >
             <div className="flex items-start gap-2 px-3 py-2.5 hairline-b">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold">{active.name}</div>
+                <div className="truncate text-[13px] font-semibold" title={active.name}>
+                  {active.places.length === 1
+                    ? active.name
+                    : t('mapPinPlaces', { count: active.places.length })}
+                </div>
                 <div className="text-[11px] text-muted">{count(active.events.length, t)}</div>
               </div>
               <button
@@ -324,43 +406,58 @@ export function MapView({
                 <Close className="h-3.5 w-3.5" />
               </button>
             </div>
-            <ul className="max-h-[280px] overflow-y-auto scroll-quiet">
-              {active.events.map((event) => {
-                const availability = displayAvailability(event);
-                return (
-                  <li key={event.id}>
-                    <button
-                      type="button"
-                      data-event-id={event.id}
-                      onClick={() => onSelectEvent(event)}
-                      aria-current={selectedEventId === event.id}
-                      className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hairline-b
-                                  ${
-                                    selectedEventId === event.id
-                                      ? 'bg-[var(--accent-soft)]'
-                                      : 'hover:bg-[var(--chrome)]'
-                                  }`}
-                    >
-                      <span className="w-[38px] shrink-0 text-[11px] tabular-nums text-muted">
-                        {event.allDay ? '—' : format.time(event.start)}
-                      </span>
-                      <span
-                        aria-hidden="true"
-                        className="mt-[5px] h-[10px] w-[2px] shrink-0 rounded-full"
-                        style={{ background: sourceColor(definitions, event.sourceId) }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[12px] font-medium">{event.title}</span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
-                          <AvailabilityDot value={availability} />
-                          <span className="truncate">{t(availabilityKeys[availability])}</span>
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="max-h-[280px] overflow-y-auto scroll-quiet">
+              {active.places.map((place) => (
+                <section key={place.key}>
+                  {/* Hält die Nadel mehrere Orte, braucht jeder seine Zeile –
+                      sonst stünden die Termine ohne Zuordnung untereinander. */}
+                  {active.places.length > 1 && (
+                    <h3 className="px-3 pb-1 pt-2 text-[10px] uppercase tracking-[0.05em] text-faint">
+                      {place.name}
+                    </h3>
+                  )}
+                  <ul>
+                    {place.events.map((event) => {
+                      const availability = displayAvailability(event);
+                      return (
+                        <li key={event.id}>
+                          <button
+                            type="button"
+                            data-event-id={event.id}
+                            onClick={() => onSelectEvent(event)}
+                            aria-current={selectedEventId === event.id}
+                            className={`flex w-full items-start gap-2 px-3 py-2 text-left transition-colors hairline-b
+                                        ${
+                                          selectedEventId === event.id
+                                            ? 'bg-[var(--accent-soft)]'
+                                            : 'hover:bg-[var(--chrome)]'
+                                        }`}
+                          >
+                            <span className="w-[38px] shrink-0 text-[11px] tabular-nums text-muted">
+                              {event.allDay ? '—' : format.time(event.start)}
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className="mt-[5px] h-[10px] w-[2px] shrink-0 rounded-full"
+                              style={{ background: sourceColor(definitions, event.sourceId) }}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[12px] font-medium">
+                                {event.title}
+                              </span>
+                              <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
+                                <AvailabilityDot value={availability} />
+                                <span className="truncate">{t(availabilityKeys[availability])}</span>
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </div>
         )}
 
@@ -420,57 +517,20 @@ export function MapView({
 /* ------------------------------ Bausteine ------------------------------- */
 
 /**
- * Termine zu Orten bündeln.
- *
- * Zusammen gehört, was denselben Punkt hat – die Räume eines Hauses fallen
- * dadurch von selbst zusammen, weil sie alle auf dessen Punkt aufgelöst
- * wurden.
- */
-function groupByPlace(events: CalendarEvent[], definitions: SourceDefinition[]): Place[] {
-  const places = new Map<string, Place>();
-
-  for (const event of events) {
-    const place = event.venue.place;
-    if (!place) continue;
-    const key = `${place.point.latitude.toFixed(5)},${place.point.longitude.toFixed(5)}`;
-    const existing = places.get(key);
-    if (existing) {
-      existing.events.push(event);
-      existing.colors.push(sourceColor(definitions, event.sourceId));
-      continue;
-    }
-    places.set(key, {
-      key,
-      name: place.name,
-      latitude: place.point.latitude,
-      longitude: place.point.longitude,
-      events: [event],
-      colors: [sourceColor(definitions, event.sourceId)],
-    });
-  }
-
-  for (const place of places.values()) {
-    place.events.sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
-  }
-
-  return [...places.values()].sort((a, b) => b.events.length - a.events.length);
-}
-
-/**
  * Der Pin. Ein einzelner Termin ist ein Punkt in der Farbe seines Ordners,
  * mehrere sind eine Scheibe mit der Anzahl und einem Ring, der die beteiligten
  * Ordner in ihren Anteilen zeigt.
  */
-function pinHtml(place: Place, open: boolean): string {
+function pinHtml(pin: Pin, open: boolean): string {
   const state = open ? ' map-pin--open' : '';
 
-  if (place.events.length === 1) {
-    return `<span class="map-pin map-pin--single${state}" style="--pin: ${place.colors[0]}"></span>`;
+  if (pin.events.length === 1) {
+    return `<span class="map-pin map-pin--single${state}" style="--pin: ${pin.colors[0]}"></span>`;
   }
 
   return (
-    `<span class="map-pin map-pin--group${state}" style="background: ${ring(place.colors)}">` +
-    `<span class="map-pin__count">${place.events.length}</span></span>`
+    `<span class="map-pin map-pin--group${state}" style="background: ${ring(pin.colors)}">` +
+    `<span class="map-pin__count">${pin.events.length}</span></span>`
   );
 }
 
