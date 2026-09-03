@@ -270,6 +270,16 @@ viele Leute den Kalender öffnen: die Quellen sehen eine Abfrage am Tag.
   Hochfahren wird der Stand aufgewärmt (liegt er auf der Platte, kostet das
   nichts), danach läuft ein Timer auf die nächste 5 Uhr. `EVENT_REFRESH_SCHEDULE=0`
   schaltet ihn ab, etwa in der Entwicklung.
+- **Eine heute hinzugefügte Quelle wartet nicht bis morgen.** Der Datenstand
+  überlebt als Volume ein Deployment – eine gerade erst registrierte Quelle
+  steht nicht darin, und der Stand von heute Nacht gilt bis morgen früh. Beim
+  Hochfahren vergleicht der Server deshalb die Registry mit dem gespeicherten
+  Stand, holt die Unbekannten sofort und setzt sie ein (drei Anläufe über zehn
+  Minuten, falls ein Haus genau während des Deployments nicht antwortet). Ein
+  Deployment genügt also; niemand muss die Seite aufrufen, damit die neue
+  Quelle erscheint. Im Log steht `neu registriert – <id>` und danach
+  `<id> erstmals erhoben`. Unabhängig davon holt jeder Seitenaufruf nach, was
+  der Stand nicht kennt (`repairSnapshot`) – das bleibt das Netz darunter.
 - **Kein Zeitplan gelaufen?** Ist der Stand über 5 Uhr hinaus alt geworden
   (Neustart, schlafender Prozess), wird er trotzdem sofort ausgeliefert und im
   Hintergrund nachgezogen. Ein leerer Kalender wäre die schlechtere Antwort.

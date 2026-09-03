@@ -1,9 +1,11 @@
 import type { EventSource } from './types.ts';
+import { bahnwaerterthiel } from './sources/bahnwaerterthiel/index.ts';
 import { deutschesTheater } from './sources/deutsches-theater/index.ts';
 import { gasteig } from './sources/gasteig/index.ts';
 import { gaertnerplatz } from './sources/gaertnerplatz/index.ts';
 import { kammerspiele } from './sources/kammerspiele/index.ts';
 import { hmtm } from './sources/hmtm/index.ts';
+import { importExport } from './sources/import-export/index.ts';
 import { kinoamolympiasee } from './sources/kinoamolympiasee/index.ts';
 import { kinomondsterne } from './sources/kinomondsterne/index.ts';
 import { literaturhaus } from './sources/literaturhaus/index.ts';
@@ -35,6 +37,8 @@ export const sources: EventSource[] = [
   unterfahrt,
   lostweekend,
   milla,
+  bahnwaerterthiel,
+  importExport,
   literaturhaus,
   kinoamolympiasee,
   kinomondsterne,

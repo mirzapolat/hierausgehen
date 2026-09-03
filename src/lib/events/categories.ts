@@ -38,11 +38,14 @@ export const CATEGORIES = [
   'Comedy',
   'Konzert',
   'Party',
+  'Festival',
   'Kino',
   'Literatur',
   'Vortrag',
+  'Netzwerk',
   'Ausstellung',
   'Kinder & Familie',
+  'Kulinarik',
   'Wettbewerb',
   'Sonstiges',
 ] as const;
@@ -69,7 +72,14 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   Theater: ['Schauspiel', 'Sprechtheater', 'Commercial-Play', 'JGPTheater', 'Junges Theater'],
   Performance: ['Performances'],
   Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus'],
-  Comedy: ['Kabarett', 'Kabarett & Comedy', 'Stand-up', 'Stand-up-Comedy', 'Improtheater'],
+  Comedy: [
+    'Kabarett',
+    'Kabarett & Comedy',
+    'Stand-up',
+    'Stand-up-Comedy',
+    'Improtheater',
+    'Impro Theater',
+  ],
   Konzert: [
     'Musik',
     'Live Music',
@@ -84,9 +94,31 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Jazz',
     'Weltmusik',
     'Chor',
+    'Concert',
+    'Live-Konzert',
+    'Benefizkonzert',
+    'Familienkonzert',
+    'Release Konzert',
+    'Releasekonzert',
+    'Open Stage',
+    'Offenes Singen',
   ],
-  Party: ['Club', 'Clubnacht', 'DJ', 'DJ-Set', 'Disco'],
-  Kino: ['Film', 'Filmvorführung', 'Open-Air-Kino', 'Kurzfilm'],
+  Party: [
+    'Club',
+    'Clubnacht',
+    'Clubnight',
+    'Club Night',
+    'Clubday',
+    'DJ',
+    'DJ-Set',
+    'Disco',
+    'Auflegen',
+    'Open Decks',
+    'Live DJ',
+    'Soundsystem',
+  ],
+  Festival: ['PHRE Festival'],
+  Kino: ['Film', 'Filmvorführung', 'Filmvorstellung', 'Open-Air-Kino', 'Kurzfilm'],
   Literatur: [
     'Lesung',
     'Szenische Lesung',
@@ -114,9 +146,15 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Matinee',
     'Symposium',
     'Workshop',
+    'Werkstatt',
+    'Talk',
+    'Podium',
+    'Panel',
   ],
+  Netzwerk: ['Networking', 'Vernetzung', 'Austausch'],
   Ausstellung: ['Ausstellungen', 'Installation'],
   'Kinder & Familie': ['Kinder', 'Familie', 'Kind & Co', 'Kinderprogramm', 'Familienprogramm'],
+  Kulinarik: ['Essen', 'Küche', 'Kochen'],
   Wettbewerb: ['Wettbewerbe', 'Preisverleihung'],
   Sonstiges: ['Extra', 'Plus Event', 'Sonstige', 'Special', 'Spezial', 'Veranstaltung', 'Event'],
 };
@@ -130,7 +168,7 @@ for (const category of CATEGORIES) {
 /**
  * Die Formulierung einer Quelle auf eine Veranstaltungsart bringen.
  *
- * Zusammengesetzte Angaben ("Konzert / Weltmusik", "Konzert | Musical Gala",
+ * Zusammengesetzte Angaben ("Konzert / Weltmusik", "Konzert, DJ, Kulinarik",
  * "Lesung & Podcast") werden aufgeteilt; es gewinnt der erste Teil, den der
  * Wortschatz kennt.
  * Kennt er keinen, bleibt der erste Teil in seiner Schreibweise stehen – eine
@@ -182,10 +220,15 @@ export function categoryKey(text: string): string {
   return folded.replace(/\b(\w{4,}?)(en|er|e|n|s)\b/g, '$1');
 }
 
-/** Zusammengesetzte Angaben zerlegen – "und" trennt nicht, "/" und "|" schon. */
+/**
+ * Zusammengesetzte Angaben zerlegen – "und" trennt nicht, "/", "|", "," und
+ * "+" schon. Häuser, die den Abend mit mehreren Stichworten beschreiben
+ * ("Konzert, DJ, Kulinarik", "Konzert + DJ"), meinen damit eine Aufzählung,
+ * keinen eigenen Namen.
+ */
 function splitCategory(raw: string): string[] {
   return clean(decodeEntities(raw))
-    .split(/\s*[/|·•;]\s*|\s+–\s+|\s+-\s+/)
+    .split(/\s*[/|·•;,]\s*|\s+\+\s+|\s+–\s+|\s+-\s+/)
     .map((part) => clean(part))
     .filter(Boolean);
 }

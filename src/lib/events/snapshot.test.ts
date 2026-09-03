@@ -6,8 +6,9 @@ import test from 'node:test';
 process.env.EVENT_CACHE_DISK = '0';
 process.env.EVENT_SOURCE_DEADLINE_MS = '300';
 
-const { eventsInRange, pendingRepairs, snapshotRange } = await import('./snapshot.ts');
-const { writeCache } = await import('./cache.ts');
+const { collectInto, eventsInRange, pendingRepairs, snapshotRange, unknownSources } =
+  await import('./snapshot.ts');
+const { readCache, writeCache } = await import('./cache.ts');
 const { sources } = await import('./registry.ts');
 import type { AggregateResult } from './types.ts';
 
@@ -134,4 +135,37 @@ test('lässt einen vollständigen Stand in Ruhe', () => {
   };
 
   assert.deepEqual(pendingRepairs(['a', 'b'], stand), { missing: [], failed: [] });
+});
+
+test('erkennt eine heute hinzugekommene Quelle am gespeicherten Stand', async () => {
+  await seedSourceCaches();
+  await seedPartialSnapshot();
+
+  // Genau der Fall nach einem Deployment: der Stand von heute Nacht ist
+  // gültig, kennt die neu registrierte Quelle aber nicht.
+  assert.deepEqual(await unknownSources(CITY), registered.slice(1));
+});
+
+test('holt eine neue Quelle in den bestehenden Stand, ohne auf einen Besuch zu warten', async () => {
+  await seedSourceCaches();
+  await seedPartialSnapshot();
+
+  const fresh = await unknownSources(CITY);
+  const pending = await collectInto(CITY, fresh);
+
+  // Nichts bleibt offen, und der gespeicherte Stand kennt danach alles –
+  // ohne dass jemand die Seite aufgerufen hätte.
+  assert.deepEqual(pending, []);
+  const stored = await readCache<AggregateResult>(snapshotKey);
+  assert.deepEqual(
+    stored!.value.sources.map((source) => source.sourceId).sort(),
+    [...registered].sort(),
+  );
+});
+
+test('ohne offene Namen bleibt der Stand unangetastet', async () => {
+  await seedPartialSnapshot();
+  const before = await readCache<AggregateResult>(snapshotKey);
+  assert.deepEqual(await collectInto(CITY, []), []);
+  assert.equal((await readCache<AggregateResult>(snapshotKey))!.fetchedAt, before!.fetchedAt);
 });

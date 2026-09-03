@@ -53,6 +53,15 @@ const COLD_FETCH: EventFetchOptions = {
  */
 const REPAIR_INTERVAL_SECONDS = 30 * 60;
 
+/**
+ * Wie oft der Start eine neu registrierte Quelle holen darf, und in welchem
+ * Abstand. Drei Anläufe über zehn Minuten fangen den Fall ab, dass ein Haus
+ * genau während des Deployments nicht antwortet; danach greift wieder der
+ * gewöhnliche Weg über Seitenaufrufe und die Erhebung um 5 Uhr.
+ */
+const CATCHUP_ATTEMPTS = 3;
+const CATCHUP_RETRY_MS = 5 * 60 * 1000;
+
 /** Zeitraum, den ein Datenstand abdeckt. */
 export function snapshotRange(cityId: string): FetchRange {
   return coverageRange(todayInZone(cityById(cityId).timeZone));
@@ -242,6 +251,58 @@ function repairKey(key: string): string {
   return `${key}_repair`;
 }
 
+/**
+ * Quellen, die registriert sind, von denen der gespeicherte Stand aber noch
+ * nichts weiss – also die, die seit der letzten Erhebung dazugekommen sind.
+ *
+ * Ohne gespeicherten Stand ist die Antwort leer: dann baut ihn der nächste
+ * Aufruf ohnehin vollständig auf, inklusive der neuen Quelle.
+ */
+export async function unknownSources(cityId: string): Promise<string[]> {
+  const range = snapshotRange(cityId);
+  const cached = await readCache<AggregateResult>(cacheKey(cityId, range));
+  if (!cached) return [];
+  return pendingRepairs(
+    sourcesForCity(cityId).map((source) => source.definition.id),
+    cached.value,
+  ).missing;
+}
+
+/**
+ * Genau diese Quellen holen und in den gespeicherten Stand einsetzen.
+ *
+ * Zurück kommt, was dabei nicht geklappt hat – damit der Aufrufer es erneut
+ * versuchen kann. Nach dem ersten Versuch steht eine ausgefallene Quelle als
+ * `error` im Stand und gälte nicht mehr als "unbekannt"; die Wiederholung
+ * muss deshalb über die Namen laufen, nicht über den Stand.
+ *
+ * Der erste Anlauf darf den gewöhnlichen Weg nehmen – eine neue Quelle hat
+ * ohnehin keinen Eigencache. Erst die Wiederholung erzwingt den Abruf, sonst
+ * hielte der Sicherungsschalter sie nach dem ersten Fehlversuch zurück.
+ */
+export async function collectInto(
+  cityId: string,
+  sourceIds: string[],
+  force = false,
+): Promise<string[]> {
+  if (sourceIds.length === 0) return [];
+
+  const city = cityById(cityId);
+  const range = snapshotRange(cityId);
+  const key = cacheKey(cityId, range);
+  const current = await readCache<AggregateResult>(key);
+  // Ohne Stand gibt es nichts zu ergänzen – der Aufbau holt alles.
+  if (!current) return [];
+
+  const fetched = await collectSome(cityId, range, sourceIds, force);
+  // Neu einlesen: zwischenzeitlich kann der Zeitplan geschrieben haben.
+  const latest = await readCache<AggregateResult>(key);
+  await store(key, mergeSources(latest?.value ?? current.value, fetched), city);
+
+  const status = new Map(fetched.sources.map((source) => [source.sourceId, source.status]));
+  return sourceIds.filter((id) => status.get(id) !== 'ok');
+}
+
 /** Ausschnitt eines Datenstands – mehr als den Datenstand gibt es nicht. */
 export async function eventsInRange(cityId: string, range: FetchRange): Promise<AggregateResult> {
   const snapshot = await getSnapshot(cityId);
@@ -317,13 +378,73 @@ export function startDailyRefresh(): void {
   scheduled = true;
 
   for (const city of cities) {
-    // Beim Hochfahren einmal aufwärmen: liegt ein Stand auf der Platte, kostet
-    // das nichts, sonst hat der erste Besuch bereits Daten.
-    void getSnapshot(city.id, { patient: true }).catch((error) =>
-      console.error(`[snapshot] Aufwärmen für "${city.id}" fehlgeschlagen`, error),
-    );
+    void warmUp(city);
     plan(city);
   }
+}
+
+/**
+ * Aufwärmen beim Hochfahren – und der eigentliche Grund dafür: heute
+ * hinzugekommene Quellen.
+ *
+ * Der Stand auf der Platte überlebt ein Deployment. Eine Quelle, die gerade
+ * erst registriert wurde, steht deshalb nicht darin, und der Stand von heute
+ * Nacht ist bis morgen früh gültig – ohne Zutun bliebe die neue Quelle also
+ * bis zur nächsten Erhebung leer. `getSnapshot` holt sie zwar im Hintergrund
+ * nach, aber erst wenn jemand die Seite aufruft, und mit genau einem Anlauf.
+ * Auf dem Server soll ein Deployment genügen: erst holen, dann ausliefern,
+ * und bei einer Quelle, die im falschen Moment nicht antwortet, noch einmal
+ * versuchen, statt auf den nächsten Besuch zu warten.
+ *
+ * Die Reihenfolge ist Absicht – erst die neuen Quellen, dann das Aufwärmen:
+ * so sieht schon der erste Seitenaufruf einen vollständigen Stand.
+ */
+async function warmUp(city: City): Promise<void> {
+  try {
+    const fresh = await unknownSources(city.id);
+    if (fresh.length > 0) {
+      console.log(`[snapshot] "${city.id}": neu registriert – ${fresh.join(', ')}`);
+      await catchUp(city.id, fresh);
+    }
+  } catch (error) {
+    console.error(`[snapshot] Nachholen neuer Quellen für "${city.id}" fehlgeschlagen`, error);
+  }
+
+  // Liegt ein Stand auf der Platte, kostet das nichts, sonst hat der erste
+  // Besuch bereits Daten.
+  try {
+    await getSnapshot(city.id, { patient: true });
+  } catch (error) {
+    console.error(`[snapshot] Aufwärmen für "${city.id}" fehlgeschlagen`, error);
+  }
+}
+
+/** Neue Quellen holen, ausgefallene ein paar Mal erneut versuchen. */
+async function catchUp(cityId: string, sourceIds: string[]): Promise<void> {
+  let pending = sourceIds;
+
+  for (let attempt = 1; attempt <= CATCHUP_ATTEMPTS && pending.length > 0; attempt++) {
+    if (attempt > 1) await delay(CATCHUP_RETRY_MS);
+    try {
+      pending = await collectInto(cityId, pending, attempt > 1);
+    } catch (error) {
+      console.warn(`[snapshot] Versuch ${attempt} für "${cityId}" fehlgeschlagen`, error);
+    }
+  }
+
+  const collected = sourceIds.filter((id) => !pending.includes(id));
+  if (collected.length > 0) console.log(`[snapshot] "${cityId}": ${collected.join(', ')} erstmals erhoben`);
+  // Nicht das Ende: der nächste Seitenaufruf versucht es über die übliche
+  // Reparatur weiter, und spätestens die Erhebung um 5 Uhr fasst sie wieder an.
+  if (pending.length > 0) console.warn(`[snapshot] "${cityId}": ${pending.join(', ')} noch ohne Daten`);
+}
+
+/** Wartezeit, die einen leerlaufenden Prozess nicht am Beenden hindert. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    (timer as { unref?: () => void }).unref?.();
+  });
 }
 
 function plan(city: City): void {
