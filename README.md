@@ -428,10 +428,10 @@ Was die Quelle **nicht** liefert: keine Endzeiten (die Spieldauer steht als
 Notiz daneben), keine Vergangenheit – ein Ticketshop führt keine gespielten
 Abende, ein Monat vor dem laufenden ist deshalb leer und kostet keinen Abruf.
 
-## Citizens Theatre und Tron Theatre
+## Citizens, Tron und Royal Conservatoire
 
-Zwei Glasgower Häuser, ein Ticketsystem: beide verkaufen über **Spektrix** und
-lassen dessen öffentliche „Website Integration"-Schnittstelle offen. Ohne
+Drei Glasgower Häuser, ein Ticketsystem: alle drei verkaufen über **Spektrix**
+und lassen dessen öffentliche „Website Integration"-Schnittstelle offen. Ohne
 Anmeldung, ohne Schlüssel – es ist die Auskunft, aus der die Häuser ihre
 eigenen Spielplanseiten bauen.
 
@@ -440,7 +440,10 @@ GET <shop>/api/v3/events                           alle Produktionen
 GET <shop>/api/v3/instances?startFrom=…&startTo=…   die Vorstellungen
 ```
 
-`<shop>` ist `tickets.citz.co.uk/citizenstheatre` bzw. `sales.tron.co.uk/tron`.
+`<shop>` ist `tickets.citz.co.uk/citizenstheatre`, `sales.tron.co.uk/tron` bzw.
+`tickets.rcs.ac.uk/royalconservatoirescotland`. Den Kundennamen des
+Conservatoire nennt keine Seite; er stand erst im Skript der Buchungsstrecke
+(`/royalconservatoirescotland/website/scripts/integrate.js`).
 Die beiden Listen hängen über `instance.event.id` zusammen. Was überall gleich
 heisst, liest `sources/spektrix.ts`; die `attribute_…`-Felder daneben
 konfiguriert jedes Haus selbst und deutet deshalb der jeweilige Adapter.
@@ -465,10 +468,10 @@ Sitzplatzauskunft gibt es nicht (`/instances/<id>/availability` antwortet mit
 ausverkaufter Abend als „buchbar" wäre schlechter als ein ehrliches
 Achselzucken.
 
-Beide Häuser schreiben sie aber in den Spielplan ihrer Produktionsseite. Der
-wird deshalb je Produktion einmal geholt – nicht je Abend: bei der Tron-Pantomime
-mit ihren 66 Terminen ist das ein Abruf statt 66. Zugeordnet wird über Tag und
-Uhrzeit in Ortszeit.
+Citizens und Tron schreiben sie aber in den Spielplan ihrer Produktionsseite.
+Der wird deshalb je Produktion einmal geholt – nicht je Abend: bei der
+Tron-Pantomime mit ihren 66 Terminen ist das ein Abruf statt 66. Zugeordnet
+wird über Tag und Uhrzeit in Ortszeit.
 
 | Citizens: Knopf und Zeile darunter | Tron: Knopf | `availability` |
 | --- | --- | --- |
@@ -495,6 +498,9 @@ und Uhrzeit, wie beim Citizens.
 | Spielstätte | `attribute_Venue` („Citizens Theatre - Studio Theatre") | `attribute_Location` („Main Auditorium") |
 | Gattung | keine | `attribute_TAASubGenre` / `attribute_TAAArtform` |
 | Preise | keine | `attribute_Prices` |
+
+Beim Conservatoire braucht es keinen solchen Filter: die 93 Produktionen der
+Kasse sind genau die 93 Karten der Spielplanseite.
 
 Hinter Trons `Hidden` steckt der Tischverkauf des Café/Bar: 177 Termine
 „Table Reservation", mehr als der ganze übrige Spielplan zusammen. Ohne diesen
@@ -523,8 +529,37 @@ selbst hängt allein an Spektrix, und ohne Link bleibt die Übersichtsseite
 stehen. Dasselbe gilt für den Spielplan – ohne ihn bleibt die Ticketlage
 `unknown`.
 
-Beide Quellen liefern **Endzeiten**: die Spieldauer steht an der Produktion
-(`duration` in Minuten, `0` heisst „nicht angegeben"). Und beide kennen
+### Das Conservatoire: zwei Eigenheiten mehr
+
+**Der Knopf „Tickets" sagt dort nichts über Karten.** Er steht auch an
+Terminen, deren Verkauf laut Kasse erst in drei Tagen beginnt – die Seite
+rendert ihn unbesehen. Gewertet wird deshalb nur sein Gegenteil, ein totes
+`c-btn--disabled` mit „Sold Out", und das gilt dann für den ganzen Lauf: solange
+ein einziger Abend zu haben ist, zeigt die Karte den Knopf. Alles Übrige kommt
+von der Kasse, die als einzige weiss, wann der Verkauf öffnet.
+
+**Zugeordnet wird über die Buchungsnummer, nicht über den Titel.** Jede Karte
+verlinkt auf `/whats-on/<stück>/book/<n>`, und dieses `<n>` ist die
+Zifferngruppe, mit der die Vorstellungs-ID beginnt (`652210` ⇒ `652210ABCD…`).
+Der Titel taugt hier nicht: die Website führt ihn redaktionell, die Kasse
+betrieblich, und bei 26 von 93 Veranstaltungen gehen die beiden auseinander
+(„Haver Quartet" gegen „Westbourne Music presents: Haver Quartet"). Nur wo die
+Nummer fehlt – Läufe über mehrere Tage verweisen auf ihre eigene Terminliste
+statt auf die Kasse – wird der Titel verglichen. Zusammen finden 92 der 93
+Produktionen ihre Karte.
+
+Dieselbe Nummer baut auch den Ticketlink jedes einzelnen Abends:
+`/whats-on/<stück>/book/<n>/` reicht `<n>` als `InstanceId` an die Kasse durch –
+nachgeprüft an einer Vorstellung, die auf der Seite gar keinen Knopf hatte.
+
+Einen **Programmtext** führt die Kasse dort zu keiner einzigen Produktion – das
+Feld ist da und bei allen 93 leer. Er steht nur im WordPress und wird deshalb
+über `enrichEventDetails` je Produktion einmal nachgeladen. Und eine
+**Spielstätte** unterscheidet das Haus nicht: zu jedem Termin steht nur „Royal
+Conservatoire of Scotland", kein Saal. Das wird nicht erfunden.
+
+Alle drei Quellen liefern **Endzeiten**: die Spieldauer steht an der Produktion
+(`duration` in Minuten, `0` heisst „nicht angegeben"). Und alle drei kennen
 **Vergangenheit**: gespielte Abende bleiben rund ein Jahr abrufbar, vergangene
 Monate werden deshalb angefragt wie jeder andere.
 

@@ -66,12 +66,12 @@ export const FALLBACK_CATEGORY: EventCategory = 'Sonstiges';
  * deshalb keinen eigenen Eintrag.
  */
 const SYNONYMS: Record<EventCategory, string[]> = {
-  Oper: ['Opern', 'Opernabend', 'Musiktheater', 'Opera'],
+  Oper: ['Opern', 'Opernabend', 'Musiktheater', 'Opera', 'Opera And Vocal'],
   Operette: ['Singspiel'],
-  Musical: ['Musicalshow', 'Musical Gala', 'Musicalgala'],
+  Musical: ['Musicalshow', 'Musical Gala', 'Musicalgala', 'Musical Theatre'],
   Ballett: ['Tanztheater'],
   Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend'],
-  Theater: ['Schauspiel', 'Sprechtheater', 'Commercial-Play', 'Plays', 'JGPTheater', 'Junges Theater'],
+  Theater: ['Schauspiel', 'Sprechtheater', 'Commercial-Play', 'Plays', 'Drama', 'JGPTheater', 'Junges Theater'],
   Performance: ['Performances'],
   Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus'],
   Comedy: [
@@ -104,6 +104,13 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Releasekonzert',
     'Open Stage',
     'Offenes Singen',
+    // Wortlaut des Royal Conservatoire: es benennt die Sparte, nicht die Form.
+    'Music',
+    'Classical Music',
+    'Contemporary Music',
+    'Contemporary Music And Performance',
+    'Traditional Music',
+    'Junior Conservatoire',
   ],
   Party: [
     'Club',
