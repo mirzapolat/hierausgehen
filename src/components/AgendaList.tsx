@@ -36,8 +36,10 @@ export function AgendaList({ events, definitions, selectedId, onSelect, emptyLab
             className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hairline-b
                         ${selectedId === event.id ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--chrome)]'}`}
           >
-            <span className="w-[52px] shrink-0 pt-[1px] text-[12px] tabular-nums text-muted">
-              {event.allDay ? '—' : format.time(event.start)}
+            {/* Etwas breiter als für „19:30" nötig: in dieselbe Spalte muss
+                auch „Ganztägig" passen, ohne abgeschnitten zu werden. */}
+            <span className="w-[64px] shrink-0 pt-[1px] text-[12px] tabular-nums text-muted">
+              {event.allDay ? t('allDay') : format.time(event.start)}
             </span>
             <span
               aria-hidden="true"

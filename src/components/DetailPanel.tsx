@@ -106,9 +106,12 @@ function EventDetail({
   onSelectPerformance: (performance: EventPerformance) => void;
   revealPerformances: number;
 }) {
-  const { format, t } = useSettings();
+  const { format, t, term } = useSettings();
   const color = sourceColor(definitions, event.sourceId);
   const day = event.start.slice(0, 10);
+  // Ein Termin, der über den Starttag hinausreicht: der letzte Tag des Laufs.
+  const endDay = event.end?.slice(0, 10);
+  const runsUntil = endDay && endDay > day ? endDay : undefined;
   const availability = displayAvailability(event);
   const performances = useRef<HTMLElement>(null);
 
@@ -126,7 +129,7 @@ function EventDetail({
           <>
             <span className="text-faint">·</span>
             <span className="text-[12px] text-muted" title={event.categoryLabel}>
-              {event.category}
+              {term(event.category)}
             </span>
           </>
         )}
@@ -138,7 +141,10 @@ function EventDetail({
       <dl className="mt-5 flex flex-col">
         <Row label={t('date')} value={format.dayNoWeekday(day)} />
         <Row label={t('weekday')} value={format.weekdayLong(day)} />
-        <Row label={t('time')} value={event.allDay ? t('noTime') : format.time(event.start)} />
+        <Row label={t('time')} value={event.allDay ? t('allDay') : format.time(event.start)} />
+        {/* Läufe (Ausstellungen, Installationen) tragen keine Uhrzeit, aber ein
+            Ende – ohne diese Zeile wäre nicht zu sehen, warum. */}
+        {runsUntil && <Row label={t('runsUntil')} value={format.dayNoWeekday(runsUntil)} />}
         <Row label={t('venue')} value={[event.venue.name, event.venue.city].filter(Boolean).join(', ')} />
         <Row
           label={t('tickets')}

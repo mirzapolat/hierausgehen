@@ -392,7 +392,7 @@ async function lookup(
   if (!budget.allows()) return cached?.value ?? [];
   budget.spend();
 
-  const results = await request(`${query} ${city.name}`, signal);
+  const results = await request(`${query} ${city.name}`, city.country, signal);
   await writeCache(key, results, results.length > 0 ? HIT_TTL_SECONDS : MISS_TTL_SECONDS);
   return results;
 }
@@ -403,7 +403,11 @@ function cacheKey(query: string, cityId: string): string {
 
 let nextRequestAt = 0;
 
-async function request(query: string, signal?: AbortSignal): Promise<NominatimResult[]> {
+async function request(
+  query: string,
+  country: string,
+  signal?: AbortSignal,
+): Promise<NominatimResult[]> {
   // Die Regeln des Dienstes gelten für den ganzen Prozess, nicht je Aufruf.
   const wait = nextRequestAt - Date.now();
   nextRequestAt = Math.max(Date.now(), nextRequestAt) + MIN_REQUEST_GAP_MS;
@@ -413,7 +417,9 @@ async function request(query: string, signal?: AbortSignal): Promise<NominatimRe
     q: query,
     format: 'jsonv2',
     limit: '5',
-    countrycodes: 'de',
+    // Das Land kommt aus der Stadt, nicht aus dem Code: sonst findet Glasgow
+    // nichts und München fände irgendwas.
+    countrycodes: country.toLowerCase(),
   });
 
   const controller = new AbortController();

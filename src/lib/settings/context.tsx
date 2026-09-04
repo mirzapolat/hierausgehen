@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { cityById, nearestCityId } from '@/lib/cities';
-import { type MessageKey, translate } from '@/lib/i18n';
+import { type MessageKey, translate, translateTerm } from '@/lib/i18n';
 import { createFormatter, type Formatter } from '@/lib/format';
 import {
   type Settings,
@@ -32,6 +32,11 @@ interface SettingsContextValue {
   timeZone: string;
   format: Formatter;
   t: (key: MessageKey, params?: Record<string, string | number>) => string;
+  /**
+   * Veranstaltungsart oder Ordner anzeigen. Die Daten bleiben kanonisch
+   * deutsch – gefiltert und gespeichert wird weiter danach.
+   */
+  term: (value: string) => string;
 }
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -77,6 +82,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       timeZone,
       format: createFormatter({ locale: settings.locale, timeZone, hour12: settings.hour12 }),
       t: (key, params) => translate(settings.locale, key, params),
+      term: (value) => translateTerm(settings.locale, value),
     }),
     [settings, update, timeZone],
   );

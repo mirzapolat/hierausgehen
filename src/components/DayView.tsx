@@ -20,7 +20,7 @@ interface Props {
  * ein Zeitraster etwas hinzufügen würde – die Liste zeigt dafür mehr je Termin.
  */
 export function DayView({ day, events, definitions, selectedEventId, onSelectEvent }: Props) {
-  const { format, t } = useSettings();
+  const { format, t, term } = useSettings();
   const isToday = day === format.today();
 
   const sorted = useMemo(
@@ -70,8 +70,8 @@ export function DayView({ day, events, definitions, selectedEventId, onSelectEve
                     className={`flex w-full items-start gap-4 px-6 py-3.5 text-left transition-colors hairline-b
                                 ${selected ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--chrome)]'}`}
                   >
-                    <span className="w-[64px] shrink-0 pt-[2px] text-[13px] tabular-nums text-text">
-                      {event.allDay ? '—' : format.time(event.start)}
+                    <span className="w-[64px] shrink-0 truncate pt-[2px] text-[13px] tabular-nums text-text">
+                      {event.allDay ? t('allDay') : format.time(event.start)}
                     </span>
                     <span
                       aria-hidden="true"
@@ -90,7 +90,7 @@ export function DayView({ day, events, definitions, selectedEventId, onSelectEve
                           {event.title}
                         </span>
                         {event.category && (
-                          <span className="shrink-0 text-[11px] text-faint">{event.category}</span>
+                          <span className="shrink-0 text-[11px] text-faint">{term(event.category)}</span>
                         )}
                       </span>
                       {event.subtitle && (

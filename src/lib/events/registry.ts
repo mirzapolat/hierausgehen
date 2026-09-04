@@ -1,8 +1,11 @@
 import type { EventSource } from './types.ts';
+import { atgGlasgow } from './sources/atg-glasgow/index.ts';
+import { citizens } from './sources/citizens/index.ts';
 import { bahnwaerterthiel } from './sources/bahnwaerterthiel/index.ts';
 import { deutschesTheater } from './sources/deutsches-theater/index.ts';
 import { gasteig } from './sources/gasteig/index.ts';
 import { gaertnerplatz } from './sources/gaertnerplatz/index.ts';
+import { glasgowlife } from './sources/glasgowlife/index.ts';
 import { kammerspiele } from './sources/kammerspiele/index.ts';
 import { hmtm } from './sources/hmtm/index.ts';
 import { importExport } from './sources/import-export/index.ts';
@@ -14,6 +17,7 @@ import { milla } from './sources/milla/index.ts';
 import { muenchenmusik } from './sources/muenchenmusik/index.ts';
 import { residenztheater } from './sources/residenztheater/index.ts';
 import { staatsoper } from './sources/staatsoper/index.ts';
+import { tron } from './sources/tron/index.ts';
 import { theaterakademie } from './sources/theaterakademie/index.ts';
 import { unterfahrt } from './sources/unterfahrt/index.ts';
 import { volkstheater } from './sources/volkstheater/index.ts';
@@ -43,6 +47,10 @@ export const sources: EventSource[] = [
   kinoamolympiasee,
   kinomondsterne,
   werkstattkino,
+  glasgowlife,
+  atgGlasgow,
+  citizens,
+  tron,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));

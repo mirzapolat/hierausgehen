@@ -44,6 +44,8 @@ export const CATEGORIES = [
   'Vortrag',
   'Netzwerk',
   'Ausstellung',
+  'Führung',
+  'Kultur',
   'Kinder & Familie',
   'Kulinarik',
   'Wettbewerb',
@@ -64,12 +66,12 @@ export const FALLBACK_CATEGORY: EventCategory = 'Sonstiges';
  * deshalb keinen eigenen Eintrag.
  */
 const SYNONYMS: Record<EventCategory, string[]> = {
-  Oper: ['Opern', 'Opernabend', 'Musiktheater'],
+  Oper: ['Opern', 'Opernabend', 'Musiktheater', 'Opera'],
   Operette: ['Singspiel'],
   Musical: ['Musicalshow', 'Musical Gala', 'Musicalgala'],
   Ballett: ['Tanztheater'],
   Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend'],
-  Theater: ['Schauspiel', 'Sprechtheater', 'Commercial-Play', 'JGPTheater', 'Junges Theater'],
+  Theater: ['Schauspiel', 'Sprechtheater', 'Commercial-Play', 'Plays', 'JGPTheater', 'Junges Theater'],
   Performance: ['Performances'],
   Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus'],
   Comedy: [
@@ -131,6 +133,7 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Slam',
     'Live-Hörspiel',
     'Hörspiel',
+    'Poetry',
   ],
   Vortrag: [
     'Vortrag & Konferenz',
@@ -148,12 +151,30 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Workshop',
     'Werkstatt',
     'Talk',
+    'Other Talks',
     'Podium',
     'Panel',
   ],
   Netzwerk: ['Networking', 'Vernetzung', 'Austausch'],
-  Ausstellung: ['Ausstellungen', 'Installation'],
-  'Kinder & Familie': ['Kinder', 'Familie', 'Kind & Co', 'Kinderprogramm', 'Familienprogramm'],
+  Ausstellung: ['Ausstellungen', 'Installation', 'Exhibition'],
+  // Haus- und Baudenkmalführungen: die Glasgower Häuser führen sie als eigene
+  // Reihe, und im Kalender ist es eine eigene Art – kein Vortrag, kein Termin
+  // "Sonstiges".
+  Führung: ['Heritage Tours', 'Heritage Building Tours', 'Building Tours', 'Guided Tour', 'Tour', 'Rundgang', 'Hausführung'],
+  // Sammelbegriff für Häuser, die zu ihren Terminen gar keine Gattung führen
+  // und deren Programm quer über Konzert, Bühne und Ausstellung läuft.
+  Kultur: ['Arts, Music and Culture', 'Arts', 'Culture'],
+  'Kinder & Familie': [
+    'Kinder',
+    'Familie',
+    'Kind & Co',
+    'Kinderprogramm',
+    'Familienprogramm',
+    'Family',
+    // Die britische Weihnachtspantomime ist Familientheater mit Musik und
+    // Mitmachen – nicht die stumme Kunst, die das deutsche Wort meint.
+    'Pantomime',
+  ],
   Kulinarik: ['Essen', 'Küche', 'Kochen'],
   Wettbewerb: ['Wettbewerbe', 'Preisverleihung'],
   Sonstiges: ['Extra', 'Plus Event', 'Sonstige', 'Special', 'Spezial', 'Veranstaltung', 'Event'],

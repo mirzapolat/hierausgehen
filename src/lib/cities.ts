@@ -31,6 +31,14 @@ export const cities: City[] = [
     country: 'DE',
     coordinates: { latitude: 48.137154, longitude: 11.576124 },
   },
+  {
+    id: 'glasgow',
+    name: 'Glasgow',
+    shortName: 'GLA',
+    timeZone: 'Europe/London',
+    country: 'GB',
+    coordinates: { latitude: 55.860916, longitude: -4.251433 },
+  },
 ];
 
 export const DEFAULT_CITY_ID = 'muenchen';

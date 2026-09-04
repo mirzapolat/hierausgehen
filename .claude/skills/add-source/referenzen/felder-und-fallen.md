@@ -122,6 +122,11 @@ durchsuchen und im Detail anzeigen. Der Parser dafür bleibt eine reine Funktion
 in `parse.ts` (`parseDetailDescription(html)`), das Laden läuft in `index.ts`
 über `enrichEventDescriptions` aus `src/lib/events/sources/detail.ts`.
 
+Stehen dort auch Preise, Ticketlink oder Ticketlage (Glasgow Life), liefert die
+reine Funktion statt eines Strings ein `EventDetail` und das Laden läuft über
+`enrichEventDetails` aus derselben Datei. Ergänzt wird, nie überschrieben: die
+Ticketlage der Detailseite zählt nur, wenn die Liste keine kannte.
+
 - Detailseiten nach **Produktion** deduplizieren, nicht nach Vorstellung.
   Enthält die Termin-URL eine Vorstellungs-ID, den Cache-Key auf die
   Produktionsseite normalisieren (`cacheKey`), damit mehrere Abende desselben

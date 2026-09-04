@@ -33,9 +33,11 @@ function rows(csv: string): string[] {
 test('Kopfzeile und ein Termin je Zeile', () => {
   const out = rows(toCsv([event()], [definition]));
 
-  assert.ok(out[0].startsWith('id,quelle_id,quelle,gruppe,titel'));
+  assert.ok(out[0].startsWith('id,quelle_id,quelle,gruppe,kalenderstadt,titel'));
   assert.equal(out[0].split(',').length, out[1].split(',').length);
-  assert.ok(out[1].startsWith('staatsoper:12345,staatsoper,Bayerische Staatsoper,'));
+  assert.ok(
+    out[1].startsWith('staatsoper:12345,staatsoper,Bayerische Staatsoper,Oper & Ballett,muenchen,'),
+  );
   // Abschliessender Zeilenumbruch, danach nichts mehr.
   assert.equal(out.at(-1), '');
 });
@@ -107,13 +109,17 @@ test('Zeilenumbrüche im Text bleiben im Feld', () => {
   assert.equal(csv.split('\r\n')[0].startsWith('id,'), true);
 });
 
-test('unbekannte Quelle: Name und Gruppe bleiben leer', () => {
+test('unbekannte Quelle: Name, Gruppe und Stadt bleiben leer', () => {
   const [, row] = rows(toCsv([event()], []));
-  assert.ok(row.startsWith('staatsoper:12345,staatsoper,,,Ariadne'));
+  assert.ok(row.startsWith('staatsoper:12345,staatsoper,,,,Ariadne'));
 });
 
 test('Dateiname nennt Stadt und Datenstand', () => {
-  assert.equal(csvFileName('muenchen', '2026-09-01'), 'hierausgehen-muenchen-2026-09-01.csv');
+  assert.equal(csvFileName(['muenchen'], '2026-09-01'), 'hierausgehen-muenchen-2026-09-01.csv');
+  assert.equal(
+    csvFileName(['muenchen', 'glasgow'], '2026-09-01'),
+    'hierausgehen-muenchen-glasgow-2026-09-01.csv',
+  );
 });
 
 test('der Wortlaut der Quelle steht neben der vereinheitlichten Art', () => {

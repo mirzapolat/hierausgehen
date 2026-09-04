@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
+import { cities } from '@/lib/cities';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
@@ -32,6 +33,8 @@ interface Props {
   onAvailableOnlyChange: (next: boolean) => void;
   query: string;
   onQueryChange: (next: string) => void;
+  /** Angezeigte Stadt – Status und Export folgen ihr. */
+  cityId: string;
 }
 
 /**
@@ -56,9 +59,13 @@ export function Sidebar({
   onAvailableOnlyChange,
   query,
   onQueryChange,
+  cityId,
 }: Props) {
-  const { t, format } = useSettings();
-  const groups = useMemo(() => groupSources(definitions), [definitions]);
+  const { t, term, format, settings } = useSettings();
+  const groups = useMemo(
+    () => groupSources(definitions, term, settings.locale),
+    [definitions, term, settings.locale],
+  );
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const statusById = useMemo(() => new Map(status.map((s) => [s.sourceId, s])), [status]);
 
@@ -116,7 +123,7 @@ export function Sidebar({
                   <Checkbox
                     state={groupState}
                     color={groupColor(group.name)}
-                    label={group.name}
+                    label={term(group.name)}
                     onChange={() => onToggleGroup(ids, groupState !== 'on')}
                   />
                   {/* Der Name fokussiert den Ordner – wie bei einer einzelnen
@@ -131,7 +138,7 @@ export function Sidebar({
                                   groupFocused ? 'text-accent' : 'text-muted hover:text-text'
                                 }`}
                   >
-                    {group.name}
+                    {term(group.name)}
                   </button>
                   <button
                     type="button"
@@ -241,7 +248,7 @@ export function Sidebar({
 
       </div>
 
-      <SourceFootnote />
+      <SourceFootnote cityId={cityId} />
     </div>
   );
 }
@@ -267,7 +274,7 @@ function CategoryPill({
   onSolo: () => void;
   onShowAll: () => void;
 }) {
-  const { t } = useSettings();
+  const { t, term } = useSettings();
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   /** Feste Position, damit das Menü nicht am Scrollrand der Sidebar abschneidet. */
@@ -320,7 +327,7 @@ function CategoryPill({
         className={`flex items-center gap-1.5 rounded-full border py-[3px] pl-2 pr-2 text-[12px]
                     transition-colors ${tone}`}
       >
-        <span className="truncate">{name || t('noCategory')}</span>
+        <span className="truncate">{name ? term(name) : t('noCategory')}</span>
         <span className="tabular-nums text-[10px] opacity-65">{count}</span>
       </button>
 
@@ -394,14 +401,19 @@ function isSolo(solo: Set<string>, ids: string[]): boolean {
   return solo.size === ids.length && ids.every((id) => solo.has(id));
 }
 
-function SourceFootnote() {
-  const { t, settings } = useSettings();
+function SourceFootnote({ cityId }: { cityId: string }) {
+  const { t } = useSettings();
 
   return (
-    <div className="shrink-0 bg-[var(--chrome)] px-4 py-3 hairline-t">
+    // `relative` für das Auswahlfeld des Exports: die Spalte schneidet ab, was
+    // über ihre Breite hinausragt, deshalb hängt es an der Fussleiste und
+    // nicht am angeklickten Wort.
+    <div className="relative shrink-0 bg-[var(--chrome)] px-4 py-3 hairline-t">
       <div className="flex items-center gap-3">
+        {/* Der Datenstand ist einer je Stadt – der Link nimmt die mit, die
+            gerade zu sehen ist. */}
         <Link
-          href="/status"
+          href={`/status?city=${encodeURIComponent(cityId)}`}
           className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
         >
           {t('status')}
@@ -412,21 +424,140 @@ function SourceFootnote() {
         >
           {t('imprint')}
         </Link>
-        {/* Kein <Link>: die CSV kommt von der API, sie ist keine Seite. */}
-        <a
-          href={`/api/events/export?city=${encodeURIComponent(settings.cityId)}`}
-          download
-          title={t('exportCsvTitle')}
-          className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
-        >
-          {t('exportCsv')}
-        </a>
+        <ExportLink />
       </div>
     </div>
   );
 }
 
-function groupSources(definitions: SourceDefinition[]) {
+/**
+ * Export als CSV.
+ *
+ * Bei einer einzigen Stadt gibt es nichts zu wählen und der Link lädt direkt.
+ * Sobald es mehrere sind, fragt ein kleines Feld darüber, welche mit sollen –
+ * voreingestellt alle, denn der Endpunkt ohne Parameter meint denselben
+ * ganzen Bestand.
+ */
+function ExportLink() {
+  const { t } = useSettings();
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => allCityIds());
+  const panel = useRef<HTMLDivElement>(null);
+
+  // Alles, was das Feld aus dem Zusammenhang reisst, schliesst es.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!panel.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const link = 'text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline';
+
+  if (cities.length < 2) {
+    return (
+      // Kein <Link>: die CSV kommt von der API, sie ist keine Seite.
+      <a href="/api/events/export" download title={t('exportCsvTitle')} className={link}>
+        {t('exportCsv')}
+      </a>
+    );
+  }
+
+  const href = `/api/events/export?${cities
+    .filter((city) => selected.has(city.id))
+    .map((city) => `city=${encodeURIComponent(city.id)}`)
+    .join('&')}`;
+
+  return (
+    <div className="contents" ref={panel}>
+      <button
+        type="button"
+        aria-expanded={open}
+        title={t('exportCsvTitle')}
+        onClick={() => {
+          // Beim Öffnen wieder alle: die Voreinstellung ist der ganze Bestand.
+          if (!open) setSelected(allCityIds());
+          setOpen((value) => !value);
+        }}
+        className={link}
+      >
+        {t('exportCsv')}
+      </button>
+
+      {open && (
+        <div
+          className="absolute bottom-full left-4 right-4 z-50 mb-2 rounded-[var(--radius-md)]
+                     border border-line bg-[var(--raised)] p-3"
+          style={{ boxShadow: 'var(--shadow-overlay)' }}
+        >
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+            {t('exportCities')}
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {cities.map((city) => (
+              <li key={city.id}>
+                <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text">
+                  <Checkbox
+                    state={selected.has(city.id) ? 'on' : 'off'}
+                    label={city.name}
+                    onChange={() =>
+                      setSelected((current) => {
+                        const next = new Set(current);
+                        if (!next.delete(city.id)) next.add(city.id);
+                        return next;
+                      })
+                    }
+                  />
+                  {city.name}
+                </label>
+              </li>
+            ))}
+          </ul>
+          <a
+            href={href}
+            download
+            aria-disabled={selected.size === 0}
+            onClick={(event) => {
+              if (selected.size === 0) event.preventDefault();
+              else setOpen(false);
+            }}
+            className={`mt-3 block rounded-[var(--radius-sm)] px-2 py-1.5 text-center text-[12px]
+                        font-medium transition-colors ${
+                          selected.size === 0
+                            ? 'cursor-not-allowed bg-[var(--chrome)] text-faint'
+                            : 'bg-[var(--accent)] text-white hover:opacity-90'
+                        }`}
+          >
+            {t('exportDownload')}
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function allCityIds(): Set<string> {
+  return new Set(cities.map((city) => city.id));
+}
+
+/**
+ * Ordner alphabetisch – nach dem *angezeigten* Namen, sonst stünde die
+ * englische Liste in deutscher Reihenfolge.
+ */
+function groupSources(
+  definitions: SourceDefinition[],
+  term: (value: string) => string,
+  locale: string,
+) {
   const groups = new Map<EventGroup, SourceDefinition[]>();
   for (const definition of definitions) {
     const list = groups.get(definition.group) ?? [];
@@ -436,7 +567,7 @@ function groupSources(definitions: SourceDefinition[]) {
   return [...groups.entries()]
     .map(([name, sources]) => ({
       name,
-      sources: sources.sort((a, b) => a.name.localeCompare(b.name, 'de')),
+      sources: sources.sort((a, b) => a.name.localeCompare(b.name, locale)),
     }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    .sort((a, b) => term(a.name).localeCompare(term(b.name), locale));
 }

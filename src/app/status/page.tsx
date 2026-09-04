@@ -18,5 +18,7 @@ export default async function StatusPage({ searchParams }: PageProps<'/status'>)
   const range = snapshotRange(cityId);
   const data = await getSnapshot(cityId);
 
-  return <StatusScreen data={data} range={range} cityName={cityById(cityId).name} />;
+  return (
+    <StatusScreen data={data} range={range} cityId={cityId} cityName={cityById(cityId).name} />
+  );
 }

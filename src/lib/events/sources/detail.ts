@@ -1,13 +1,41 @@
 import { dedupe, isFresh, readCache, writeCache } from '../cache.ts';
 import { fetchText } from '../http.ts';
-import type { CalendarEvent, EventFetchOptions } from '../types.ts';
+import type { Availability, CalendarEvent, EventFetchOptions } from '../types.ts';
+import { zonedIso } from '../time.ts';
 
-interface DetailDescriptionOptions {
+/**
+ * Was eine Detailseite über einen Termin hinaus liefern kann.
+ *
+ * Viele Listen führen nur Titel, Zeit und Ort; Programmtext, Preise und der
+ * Ticketlink stehen erst eine Seite weiter. Was hier ankommt, ergänzt den
+ * Termin – es überschreibt nie eine Angabe, die die Liste schon sicher wusste.
+ */
+export interface EventDetail {
+  description?: string;
+  /**
+   * Veranstaltungsart im Wortlaut der Quelle, falls erst die Detailseite sie
+   * nennt. `categories.ts` vereinheitlicht sie wie jede andere Angabe.
+   */
+  category?: string;
+  /**
+   * Beginn als "HH:MM" Ortszeit, falls die Liste keine Uhrzeit führte und
+   * erst die Detailseite eine nennt. Wirkt nur mit `timeZone` und nur auf
+   * Termine, die bisher als ganztägig galten.
+   */
+  startTime?: string;
+  availability?: Availability;
+  availabilityLabel?: string;
+  ticketUrl?: string;
+  notes?: string[];
+}
+
+interface DetailOptions<T> {
   sourceId: string;
   events: CalendarEvent[];
   signal?: AbortSignal;
   fetchOptions?: EventFetchOptions;
-  parseDescription: (html: string, url: string) => string | undefined;
+  parse: (html: string, url: string) => T | undefined;
+  merge: (event: CalendarEvent, detail: T) => CalendarEvent;
   cacheKey?: (event: CalendarEvent) => string | undefined;
   fetchUrl?: (event: CalendarEvent) => string | undefined;
   concurrency?: number;
@@ -21,19 +49,106 @@ interface DetailTask {
 
 const DEFAULT_DESCRIPTION_BUDGET_MS = 6_000;
 const DEFAULT_DETAIL_TIMEOUT_MS = 4_000;
-const DESCRIPTION_TTL_SECONDS = 24 * 60 * 60;
+const DETAIL_TTL_SECONDS = 24 * 60 * 60;
 const FAILURE_TTL_SECONDS = 60 * 60;
 
-export async function enrichEventDescriptions({
+/**
+ * Nur den langen Programmtext nachladen – die Form, die die meisten Quellen
+ * brauchen.
+ */
+export function enrichEventDescriptions(options: {
+  sourceId: string;
+  events: CalendarEvent[];
+  signal?: AbortSignal;
+  fetchOptions?: EventFetchOptions;
+  parseDescription: (html: string, url: string) => string | undefined;
+  cacheKey?: (event: CalendarEvent) => string | undefined;
+  fetchUrl?: (event: CalendarEvent) => string | undefined;
+  concurrency?: number;
+}): Promise<CalendarEvent[]> {
+  const { parseDescription, ...rest } = options;
+  return enrichEventDetails({
+    ...rest,
+    parse: (html, url) => {
+      const description = parseDescription(html, url);
+      return description ? { description } : undefined;
+    },
+    merge: mergeDetail,
+  });
+}
+
+/**
+ * Programmtext, Preise und Ticketlage von der Detailseite nachladen.
+ *
+ * Die Abrufe laufen nach Cache-Schlüssel entdoppelt, mit begrenzter
+ * Parallelität und einem eigenen Zeitbudget. Ein fehlgeschlagener Abruf
+ * darf die Quelle nie als kaputt melden: der Termin bleibt dann so stehen,
+ * wie die Liste ihn kannte.
+ */
+export function enrichEventDetails(
+  options: Omit<DetailOptions<EventDetail>, 'merge'> & {
+    merge?: (event: CalendarEvent, detail: EventDetail) => CalendarEvent;
+    /** Zeitzone der Quelle – nötig, wenn `startTime` benutzt wird. */
+    timeZone?: string;
+  },
+): Promise<CalendarEvent[]> {
+  const { timeZone, ...rest } = options;
+  return enrichEvents({
+    merge: (event, detail) => mergeDetail(event, detail, timeZone),
+    ...rest,
+  });
+}
+
+/**
+ * Die Angaben der Detailseite an den Termin legen.
+ *
+ * Ergänzen statt überschreiben: der lange Text ersetzt den kurzen nur, wenn er
+ * wirklich mehr sagt, und die Ticketlage nur, wenn die Liste keine kannte.
+ */
+export function mergeDetail(
+  event: CalendarEvent,
+  detail: EventDetail,
+  timeZone?: string,
+): CalendarEvent {
+  const next: CalendarEvent = { ...event };
+
+  if (detail.description && isBetterDescription(event.description, detail.description)) {
+    next.description = detail.description;
+  }
+  if (detail.category && !event.category) next.category = detail.category;
+  // Eine Uhrzeit, die erst hier auftaucht, macht aus einem vermeintlich
+  // ganztägigen Termin einen mit Beginn. Umgekehrt nie: was die Liste schon
+  // wusste, bleibt stehen.
+  if (timeZone && detail.startTime && event.allDay) {
+    const [hour, minute] = detail.startTime.split(':').map(Number);
+    if (Number.isFinite(hour) && Number.isFinite(minute)) {
+      next.start = zonedIso(timeZone, event.start.slice(0, 10), hour, minute);
+      next.allDay = false;
+    }
+  }
+  if (detail.availability && detail.availability !== 'unknown' && event.availability === 'unknown') {
+    next.availability = detail.availability;
+    next.availabilityLabel = detail.availabilityLabel ?? event.availabilityLabel;
+  } else if (detail.availabilityLabel && !event.availabilityLabel) {
+    next.availabilityLabel = detail.availabilityLabel;
+  }
+  if (detail.ticketUrl && !event.ticketUrl) next.ticketUrl = detail.ticketUrl;
+  if (detail.notes?.length) next.notes = [...(event.notes ?? []), ...detail.notes];
+
+  return next;
+}
+
+async function enrichEvents<T>({
   sourceId,
   events,
   signal,
   fetchOptions,
-  parseDescription,
+  parse,
+  merge,
   cacheKey = (event) => event.url,
   fetchUrl = (event) => event.url,
   concurrency = 3,
-}: DetailDescriptionOptions): Promise<CalendarEvent[]> {
+}: DetailOptions<T>): Promise<CalendarEvent[]> {
   if (events.length === 0) return events;
 
   const byKey = new Map<string, DetailTask>();
@@ -46,13 +161,13 @@ export async function enrichEventDescriptions({
 
   if (byKey.size === 0) return events;
 
-  const descriptions = new Map<string, string | null>();
+  const details = new Map<string, T | null>();
   const tasks: DetailTask[] = [];
   await Promise.all(
     [...byKey.values()].map(async (task) => {
-      const cached = await readCache<string | null>(task.cacheKey);
+      const cached = await readCache<T | null>(task.cacheKey);
       if (isFresh(cached)) {
-        descriptions.set(task.key, cached!.value);
+        details.set(task.key, cached!.value);
         return;
       }
       tasks.push(task);
@@ -60,10 +175,10 @@ export async function enrichEventDescriptions({
   );
 
   if (tasks.length > 0 && !signal?.aborted) {
-    await fetchMissingDescriptions(sourceId, tasks, descriptions, {
+    await fetchMissingDetails(sourceId, tasks, details, {
       signal,
       fetchOptions,
-      parseDescription,
+      parse,
       concurrency,
     });
   }
@@ -71,23 +186,25 @@ export async function enrichEventDescriptions({
   let changed = false;
   const enriched = events.map((event) => {
     const key = cacheKey(event);
-    const detail = key ? descriptions.get(key) : undefined;
-    if (!detail || !isBetterDescription(event.description, detail)) return event;
+    const detail = key ? details.get(key) : undefined;
+    if (!detail) return event;
+    const next = merge(event, detail);
+    if (next === event) return event;
     changed = true;
-    return { ...event, description: detail };
+    return next;
   });
 
   return changed ? enriched : events;
 }
 
-async function fetchMissingDescriptions(
+async function fetchMissingDetails<T>(
   sourceId: string,
   tasks: DetailTask[],
-  descriptions: Map<string, string | null>,
+  details: Map<string, T | null>,
   options: {
     signal?: AbortSignal;
     fetchOptions?: EventFetchOptions;
-    parseDescription: (html: string, url: string) => string | undefined;
+    parse: (html: string, url: string) => T | undefined;
     concurrency: number;
   },
 ): Promise<void> {
@@ -104,7 +221,7 @@ async function fetchMissingDescriptions(
       if (remainingMs < 500) return;
 
       try {
-        const description = await dedupe(task.cacheKey, async () => {
+        const detail = await dedupe(task.cacheKey, async () => {
           const html = await fetchText(task.url, {
             signal: options.signal,
             retries: 0,
@@ -113,19 +230,15 @@ async function fetchMissingDescriptions(
               remainingMs,
             ),
           });
-          return options.parseDescription(html, task.url) ?? null;
+          return options.parse(html, task.url) ?? null;
         });
 
-        descriptions.set(task.key, description);
-        await writeCache(
-          task.cacheKey,
-          description,
-          description ? DESCRIPTION_TTL_SECONDS : FAILURE_TTL_SECONDS,
-        );
+        details.set(task.key, detail);
+        await writeCache(task.cacheKey, detail, detail ? DETAIL_TTL_SECONDS : FAILURE_TTL_SECONDS);
       } catch (error) {
         if (!options.signal?.aborted) {
-          console.warn(`[${sourceId}] Detailtext nicht lesbar (${task.url}): ${errorMessage(error)}`);
-          descriptions.set(task.key, null);
+          console.warn(`[${sourceId}] Detailseite nicht lesbar (${task.url}): ${errorMessage(error)}`);
+          details.set(task.key, null);
           await writeCache(task.cacheKey, null, FAILURE_TTL_SECONDS);
         }
       }
@@ -141,8 +254,12 @@ function isBetterDescription(current: string | undefined, detail: string): boole
   return !current || detail.length > current.length + 40;
 }
 
+/**
+ * Eigener Namensraum: unter `description_…` lagen früher blosse Strings, unter
+ * `detail_…` liegt der ganze Befund. Die alten Einträge laufen von selbst ab.
+ */
 function detailCacheKey(sourceId: string, key: string): string {
-  return `description_${sourceId}_${hash(key)}`;
+  return `detail_${sourceId}_${hash(key)}`;
 }
 
 function hash(value: string): string {

@@ -3,6 +3,9 @@
  * Textbestand ist überschaubar, und fehlende Schlüssel fallen beim Typcheck auf.
  */
 
+import type { EventCategory } from './events/categories';
+import type { EventGroup } from './events/groups';
+
 export const locales = ['de', 'en'] as const;
 export type Locale = (typeof locales)[number];
 
@@ -62,6 +65,8 @@ const de = {
   imprint: 'Impressum',
   exportCsv: 'Export',
   exportCsvTitle: 'Alle bekannten Veranstaltungen als CSV herunterladen',
+  exportCities: 'Städte im Export',
+  exportDownload: 'Herunterladen',
   imprintHeading: 'Angaben gemäß § 5 DDG',
   imprintName: 'Verantwortlich',
   imprintAddress: 'Anschrift',
@@ -95,6 +100,8 @@ const de = {
   program: 'Programm',
   otherPerformances: 'Weitere Termine',
   noTime: 'Ohne Zeitangabe',
+  allDay: 'Ganztägig',
+  runsUntil: 'Läuft bis',
   ticketsAtOrganizer: 'Karten beim Veranstalter',
   toEvent: 'Zur Veranstaltung',
   addToCalendar: 'In eigenen Kalender übernehmen',
@@ -217,6 +224,8 @@ const en: Record<MessageKey, string> = {
   imprint: 'Imprint',
   exportCsv: 'Export',
   exportCsvTitle: 'Download all known events as CSV',
+  exportCities: 'Cities in the export',
+  exportDownload: 'Download',
   imprintHeading: 'Information pursuant to § 5 DDG',
   imprintName: 'Responsible',
   imprintAddress: 'Address',
@@ -250,6 +259,8 @@ const en: Record<MessageKey, string> = {
   program: 'Program',
   otherPerformances: 'Other dates',
   noTime: 'No time given',
+  allDay: 'All day',
+  runsUntil: 'Runs until',
   ticketsAtOrganizer: 'Tickets from the organiser',
   toEvent: 'Event page',
   addToCalendar: 'Add to my calendar',
@@ -325,3 +336,59 @@ export function translate(
 
 /** Intl-Locale-Kennung zur eingestellten Sprache. */
 export const intlLocale: Record<Locale, string> = { de: 'de-DE', en: 'en-GB' };
+
+/**
+ * Veranstaltungsarten und Ordner sind Daten, keine Oberflächentexte.
+ *
+ * Sie stehen kanonisch auf Deutsch am Termin (`categories.ts`) und in der
+ * Registry (`groups.ts`) – danach wird gefiltert, gruppiert und gespeichert.
+ * Übersetzt wird erst beim Anzeigen, über diese Tabelle. Der Schlüssel bleibt
+ * in jedem Fall der deutsche Wert; die Auswahl in der Seitenleiste überlebt
+ * deshalb einen Sprachwechsel.
+ *
+ * Deutsch braucht keine Tabelle, es ist der kanonische Wortlaut. Was hier
+ * nicht steht – eine Art, die eine Quelle mitbringt und die der Wortschatz
+ * noch nicht kennt – bleibt im Wortlaut der Quelle stehen. Der Typ erzwingt,
+ * dass jede bekannte Art und jeder Ordner eine Entsprechung hat.
+ */
+type Term = EventCategory | EventGroup;
+
+const terms: Partial<Record<Locale, Record<Term, string>>> = {
+  en: {
+    // Veranstaltungsarten
+    Oper: 'Opera',
+    Operette: 'Operetta',
+    Musical: 'Musical',
+    Ballett: 'Ballet',
+    Tanz: 'Dance',
+    Theater: 'Theatre',
+    Performance: 'Performance',
+    Show: 'Show',
+    Comedy: 'Comedy',
+    Konzert: 'Concert',
+    Party: 'Party',
+    Festival: 'Festival',
+    Kino: 'Cinema',
+    Literatur: 'Literature',
+    Vortrag: 'Talk',
+    Netzwerk: 'Networking',
+    Ausstellung: 'Exhibition',
+    Führung: 'Guided Tour',
+    Kultur: 'Culture',
+    'Kinder & Familie': 'Children & Family',
+    Kulinarik: 'Food & Drink',
+    Wettbewerb: 'Competition',
+    Sonstiges: 'Other',
+    // Ordner, soweit sie nicht schon oben stehen
+    'Oper & Ballett': 'Opera & Ballet',
+    Club: 'Club',
+  },
+};
+
+/**
+ * Veranstaltungsart oder Ordner in der eingestellten Sprache – unbekannte
+ * Werte unverändert.
+ */
+export function translateTerm(locale: Locale, value: string): string {
+  return terms[locale]?.[value as Term] ?? value;
+}

@@ -9,10 +9,11 @@ import { SourceIcon } from './SourceIcon';
 interface Props {
   data: AggregateResult;
   range: { from: string; to: string };
+  cityId: string;
   cityName: string;
 }
 
-export function StatusScreen({ data, range, cityName }: Props) {
+export function StatusScreen({ data, range, cityId, cityName }: Props) {
   const { format, t } = useSettings();
   const statusById = new Map(data.sources.map((source) => [source.sourceId, source]));
   const rows = data.definitions
@@ -31,8 +32,9 @@ export function StatusScreen({ data, range, cityName }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2 bg-[var(--chrome)] px-3 hairline-b">
+        {/* Zurück in dieselbe Stadt, aus der man gekommen ist. */}
         <Link
-          href="/"
+          href={`/?city=${encodeURIComponent(cityId)}`}
           className="-ml-1 flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-1 text-[12px]
                      text-muted hover:text-text"
         >
@@ -114,7 +116,7 @@ function SourceRow({
   definition: SourceDefinition;
   status: SourceResult | undefined;
 }) {
-  const { format, t } = useSettings();
+  const { format, t, term } = useSettings();
   const problem = status ? isProblem(status.status) : true;
 
   return (
@@ -127,7 +129,7 @@ function SourceRow({
             {problem && <Warning className="h-3.5 w-3.5 shrink-0 text-[var(--danger)]" />}
           </div>
           <div className="flex min-w-0 items-center gap-1.5 text-[12px] text-faint">
-            <span className="truncate">{definition.group}</span>
+            <span className="truncate">{term(definition.group)}</span>
             <span aria-hidden="true">·</span>
             <a
               href={definition.homepage}

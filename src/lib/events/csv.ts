@@ -21,6 +21,7 @@ const columns = [
   'quelle_id',
   'quelle',
   'gruppe',
+  'kalenderstadt',
   'titel',
   'untertitel',
   'veranstaltungsart',
@@ -55,6 +56,10 @@ export function toCsv(
       event.sourceId,
       definition?.name ?? '',
       definition?.group ?? '',
+      // Nicht der Ort der Spielstätte, sondern die Stadt, unter der die Quelle
+      // im Kalender steht – ohne die Spalte wäre ein Export über mehrere
+      // Städte nicht mehr auseinanderzuhalten.
+      definition?.cityId ?? '',
       event.title,
       event.subtitle ?? '',
       event.category ?? '',
@@ -82,9 +87,9 @@ export function toCsv(
   return [columns, ...rows].map((row) => row.map(cell).join(',')).join(CRLF) + CRLF;
 }
 
-/** Dateiname für den Download – Stadt und Datenstand. */
-export function csvFileName(cityId: string, day: string): string {
-  return `hierausgehen-${cityId}-${day}.csv`;
+/** Dateiname für den Download – Städte und Datenstand. */
+export function csvFileName(cityIds: string[], day: string): string {
+  return `hierausgehen-${cityIds.join('-')}-${day}.csv`;
 }
 
 /**

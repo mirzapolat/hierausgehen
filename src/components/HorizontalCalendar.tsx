@@ -206,7 +206,7 @@ function WeekDayList({
   onSelectEvent: (event: CalendarEvent) => void;
   emptyLabel: string;
 }) {
-  const { format } = useSettings();
+  const { format, t } = useSettings();
 
   if (events.length === 0) {
     return <p className="px-2 py-4 text-[11px] leading-snug text-faint">{emptyLabel}</p>;
@@ -234,7 +234,7 @@ function WeekDayList({
                   style={{ background: sourceColor(definitions, event.sourceId) }}
                 />
                 <span className="truncate text-[11px] tabular-nums text-muted">
-                  {event.allDay ? '—' : format.time(event.start)}
+                  {event.allDay ? t('allDay') : format.time(event.start)}
                 </span>
               </span>
               <span className="mt-0.5 block truncate text-[12px] font-medium text-text">

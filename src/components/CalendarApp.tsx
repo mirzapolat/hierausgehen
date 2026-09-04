@@ -85,7 +85,7 @@ const defaultLayout: LayoutPrefs = {
 };
 
 export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
-  const { settings, update, format, t } = useSettings();
+  const { settings, update, format, t, term } = useSettings();
 
   const [view, setView] = useState<ViewMode>(defaultLayout.view);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
@@ -118,7 +118,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   /** Zähler: jede Erhöhung holt die Auswahl in den sichtbaren Bereich. */
   const [revealSelection, setRevealSelection] = useState(0);
 
-  const cityId = settings.cityId;
   const cache = useRef(new Map<string, AggregateResult>([[key(initialCityId, initialRange), initialData]]));
   /**
    * Erst wenn URL und Speicher gelesen sind, darf zurückgeschrieben werden.
@@ -127,6 +126,17 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    */
   const [restored, setRestored] = useState(false);
   const [restoredSpaceCityId, setRestoredSpaceCityId] = useState<string>();
+
+  /**
+   * Der Deeplink gewinnt beim Start – und zwar sofort.
+   *
+   * `settings` kommt aus `localStorage` und steht beim Hydrieren noch auf den
+   * Standardwerten; der Effekt unten zieht die Stadt aus der URL erst danach
+   * nach. Bis dahin gilt, was der Server gerendert hat: er hat `?city=` bereits
+   * gelesen. Ohne diese Zeile zeigt ein Reload von `?city=glasgow` zuerst
+   * München – und bleibt dort, wenn das Nachziehen ins Leere läuft.
+   */
+  const cityId = restored ? settings.cityId : initialCityId;
 
   /* --------------------- Einstellungen und Deeplinks --------------------- */
 
@@ -163,7 +173,15 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     const urlEvent = params.get('event');
     if (urlEvent) setSelectedEventId(urlEvent);
 
-    if (urlCity && isKnownCityId(urlCity) && urlCity !== settings.cityId) update({ cityId: urlCity });
+    // Eine Stadt in der URL ist eine Ansage, keine Vermutung: sie schaltet die
+    // automatische Auswahl über den Standort ab, sonst holt die den Deeplink
+    // gleich wieder ein.
+    // Ohne Bedingung: `settings` ist hier noch der Stand des Hydrierens (die
+    // Standardwerte), ein Vergleich damit ginge daneben. `update` schreibt
+    // gegen den *lebenden* Speicher, nicht gegen diesen Schnappschuss.
+    if (urlCity && isKnownCityId(urlCity)) {
+      update({ cityId: urlCity, citySelection: 'manual' });
+    }
 
     setRestored(true);
     // Absichtlich nur beim Mounten – danach schreibt der Effekt unten zurück.
@@ -275,8 +293,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     }
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, settings.locale));
-  }, [data.events, visibleSources, settings.locale]);
+      // Bei gleicher Anzahl alphabetisch nach dem angezeigten Namen.
+      .sort((a, b) => b.count - a.count || term(a.name).localeCompare(term(b.name), settings.locale));
+  }, [data.events, visibleSources, settings.locale, term]);
 
   // Kategorienfokus hat Vorrang vor der Pillen-Auswahl, verändert sie aber nicht.
   const enabledCategories = useMemo(
@@ -304,6 +323,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         event.description,
         event.venue.name,
         event.category,
+        // Auch in der eingestellten Sprache: wer "Concert" tippt, sucht nicht
+        // nach dem deutschen Schlüssel, der am Termin steht.
+        event.category ? term(event.category) : undefined,
         event.categoryLabel,
       ]
         .filter(Boolean)
@@ -317,6 +339,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     availableOnly,
     query,
     settings.locale,
+    term,
   ]);
 
   const dayEvents = useMemo(
@@ -669,6 +692,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   const sidebar = (
     <Sidebar
+      cityId={cityId}
       definitions={data.definitions}
       status={data.sources}
       enabled={enabled}

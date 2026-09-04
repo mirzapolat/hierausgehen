@@ -6,8 +6,10 @@
  * Volkstheater oder im Residenztheater stattfindet, steht daneben. Alle
  * Quellen eines Ordners tragen deshalb denselben Ton.
  *
- * Sechs gedeckte Töne, im Farbkreis auseinandergezogen, damit sie auch als
- * 5-px-Punkt nebeneinander unterscheidbar bleiben – hell wie dunkel.
+ * Gedeckte Töne, im Farbkreis auseinandergezogen, damit sie auch als
+ * 5-px-Punkt nebeneinander unterscheidbar bleiben – hell wie dunkel. "Kultur"
+ * sitzt bewusst im Türkis zwischen Literatur (Grün) und Konzert (Blau): das
+ * war die grösste Lücke im Kreis.
  */
 export const GROUP_COLORS = {
   'Oper & Ballett': '#7A4FA0',
@@ -16,6 +18,7 @@ export const GROUP_COLORS = {
   Club: '#A8557A',
   Kino: '#9C7A22',
   Literatur: '#4A7C59',
+  Kultur: '#1F7A72',
 } as const;
 
 /**

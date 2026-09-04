@@ -34,7 +34,7 @@ export function TimeGrid({
   onSelectDay,
   onSelectEvent,
 }: Props) {
-  const { format } = useSettings();
+  const { format, t } = useSettings();
   const grouped = useMemo(() => byDay(events, format), [events, format]);
   const currentDay = format.today();
 
@@ -152,7 +152,7 @@ export function TimeGrid({
                         e.stopPropagation();
                         onSelectEvent(event);
                       }}
-                      title={`${event.allDay ? '' : format.time(event.start) + ' · '}${event.title} · ${event.venue.name}`}
+                      title={`${event.allDay ? t('allDay') : format.time(event.start)} · ${event.title} · ${event.venue.name}`}
                       className="absolute overflow-hidden rounded-[var(--radius-sm)] px-1.5 py-[3px] text-left"
                       style={{
                         top,
@@ -173,9 +173,10 @@ export function TimeGrid({
                           className="block truncate text-[11px] leading-tight"
                           style={{ color: selected ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)' }}
                         >
-                          {event.allDay
-                            ? event.venue.name
-                            : `${format.time(event.start)} · ${event.venue.name}`}
+                          {/* Ein Lauf hat keine Uhrzeit und sitzt im Raster
+                              nur mangels besserer Stelle oben – das Wort sagt,
+                              dass die Lage nichts bedeutet. */}
+                          {`${event.allDay ? t('allDay') : format.time(event.start)} · ${event.venue.name}`}
                         </span>
                       )}
                     </button>

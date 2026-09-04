@@ -9,13 +9,15 @@ process.env.EVENT_SOURCE_DEADLINE_MS = '300';
 const { collectInto, eventsInRange, pendingRepairs, snapshotRange, unknownSources } =
   await import('./snapshot.ts');
 const { readCache, writeCache } = await import('./cache.ts');
-const { sources } = await import('./registry.ts');
+const { sourcesForCity } = await import('./registry.ts');
 import type { AggregateResult } from './types.ts';
 
 const CITY = 'muenchen';
 const range = snapshotRange(CITY);
 const snapshotKey = `snapshot_${CITY}_${range.from}_${range.to}`;
-const registered = sources.map((source) => source.definition.id);
+// Nur die Quellen dieser Stadt: der Datenstand ist je Stadt einer.
+const citySources = sourcesForCity(CITY);
+const registered = citySources.map((source) => source.definition.id);
 const NOW = new Date().toISOString();
 
 /**
@@ -29,7 +31,7 @@ async function seedSourceCaches(): Promise<void> {
 
 /** Ein gültiger Stand, der nur die erste Quelle kennt. */
 async function seedPartialSnapshot(): Promise<void> {
-  const [first] = sources;
+  const [first] = citySources;
   const snapshot: AggregateResult = {
     events: [],
     sources: [
@@ -64,7 +66,7 @@ test('meldet eine noch nicht erhobene Quelle als solche, statt sie zu verschweig
   await seedPartialSnapshot();
 
   const result = await eventsInRange(CITY, range);
-  const fehlend = registered.filter((id) => id !== sources[0].definition.id);
+  const fehlend = registered.filter((id) => id !== citySources[0].definition.id);
 
   for (const id of fehlend) {
     const status = result.sources.find((source) => source.sourceId === id);
@@ -76,7 +78,7 @@ test('meldet eine noch nicht erhobene Quelle als solche, statt sie zu verschweig
     assert.equal(status.eventCount, 0);
   }
 
-  const vorhanden = result.sources.find((s) => s.sourceId === sources[0].definition.id);
+  const vorhanden = result.sources.find((s) => s.sourceId === citySources[0].definition.id);
   assert.equal(vorhanden!.status, 'ok', 'die bekannte Quelle bleibt unangetastet');
 });
 

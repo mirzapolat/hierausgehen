@@ -361,8 +361,9 @@ export function MapView({
             <ul className="mt-1 flex flex-col gap-0.5">
               {hover.pin.events.slice(0, PREVIEW_EVENTS).map((event) => (
                 <li key={event.id} className="flex items-baseline gap-1.5">
-                  <span className="w-[34px] shrink-0 text-[10px] tabular-nums text-muted">
-                    {event.allDay ? '—' : format.time(event.start)}
+                  {/* Breit genug für „Ganztägig", nicht nur für „19:30". */}
+                  <span className="w-[48px] shrink-0 text-[10px] tabular-nums text-muted">
+                    {event.allDay ? t('allDay') : format.time(event.start)}
                   </span>
                   <span
                     aria-hidden="true"
@@ -433,8 +434,8 @@ export function MapView({
                                             : 'hover:bg-[var(--chrome)]'
                                         }`}
                           >
-                            <span className="w-[38px] shrink-0 text-[11px] tabular-nums text-muted">
-                              {event.allDay ? '—' : format.time(event.start)}
+                            <span className="w-[56px] shrink-0 text-[11px] tabular-nums text-muted">
+                              {event.allDay ? t('allDay') : format.time(event.start)}
                             </span>
                             <span
                               aria-hidden="true"
@@ -496,8 +497,8 @@ export function MapView({
                     onClick={() => onSelectEvent(event)}
                     className="flex w-full items-baseline gap-2 py-1 text-left hover:text-accent"
                   >
-                    <span className="w-[38px] shrink-0 text-[11px] tabular-nums text-muted">
-                      {event.allDay ? '—' : format.time(event.start)}
+                    <span className="w-[56px] shrink-0 text-[11px] tabular-nums text-muted">
+                      {event.allDay ? t('allDay') : format.time(event.start)}
                     </span>
                     <span className="truncate text-[12px]">{event.title}</span>
                     <span className="ml-auto shrink-0 truncate text-[11px] text-faint">
