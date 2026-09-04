@@ -15,11 +15,13 @@ import { literaturhaus } from './sources/literaturhaus/index.ts';
 import { lostweekend } from './sources/lostweekend/index.ts';
 import { milla } from './sources/milla/index.ts';
 import { muenchenmusik } from './sources/muenchenmusik/index.ts';
+import { pavilionGlasgow } from './sources/pavilion-glasgow/index.ts';
 import { rcs } from './sources/rcs/index.ts';
 import { residenztheater } from './sources/residenztheater/index.ts';
 import { staatsoper } from './sources/staatsoper/index.ts';
 import { tron } from './sources/tron/index.ts';
 import { theaterakademie } from './sources/theaterakademie/index.ts';
+import { thestandGlasgow } from './sources/thestand-glasgow/index.ts';
 import { unterfahrt } from './sources/unterfahrt/index.ts';
 import { volkstheater } from './sources/volkstheater/index.ts';
 import { werkstattkino } from './sources/werkstattkino/index.ts';
@@ -50,9 +52,11 @@ export const sources: EventSource[] = [
   werkstattkino,
   glasgowlife,
   atgGlasgow,
+  pavilionGlasgow,
   citizens,
   tron,
   rcs,
+  thestandGlasgow,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));

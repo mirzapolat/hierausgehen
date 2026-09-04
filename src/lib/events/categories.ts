@@ -184,7 +184,9 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   ],
   Kulinarik: ['Essen', 'Küche', 'Kochen'],
   Wettbewerb: ['Wettbewerbe', 'Preisverleihung'],
-  Sonstiges: ['Extra', 'Plus Event', 'Sonstige', 'Special', 'Spezial', 'Veranstaltung', 'Event'],
+  // "Other" ist der Auffangkorb der Trafalgar-Plattform für alles, was in
+  // keine ihrer Gattungen passt – dasselbe, was hier "Sonstiges" heisst.
+  Sonstiges: ['Extra', 'Plus Event', 'Sonstige', 'Special', 'Spezial', 'Veranstaltung', 'Event', 'Other'],
 };
 
 const BY_KEY = new Map<string, EventCategory>();
