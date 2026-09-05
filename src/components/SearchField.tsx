@@ -1,7 +1,7 @@
 'use client';
 
 import { useSettings } from '@/lib/settings/context';
-import { Close } from './icons';
+import { Close, Search } from './icons';
 
 interface Props {
   query: string;
@@ -14,13 +14,23 @@ interface Props {
  * Das Suchfeld über den Terminen. Auf dem Desktop steht es oben in der
  * Filterspalte, auf schmalen Geräten über dem Kalender; beide Male dasselbe
  * Feld, damit „/“ es überall findet (`data-search-input`).
+ *
+ * Gestaltet ist es als Pille aus Glas – bewusst das einzige Element dieser Art
+ * ausserhalb der Karte. Eine laufende Suche verändert alles, was der Kalender
+ * zeigt, und soll deshalb auch dann auffallen, wenn man gerade woanders
+ * hinsieht: der Ring aus dem laufenden Farbverlauf samt seinem Schein steht
+ * dafür. Das Aussehen selbst steht in `globals.css` (`.search-*`), damit die
+ * Zustände – schweben, Fokus, gefüllt – an einer Stelle beieinander liegen.
  */
 export function SearchField({ query, onQueryChange, className = '' }: Props) {
   const { t } = useSettings();
 
   return (
-    <div className={`rounded-[5px] p-[1.5px] ${query ? 'rainbow-ring' : 'bg-transparent'} ${className}`}>
-      <div className="relative">
+    <div className={`search-shell ${query ? 'rainbow-ring' : ''} ${className}`}>
+      <div className="search-glass">
+        {/* Die Masse stehen in `globals.css` – ein Icon ohne Grösse würde die
+            Pille sprengen, wenn die Klasse einmal nicht ankommt. */}
+        <Search className="search-icon" />
         <input
           type="search"
           data-search-input=""
@@ -28,9 +38,7 @@ export function SearchField({ query, onQueryChange, className = '' }: Props) {
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t('search')}
           aria-label={t('searchAria')}
-          className={`w-full rounded-[var(--radius-sm)] bg-[var(--canvas)] py-1.5 pl-2.5 text-[13px]
-                      text-text placeholder:text-faint focus:outline-none
-                      ${query ? 'border border-transparent pr-7' : 'border border-line pr-2.5 focus:border-accent'}`}
+          className="search-input"
         />
         {query && (
           <button
@@ -38,10 +46,11 @@ export function SearchField({ query, onQueryChange, className = '' }: Props) {
             onClick={() => onQueryChange('')}
             aria-label={t('clearSearch')}
             title={t('clearSearch')}
-            className="absolute right-1 top-1/2 grid h-5 w-5 -translate-y-1/2 place-items-center
-                       rounded-full text-muted hover:bg-[var(--chrome)] hover:text-text"
+            className="search-clear"
           >
-            <Close className="h-3.5 w-3.5" />
+            {/* Ohne Klasse: das Mass kommt aus `.search-clear svg`, die
+                Grundgrösse des Icons bleibt als Rückfall. */}
+            <Close />
           </button>
         )}
       </div>

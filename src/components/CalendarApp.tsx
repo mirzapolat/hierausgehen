@@ -824,8 +824,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
           {/* Kalender */}
           <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {/* Mobile: die Suche steht über dem Kalender statt in den Filtern. */}
-            <div className="shrink-0 px-3 py-2 hairline-b lg:hidden">
+            {/* Mobile: die Suche steht über dem Kalender statt in den Filtern.
+                Die 12 px ringsum sind Platz für den Schein des Suchfelds –
+                `main` beschneidet, was darüber hinausgeht. */}
+            <div className="shrink-0 px-3 py-3 hairline-b lg:hidden">
               <SearchField query={query} onQueryChange={setQuery} />
             </div>
 

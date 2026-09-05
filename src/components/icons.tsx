@@ -23,6 +23,9 @@ function Svg({ className, children }: Props & { children: React.ReactNode }) {
 export const ChevronLeft = (p: Props) => <Svg {...p}><path d="M10 3 5 8l5 5" /></Svg>;
 export const ChevronRight = (p: Props) => <Svg {...p}><path d="m6 3 5 5-5 5" /></Svg>;
 export const ChevronDown = (p: Props) => <Svg {...p}><path d="m3.5 6 4.5 4.5L12.5 6" /></Svg>;
+export const Search = (p: Props) => (
+  <Svg {...p}><circle cx="7.2" cy="7.2" r="4.2" /><path d="m10.4 10.4 3.1 3.1" /></Svg>
+);
 export const Close = (p: Props) => <Svg {...p}><path d="m4 4 8 8M12 4l-8 8" /></Svg>;
 export const Filter = (p: Props) => (
   <Svg {...p}><path d="M2.5 4h11M4.5 8h7M6.5 12h3" /></Svg>
