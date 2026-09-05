@@ -83,6 +83,13 @@ export const Map = (p: Props) => (
     <path d="M5.5 2.5v9M10.5 4.5v9" />
   </Svg>
 );
+/** Ortsmarke – Standort und Karte. */
+export const MapPin = (p: Props) => (
+  <Svg {...p}>
+    <path d="M8 14.5s4.5-4.2 4.5-7.5a4.5 4.5 0 0 0-9 0c0 3.3 4.5 7.5 4.5 7.5Z" />
+    <circle cx="8" cy="7" r="1.6" />
+  </Svg>
+);
 export const Check = (p: Props) => <Svg {...p}><path d="m3 8.4 3.2 3.1L13 4.5" /></Svg>;
 export const MoreHorizontal = (p: Props) => (
   <Svg {...p}>

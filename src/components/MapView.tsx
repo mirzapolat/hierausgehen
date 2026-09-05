@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
@@ -36,10 +36,12 @@ interface Props {
  * wird zusammengefasst (`lib/map.ts`) – die vier Häuser am Max-Joseph-Platz
  * sind herausgezoomt ein Punkt und hineingezoomt wieder vier.
  *
- * Zeigen genügt für einen ersten Blick: beim Überfahren steht am Zeiger, was
- * hier läuft. Ein Klick auf einen Punkt mit mehreren Terminen öffnet die
- * Ortskarte, einer mit genau einem Termin führt direkt in die Detailspalte –
- * eine Liste mit einem Eintrag ist keine Hilfe, sondern ein Zwischenschritt.
+ * Zeigen genügt für einen ersten Blick: beim Überfahren steht neben der Nadel,
+ * was hier läuft. Ein Klick auf einen Punkt mit mehreren Terminen klappt genau
+ * diese Vorschau an derselben Stelle zur Ortskarte auf – eine zweite Tafel in
+ * einer Ecke wäre ein zweites Ding für dieselbe Sache. Ein Punkt mit genau
+ * einem Termin führt direkt in die Detailspalte: eine Liste mit einem Eintrag
+ * ist keine Hilfe, sondern ein Zwischenschritt.
  *
  * Karten brauchen sonst einen Schlüssel und eine Registrierung. Hier nicht:
  * die Kacheln kommen direkt von OpenStreetMap. Deren Standardstil ist bunter,
@@ -65,6 +67,14 @@ const PREVIEW_EVENTS = 6;
 
 /** Zoomstufe beim Öffnen und immer dann, wenn es nichts einzupassen gibt. */
 const START_ZOOM = 12;
+
+/** Abstand der Karten zur Nadel und zum Rand der Fläche. */
+const GAP = 14;
+const EDGE = 8;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(value, Math.max(min, max)));
+}
 
 export function MapView({
   day,
@@ -104,10 +114,12 @@ export function MapView({
   const pins = useMemo(() => clusterPlaces(places, zoom), [places, zoom]);
   const unplaced = useMemo(() => events.filter((event) => !event.venue.place), [events]);
   const [unplacedOpen, setUnplacedOpen] = useState(false);
-  /** Vorschau am Zeiger: welche Nadel, an welcher Stelle der Fläche. */
-  const [hover, setHover] = useState<{ pin: Pin; x: number; y: number }>();
-  /** Grösse der Kartenfläche – damit die Vorschau am Rand die Seite wechselt. */
+  /** Überfahrene Nadel – die Vorschau hängt an ihr, nicht am Zeiger. */
+  const [hover, setHover] = useState<Pin>();
+  /** Grösse der Kartenfläche – damit die Karten am Rand die Seite wechseln. */
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const preview = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLDivElement>(null);
 
   /**
    * Gemerkt wird der **Ort**, nicht die Stecknadel: Nadeln entstehen je
@@ -217,16 +229,10 @@ export function MapView({
           iconSize: pin.events.length > 1 ? [30, 30] : [18, 18],
           iconAnchor: pin.events.length > 1 ? [15, 15] : [9, 9],
         }),
-        title: `${pin.name} – ${count(pin.events.length, t)}`,
         keyboard: true,
         riseOnHover: true,
       });
-      // Zwei Ereignisse in einem Aufruf verlieren die genaue Typisierung;
-      // einzeln registriert bleibt `containerPoint` erhalten.
-      const follow = (event: Leaflet.LeafletMouseEvent) =>
-        setHover({ pin, x: event.containerPoint.x, y: event.containerPoint.y });
-      marker.on('mouseover', follow);
-      marker.on('mousemove', follow);
+      marker.on('mouseover', () => setHover(pin));
       marker.on('mouseout', () => setHover(undefined));
       marker.on('click', () => {
         // Eine Nadel mit einem einzigen Termin braucht keine Zwischenliste:
@@ -241,9 +247,66 @@ export function MapView({
         openPin(pin.places[0].key);
       });
       marker.addTo(map.current);
+      // Bewusst `aria-label` statt Leaflets `title`-Option: ein `title` zieht
+      // die Sprechblase des Betriebssystems auf, und die legt sich mitten in
+      // die Vorschau, die der Zeiger hier ohnehin schon öffnet. Für
+      // Tastatur und Vorlesehilfe bleibt der Name trotzdem am Pin.
+      const element = marker.getElement();
+      if (element) {
+        element.setAttribute('role', 'button');
+        element.setAttribute('aria-label', `${pin.name} – ${count(pin.events.length, t)}`);
+      }
       markers.current.set(pin.key, marker);
     }
   }, [ready, pins, highlighted, openPin, onSelectEvent, t]);
+
+  /* ------------------------------ Verankern ------------------------------ */
+
+  /**
+   * Vorschau und Ortskarte hängen an derselben Stelle: neben der Nadel, nicht
+   * am Zeiger und nicht in der Ecke. So ist die Ortskarte sichtbar dasselbe
+   * Ding wie die Vorschau, nur aufgeklappt – ein Klick lässt sie an Ort und
+   * Stelle wachsen, statt die Augen nach unten links zu schicken.
+   *
+   * Gesetzt wird die Stelle am Element statt über den Zustand: beim Ziehen und
+   * Zoomen läuft das je Bild, und dafür ist ein Rendern zu teuer.
+   */
+  const anchor = useCallback(
+    (element: HTMLDivElement | null, pin?: Pin) => {
+      if (!element || !pin || !map.current) return;
+      const point = map.current.latLngToContainerPoint([pin.latitude, pin.longitude]);
+      const { offsetWidth: width, offsetHeight: height } = element;
+
+      // Am Rand kippt die Karte auf die andere Seite der Nadel.
+      const right = point.x + GAP + width + EDGE > size.width;
+      const above = point.y + GAP + height + EDGE > size.height;
+      const left = right ? point.x - GAP - width : point.x + GAP;
+      const top = above ? point.y - GAP - height : point.y + GAP;
+
+      // Geklemmt bleibt die Karte auch dann greifbar, wenn ihre Nadel aus dem
+      // Bild geschoben wurde – die Liste darin ist zum Anklicken da.
+      element.style.left = `${clamp(left, EDGE, size.width - width - EDGE)}px`;
+      element.style.top = `${clamp(top, EDGE, size.height - height - EDGE)}px`;
+      // Aufgeklappt wird zur Nadel hin – der Ursprung ist die Ecke, die ihr
+      // am nächsten liegt.
+      element.style.transformOrigin = `${right ? 'right' : 'left'} ${above ? 'bottom' : 'top'}`;
+    },
+    [size],
+  );
+
+  useLayoutEffect(() => anchor(preview.current, hover), [anchor, hover]);
+  useLayoutEffect(() => anchor(card.current, active), [anchor, active]);
+
+  // Beim Ziehen und Zoomen bleibt die offene Ortskarte an ihrer Nadel kleben.
+  useEffect(() => {
+    const instance = map.current;
+    if (!ready || !instance || !active) return;
+    const follow = () => anchor(card.current, active);
+    instance.on('move zoom', follow);
+    return () => {
+      instance.off('move zoom', follow);
+    };
+  }, [ready, active, anchor]);
 
   /* ------------------------------ Ausschnitt ----------------------------- */
 
@@ -338,28 +401,23 @@ export function MapView({
           </p>
         )}
 
-        {/* Vorschau am Zeiger: was hier läuft, ohne einen Klick. Bei einer
+        {/* Vorschau an der Nadel: was hier läuft, ohne einen Klick. Bei einer
             zusammengefassten Nadel ist das die ganze Auswahl – genau dafür
-            steht die Zahl darin. */}
-        {hover && (
+            steht die Zahl darin. Für die offene Nadel entfällt sie: dort steht
+            die Ortskarte, und die zeigt schon mehr. */}
+        {hover && hover.key !== active?.key && (
           <div
-            className="map-glass pointer-events-none absolute z-[700] w-[230px] overflow-hidden
-                       rounded-[14px] px-2.5 py-2"
-            style={{
-              // Neben dem Zeiger, und am Rand auf die andere Seite.
-              left: hover.x + 246 > size.width ? undefined : hover.x + 14,
-              right: hover.x + 246 > size.width ? size.width - hover.x + 14 : undefined,
-              top: hover.y + 12,
-              transform: hover.y + 160 > size.height ? 'translateY(calc(-100% - 26px))' : undefined,
-            }}
+            ref={preview}
+            className="map-glass pointer-events-none absolute left-0 top-0 z-[700] w-[230px]
+                       overflow-hidden rounded-[14px] px-2.5 py-2"
           >
-            <div className="truncate text-[11px] font-semibold" title={hover.pin.name}>
-              {hover.pin.places.length === 1
-                ? hover.pin.name
-                : t('mapPinPlaces', { count: hover.pin.places.length })}
+            <div className="truncate text-[11px] font-semibold">
+              {hover.places.length === 1
+                ? hover.name
+                : t('mapPinPlaces', { count: hover.places.length })}
             </div>
             <ul className="mt-1 flex flex-col gap-0.5">
-              {hover.pin.events.slice(0, PREVIEW_EVENTS).map((event) => (
+              {hover.events.slice(0, PREVIEW_EVENTS).map((event) => (
                 <li key={event.id} className="flex items-baseline gap-1.5">
                   {/* Breit genug für „Ganztägig", nicht nur für „19:30". */}
                   <span className="w-[48px] shrink-0 text-[10px] tabular-nums text-muted">
@@ -374,18 +432,21 @@ export function MapView({
                 </li>
               ))}
             </ul>
-            {hover.pin.events.length > PREVIEW_EVENTS && (
+            {hover.events.length > PREVIEW_EVENTS && (
               <div className="mt-1 text-[10px] text-faint">
-                {t('mapMore', { count: hover.pin.events.length - PREVIEW_EVENTS })}
+                {t('mapMore', { count: hover.events.length - PREVIEW_EVENTS })}
               </div>
             )}
           </div>
         )}
 
-        {/* Ortskarte: was an diesem Punkt läuft. */}
-        {active && (
+        {/* Ortskarte: die aufgeklappte Vorschau, an derselben Nadel. Erst wenn
+            die Karte steht – vorher gäbe es keinen Punkt, an den sie gehört. */}
+        {ready && active && (
           <div
-            className="map-glass absolute bottom-3 left-3 z-[600] max-h-[min(60%,340px)] w-[280px]
+            ref={card}
+            key={active.key}
+            className="map-glass map-card absolute left-0 top-0 z-[600] max-h-[min(60%,340px)] w-[280px]
                        overflow-hidden rounded-[20px]"
           >
             <div className="flex items-start gap-2 px-3 py-2.5 hairline-b">

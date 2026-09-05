@@ -13,12 +13,14 @@ import {
   isSameMonth,
   loadRange,
 } from '@/lib/calendar';
-import { isKnownCityId } from '@/lib/cities';
+
 import { DETAIL_KEY, SIDEBAR_KEY, matchesKey } from '@/lib/keyboard';
+import { isKnownCityId } from '@/lib/cities';
 import { sourceColor, sourceName } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { AgendaList } from './AgendaList';
+import { CityIntroScreen } from './CityIntroScreen';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { DetailPanel } from './DetailPanel';
 import { HorizontalCalendar } from './HorizontalCalendar';
@@ -84,8 +86,11 @@ const defaultLayout: LayoutPrefs = {
   spaces: {},
 };
 
+/** Solange die Daten einer anderen Stadt gehören, zeigt der Kalender nichts. */
+const emptyResult: AggregateResult = { events: [], sources: [], definitions: [] };
+
 export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
-  const { settings, update, format, t, term } = useSettings();
+  const { settings, cityStatus, chooseCity, format, t, term } = useSettings();
 
   const [view, setView] = useState<ViewMode>(defaultLayout.view);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
@@ -104,7 +109,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const [query, setQuery] = useState('');
   const [layout, setLayout] = useState(defaultLayout);
 
-  const [data, setData] = useState(initialData);
+  /**
+   * Der Datenstand trägt seine Stadt mit sich. Nur so zeigen Kopfzeile,
+   * Quellenliste und Kalender zwangsläufig dieselbe Stadt: bis die Daten der
+   * neuen Stadt da sind, gilt der Kalender als leer, statt kurz die Quellen der
+   * alten Stadt unter dem neuen Namen zu zeigen.
+   */
+  const [loaded, setLoaded] = useState({ cityId: initialCityId, result: initialData });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -119,6 +130,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const [revealSelection, setRevealSelection] = useState(0);
 
   const cache = useRef(new Map<string, AggregateResult>([[key(initialCityId, initialRange), initialData]]));
+  /** Zuletzt angeforderter Datenstand – ältere Antworten laufen ins Leere. */
+  const wanted = useRef(key(initialCityId, initialRange));
   /**
    * Erst wenn URL und Speicher gelesen sind, darf zurückgeschrieben werden.
    * Bewusst State und kein Ref: der Schreib-Effekt liefe sonst noch im selben
@@ -136,7 +149,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    * gelesen. Ohne diese Zeile zeigt ein Reload von `?city=glasgow` zuerst
    * München – und bleibt dort, wenn das Nachziehen ins Leere läuft.
    */
-  const cityId = restored ? settings.cityId : initialCityId;
+  const cityId = restored && settings.cityId ? settings.cityId : initialCityId;
+  const data = loaded.cityId === cityId ? loaded.result : emptyResult;
 
   /* --------------------- Einstellungen und Deeplinks --------------------- */
 
@@ -147,7 +161,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     const params = new URLSearchParams(window.location.search);
 
     const urlCity = params.get('city');
-    const startupCityId = urlCity && isKnownCityId(urlCity) ? urlCity : settings.cityId;
+    const startupCityId = urlCity && isKnownCityId(urlCity) ? urlCity : (settings.cityId ?? initialCityId);
     const stored = readLayoutPrefs(startupCityId);
     const storedSpace = spacePrefs(stored, startupCityId);
 
@@ -173,16 +187,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     const urlEvent = params.get('event');
     if (urlEvent) setSelectedEventId(urlEvent);
 
-    // Eine Stadt in der URL ist eine Ansage, keine Vermutung: sie schaltet die
-    // automatische Auswahl über den Standort ab, sonst holt die den Deeplink
-    // gleich wieder ein.
-    // Ohne Bedingung: `settings` ist hier noch der Stand des Hydrierens (die
-    // Standardwerte), ein Vergleich damit ginge daneben. `update` schreibt
-    // gegen den *lebenden* Speicher, nicht gegen diesen Schnappschuss.
-    if (urlCity && isKnownCityId(urlCity)) {
-      update({ cityId: urlCity, citySelection: 'manual' });
-    }
-
+    // Die Stadt aus der Adresse schreibt der SettingsProvider fest – hier zählt
+    // sie nur für die Filter, die zu ihr gehören.
     setRestored(true);
     // Absichtlich nur beim Mounten – danach schreibt der Effekt unten zurück.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -252,8 +258,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const load = useCallback(
     async (target: { from: string; to: string }, city: string) => {
       const cacheKey = key(city, target);
+      wanted.current = cacheKey;
       if (cache.current.has(cacheKey)) {
-        setData(cache.current.get(cacheKey)!);
+        setLoaded({ cityId: city, result: cache.current.get(cacheKey)! });
         return;
       }
       try {
@@ -262,7 +269,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const next = (await res.json()) as AggregateResult;
         cache.current.set(cacheKey, next);
-        setData(next);
+        // Eine Antwort, die zu spät kommt, gehört nicht mehr auf den Schirm.
+        if (wanted.current === cacheKey) setLoaded({ cityId: city, result: next });
       } catch (error) {
         console.error('[calendar] Laden fehlgeschlagen', error);
       }
@@ -753,13 +761,17 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     />
   );
 
+  // Solange die Stadt nicht feststeht, hat der Kalender nichts zu zeigen:
+  // Kopfzeile, Quellen und Termine gehörten sonst zu einer geratenen Stadt.
+  if (cityStatus === 'ask') return <CityIntroScreen />;
+
   return (
     <div className="flex h-full flex-col overflow-hidden" onContextMenu={openMenu}>
         <Toolbar
           view={view}
           anchor={anchor}
           cityId={cityId}
-          onCityChange={(id) => update({ cityId: id, citySelection: 'manual' })}
+          onCityChange={chooseCity}
           onViewChange={setView}
           onStep={step}
           canStepBack={!restored || canStep(-1)}

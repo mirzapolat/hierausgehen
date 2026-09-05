@@ -1,32 +1,35 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { cityById, cities } from '@/lib/cities';
 import { locales } from '@/lib/i18n';
-import {
-  useSettings,
-  type Settings,
-  type ThemePreference,
-} from '@/lib/settings/context';
-import { ChevronLeft } from './icons';
+import { useSettings, type ThemePreference } from '@/lib/settings/context';
+import { ChevronLeft, MapPin } from './icons';
 
 /**
  * Einstellungen: Erscheinungsbild, Sprache, Zeitformat, Zeitzone und Stadt.
  * Alles wird lokal gespeichert – die App kennt keine Konten.
  */
 export function SettingsScreen() {
-  const { settings, update, timeZone, t } = useSettings();
-  const city = cityById(settings.cityId);
+  const { settings, update, cityId, chooseCity, locateCity, timeZone, t } = useSettings();
+  const city = cityById(cityId);
+  const [locating, setLocating] = useState(false);
+  const [locateFailed, setLocateFailed] = useState(false);
 
   const themeOptions: { value: ThemePreference; label: string }[] = [
     { value: 'light', label: t('themeLight') },
     { value: 'dark', label: t('themeDark') },
     { value: 'system', label: t('themeSystem') },
   ];
-  const citySelectionOptions: { value: Settings['citySelection']; label: string }[] = [
-    { value: 'automatic', label: t('citySelectionAutomatic') },
-    { value: 'manual', label: t('citySelectionManual') },
-  ];
+
+  const askLocation = async () => {
+    setLocating(true);
+    setLocateFailed(false);
+    const found = await locateCity();
+    setLocating(false);
+    setLocateFailed(!found);
+  };
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -65,19 +68,27 @@ export function SettingsScreen() {
           </Section>
 
           <Section title={t('regional')}>
-            <Field label={t('citySelection')}>
-              <Segmented
-                value={settings.citySelection}
-                options={citySelectionOptions}
-                onChange={(value) => update({ citySelection: value })}
-              />
-            </Field>
             <Field label={t('city')}>
               <Select
-                value={settings.cityId}
-                onChange={(value) => update({ cityId: value, citySelection: 'manual' })}
+                value={cityId}
+                onChange={chooseCity}
                 options={cities.map((c) => ({ value: c.id, label: c.name }))}
               />
+              {/* Der Standort wird nur auf Zuruf abgefragt – von sich aus
+                  fragt der Kalender nie nach der Erlaubnis. */}
+              <button
+                type="button"
+                onClick={askLocation}
+                disabled={locating}
+                className="mt-1.5 flex h-[26px] items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5
+                           text-[12px] text-muted hover:text-text disabled:text-faint"
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                {locating ? t('useLocationPending') : t('useLocation')}
+              </button>
+              {locateFailed && (
+                <p className="mt-1 text-[11px] text-faint">{t('useLocationFailed')}</p>
+              )}
             </Field>
             <Field label={t('timeFormat')}>
               <Segmented

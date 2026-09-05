@@ -11,7 +11,11 @@ export type Locale = (typeof locales)[number];
 
 const de = {
   appName: 'HIERAUSGEHEN.DE',
-  search: 'Suchen',
+  // Der Platzhalter nennt, wonach tatsächlich gesucht wird (`CalendarApp`):
+  // Titel, Untertitel, Beschreibung, Ort und Veranstaltungsart. Künstler
+  // stehen in aller Regel in Titel oder Beschreibung – ein eigenes Feld dafür
+  // gibt es nicht, und die Auslassungspunkte versprechen keins.
+  search: 'Name, Ort, Art, Künstler …',
   searchAria: 'Veranstaltungen durchsuchen',
   clearSearch: 'Suche zurücksetzen',
   sources: 'Quellen',
@@ -83,10 +87,13 @@ const de = {
   imprintSources: 'Eingebundene Quellen',
   backToCalendar: 'Zurück zum Kalender',
   city: 'Stadt',
-  citySelection: 'Stadtauswahl',
-  citySelectionAutomatic: 'Automatisch',
-  citySelectionManual: 'Manuell',
   selectCity: 'Stadt wählen',
+  cityIntroTitle: 'In welcher Stadt bist du?',
+  cityIntroLead: 'Der Kalender zeigt das Programm einer Stadt. Die Auswahl bleibt gespeichert.',
+  cityIntroHint: 'Später jederzeit oben links zu wechseln.',
+  useLocation: 'Standort verwenden',
+  useLocationPending: 'Standort wird ermittelt …',
+  useLocationFailed: 'Der Standort ist nicht verfügbar – bitte die Stadt selbst wählen.',
   noEvents: 'Keine Veranstaltungen.',
   noEventsDay: 'An diesem Tag sind keine Veranstaltungen der gewählten Quellen bekannt.',
   noEventsRange: 'Keine Veranstaltungen in diesem Zeitraum.',
@@ -170,7 +177,7 @@ export type MessageKey = keyof typeof de;
 
 const en: Record<MessageKey, string> = {
   appName: 'HIERAUSGEHEN.DE',
-  search: 'Search',
+  search: 'Name, venue, type, artist …',
   searchAria: 'Search events',
   clearSearch: 'Clear search',
   sources: 'Sources',
@@ -242,10 +249,13 @@ const en: Record<MessageKey, string> = {
   imprintSources: 'Included sources',
   backToCalendar: 'Back to calendar',
   city: 'City',
-  citySelection: 'City selection',
-  citySelectionAutomatic: 'Automatic',
-  citySelectionManual: 'Manual',
   selectCity: 'Select city',
+  cityIntroTitle: 'Which city are you in?',
+  cityIntroLead: 'The calendar shows one city at a time. Your choice is remembered.',
+  cityIntroHint: 'You can switch any time in the top left.',
+  useLocation: 'Use my location',
+  useLocationPending: 'Finding your location …',
+  useLocationFailed: 'Your location is unavailable – please pick a city yourself.',
   noEvents: 'No events.',
   noEventsDay: 'No events from the selected sources on this day.',
   noEventsRange: 'No events in this period.',

@@ -66,6 +66,31 @@ Die Trennung ist die eigentliche Idee: **Quelle → normalisiertes Modell → UI
 Kalender und Oberfläche kennen ausschliesslich `CalendarEvent` und nie das
 Format einer fremden Website.
 
+## Welche Stadt gilt
+
+Der Kalender zeigt immer genau eine Stadt. Welche das ist, entscheidet beim
+Öffnen `resolveCity` (`lib/cities.ts`) in dieser Reihenfolge:
+
+1. **`?city=` in der Adresse.** Ein geteilter Link ist eine Ansage.
+2. **Die zuletzt geöffnete Stadt** aus den Einstellungen.
+3. **Der Standort** – aber nur, wenn er ohnehin schon freigegeben ist. Geprüft
+   wird das über die Permissions-API; ist sie unbekannt oder steht sie nicht
+   auf `granted`, wird der Standort gar nicht erst abgefragt.
+4. **Die Frage.** Bleibt alles offen, zeigt der Kalender statt seiner selbst
+   `CityIntroScreen` und lässt die Stadt wählen. Von dort führt ein Knopf zum
+   Standort – das Berechtigungsfenster des Browsers erscheint also nur, wenn
+   jemand darum bittet.
+
+Vorher gab es keine vierte Stufe: ohne Standort blieb es stillschweigend bei
+München. Deshalb ist `settings.cityId` jetzt `string | null` – „noch keine
+Stadt" ist ein eigener Zustand und nicht dasselbe wie „München".
+
+Der Datenstand im Kalender trägt seine Stadt mit sich
+(`loaded = { cityId, result }` in `CalendarApp`). Passt sie nicht zur Stadt in
+der Kopfzeile, gilt der Kalender als leer, bis die neuen Daten da sind – so
+zeigen Stadtname, Quellenliste und Termine nie verschiedene Städte, auch nicht
+für den Moment zwischen Umschalten und Antwort.
+
 ## Eine Quelle hinzufügen
 
 Kurzfassung — ausführlich in `.claude/skills/add-source/SKILL.md`, das Claude

@@ -79,3 +79,27 @@ export function distanceKm(a: GeoPoint, b: GeoPoint): number {
 function toRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
+
+/**
+ * Welche Stadt beim Öffnen gilt.
+ *
+ * Die Reihenfolge ist bewusst: ein Deeplink ist eine Ansage, danach zählt die
+ * Stadt, in der zuletzt geöffnet wurde. Erst wenn beides fehlt, darf der
+ * Standort entscheiden – und wenn auch der fehlt, fragt die Oberfläche nach.
+ */
+export type CityChoice =
+  | { status: 'known'; cityId: string; from: 'url' | 'stored' }
+  | { status: 'unresolved' };
+
+export function resolveCity(input: {
+  urlCityId?: string | null;
+  storedCityId?: string | null;
+}): CityChoice {
+  const url = input.urlCityId;
+  if (url && isKnownCityId(url)) return { status: 'known', cityId: url, from: 'url' };
+
+  const stored = input.storedCityId;
+  if (stored && isKnownCityId(stored)) return { status: 'known', cityId: stored, from: 'stored' };
+
+  return { status: 'unresolved' };
+}

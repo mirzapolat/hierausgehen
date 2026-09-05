@@ -1,12 +1,14 @@
-import { DEFAULT_CITY_ID, isKnownCityId } from '@/lib/cities';
+import { isKnownCityId } from '@/lib/cities';
 import type { Locale } from '@/lib/i18n';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
-export type CitySelectionMode = 'automatic' | 'manual';
 
 export interface Settings {
-  cityId: string;
-  citySelection: CitySelectionMode;
+  /**
+   * Die Stadt, in der zuletzt geöffnet wurde. `null`, solange noch keine
+   * feststeht – dann fragt die Oberfläche nach, statt München zu unterstellen.
+   */
+  cityId: string | null;
   theme: ThemePreference;
   locale: Locale;
   /** 12-Stunden-Anzeige statt 24 Stunden. */
@@ -16,8 +18,7 @@ export interface Settings {
 }
 
 export const defaultSettings: Settings = {
-  cityId: DEFAULT_CITY_ID,
-  citySelection: 'automatic',
+  cityId: null,
   theme: 'system',
   locale: 'de',
   hour12: false,
@@ -95,11 +96,14 @@ export function writeSettings(patch: Partial<Settings>): void {
   notify();
 }
 
+/** Nur bekannte Felder übernehmen – Altbestand aus früheren Fassungen fällt weg. */
 function normalizeSettings(value: Partial<Settings>): Settings {
-  const next = { ...defaultSettings, ...value };
-  if (!isKnownCityId(next.cityId)) next.cityId = DEFAULT_CITY_ID;
-  if (next.citySelection !== 'automatic' && next.citySelection !== 'manual') {
-    next.citySelection = defaultSettings.citySelection;
-  }
-  return next;
+  const merged = { ...defaultSettings, ...value };
+  return {
+    cityId: typeof merged.cityId === 'string' && isKnownCityId(merged.cityId) ? merged.cityId : null,
+    theme: merged.theme,
+    locale: merged.locale,
+    hour12: merged.hour12,
+    timeZone: merged.timeZone,
+  };
 }
