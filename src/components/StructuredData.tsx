@@ -1,5 +1,6 @@
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
-import { SITE_NAME, SITE_URL } from '@/lib/site';
+import { cityById } from '@/lib/cities';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, cityMetadata, cityUrl } from '@/lib/site';
 
 /**
  * Strukturierte Daten für Suchmaschinen (schema.org).
@@ -19,12 +20,17 @@ const AVAILABILITY: Record<string, string | undefined> = {
 const MAX_EVENTS = 60;
 
 export function StructuredData({
+  cityId,
   events,
   definitions,
 }: {
+  cityId: string;
   events: CalendarEvent[];
   definitions: SourceDefinition[];
 }) {
+  const city = cityById(cityId);
+  const url = cityUrl(city.id);
+  const { title, description } = cityMetadata(city.id);
   // Serverkomponente auf einer dynamischen Seite: die Uhr zu lesen ist hier
   // genau richtig, es gibt kein erneutes Rendern mit anderem Ergebnis.
   // eslint-disable-next-line react-hooks/purity
@@ -32,7 +38,7 @@ export function StructuredData({
   const upcoming = events
     .filter((event) => Date.parse(event.start) >= now)
     .slice(0, MAX_EVENTS)
-    .map((event) => eventSchema(event, definitions));
+    .map((event) => eventSchema(event, city.name, definitions));
 
   const graph = [
     {
@@ -41,8 +47,34 @@ export function StructuredData({
       url: SITE_URL,
       name: SITE_NAME,
       inLanguage: 'de-DE',
-      description:
-        'Kalender für Veranstaltungen in München: Oper, Ballett, Theater und Konzert an einem Ort.',
+      description: SITE_DESCRIPTION,
+    },
+    {
+      '@type': 'CollectionPage',
+      '@id': `${url}#page`,
+      url,
+      name: title,
+      description,
+      inLanguage: 'de-DE',
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+      about: {
+        '@type': 'City',
+        name: city.name,
+        geo: {
+          '@type': 'GeoCoordinates',
+          latitude: city.coordinates.latitude,
+          longitude: city.coordinates.longitude,
+        },
+      },
+      // Die Termine hängen an der Seite, statt frei im Graphen zu stehen.
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: upcoming.map((event, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          item: { '@id': event['@id'] },
+        })),
+      },
     },
     ...upcoming,
   ];
@@ -56,7 +88,7 @@ export function StructuredData({
   );
 }
 
-function eventSchema(event: CalendarEvent, definitions: SourceDefinition[]) {
+function eventSchema(event: CalendarEvent, cityName: string, definitions: SourceDefinition[]) {
   const source = definitions.find((d) => d.id === event.sourceId);
   const availability = AVAILABILITY[event.availability];
 
@@ -72,9 +104,20 @@ function eventSchema(event: CalendarEvent, definitions: SourceDefinition[]) {
     location: {
       '@type': 'Place',
       name: event.venue.name,
-      // Adressen führen die Quellen nicht; nur eine bekannte Stadt wird genannt.
-      ...(event.venue.city
-        ? { address: { '@type': 'PostalAddress', addressLocality: event.venue.city } }
+      // Adressen führen die Quellen nicht; genannt wird die Stadt der Quelle.
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: event.venue.city ?? cityName,
+      },
+      // Nur der nachträglich aufgelöste Punkt, nie ein geratener.
+      ...(event.venue.place
+        ? {
+            geo: {
+              '@type': 'GeoCoordinates',
+              latitude: event.venue.place.point.latitude,
+              longitude: event.venue.place.point.longitude,
+            },
+          }
         : {}),
     },
     url: event.url,

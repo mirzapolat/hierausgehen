@@ -1,36 +1,48 @@
 import type { Metadata, Viewport } from 'next';
 import { SettingsProvider } from '@/lib/settings/context';
 import { ServiceWorker } from '@/components/ServiceWorker';
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
+import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
 import './globals.css';
 
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: SITE_TITLE,
+    default: `${SITE_NAME} — ${SITE_TITLE}`,
     // Unterseiten hängen sich an, statt den Namen zu wiederholen.
     template: `%s — ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
   applicationName: SITE_NAME,
   authors: [{ name: 'Mirza Polat' }],
   creator: 'Mirza Polat',
   alternates: { canonical: '/' },
   robots: {
-    index: false,
-    follow: false,
-    googleBot: { index: false, follow: false, 'max-image-preview': 'none', 'max-snippet': 0 },
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
   },
   openGraph: {
     type: 'website',
     locale: 'de_DE',
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: SITE_TITLE,
+    title: `${SITE_NAME} — ${SITE_TITLE}`,
     description: SITE_DESCRIPTION,
   },
-  twitter: { card: 'summary_large_image', title: SITE_TITLE, description: SITE_DESCRIPTION },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} — ${SITE_TITLE}`,
+    description: SITE_DESCRIPTION,
+  },
+  category: 'events',
   manifest: '/manifest.webmanifest',
   appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: 'default' },
   formatDetection: { telephone: false, date: false, address: false, email: false },
