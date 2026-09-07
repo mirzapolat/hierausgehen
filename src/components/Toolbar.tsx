@@ -67,7 +67,9 @@ export function Toolbar({
   const sidebarKey = useKeyLabel(SIDEBAR_KEY);
   const detailKey = useKeyLabel(DETAIL_KEY);
   const title = format.rangeLabel(view, anchor);
-  const mobileTitle = view === 'month' ? format.monthYearShort(anchor) : title;
+  // Auf schmalen Geräten steht neben dem Titel kaum Platz – dort die kurze
+  // Fassung ("Mo., 7. Sept." statt "Montag, 7. September 2026").
+  const mobileTitle = format.rangeLabelShort(view, anchor);
 
   // Die drei Tage, nach denen am häufigsten gefragt wird. Auf schmalen
   // Geräten führt stattdessen der Titel nach heute – dort ist kein Platz.
@@ -86,12 +88,20 @@ export function Toolbar({
     { id: 'map', label: t('map'), short: t('mapShort'), wide: true },
   ];
 
+  // Auf schmalen Geräten sind die Knöpfe fingergerecht (36 px); ab `lg`
+  // zeigt ein Zeiger auf sie und sie dürfen wieder klein sein.
   const iconButton =
-    'grid h-7 w-7 place-items-center rounded-[var(--radius-sm)] text-muted hover:bg-[var(--canvas)] hover:text-text';
+    'grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] text-muted lg:h-7 lg:w-7 ' +
+    'hover:bg-[var(--canvas)] hover:text-text';
   const stepButton = `${iconButton} disabled:pointer-events-none disabled:opacity-30`;
+  // Die Pfeile stehen zu zweit nebeneinander und dürfen etwas schmaler sein.
+  const arrowButton = `${stepButton} w-8 lg:w-7`;
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-1.5 bg-[var(--chrome)] px-2 hairline-b sm:px-3">
+    <header
+      className="flex h-14 shrink-0 items-center gap-1 bg-[var(--chrome)] px-2 hairline-b
+                 lg:h-12 lg:gap-1.5 lg:px-3"
+    >
       <button
         type="button"
         onClick={onOpenFilters}
@@ -129,12 +139,12 @@ export function Toolbar({
       </a>
       <CityPicker cityId={cityId} onChange={onCityChange} />
 
-      <div className="mx-auto flex min-w-0 items-center gap-0.5 lg:mx-0 lg:ml-3">
+      <div className="flex min-w-0 flex-1 items-center gap-0.5 lg:flex-none lg:ml-3">
         <button
           type="button"
           onClick={() => onStep(-1)}
           disabled={!canStepBack}
-          className={stepButton}
+          className={arrowButton}
           title={`${t('previous')} (←)`}
           aria-label={t('previous')}
         >
@@ -144,35 +154,36 @@ export function Toolbar({
           type="button"
           onClick={() => onStep(1)}
           disabled={!canStepForward}
-          className={stepButton}
+          className={arrowButton}
           title={`${t('next')} (→)`}
           aria-label={t('next')}
         >
           <ChevronRight />
         </button>
         {/* Auf schmalen Geräten ersetzt der Titel den "Heute"-Knopf. */}
-        <h1 className="ml-1.5 min-w-0 truncate text-[14px] font-semibold tracking-[-0.01em]">
+        <h1 className="ml-0.5 min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em] lg:ml-1.5 lg:text-[14px]">
           <button
             type="button"
             onClick={onToday}
             title={`${t('today')} (T)`}
-            className="truncate rounded-[var(--radius-sm)] px-1 py-0.5 hover:bg-[var(--canvas)]"
+            className="block max-w-full truncate rounded-[var(--radius-sm)] px-1 py-1
+                       hover:bg-[var(--canvas)] lg:py-0.5"
           >
-            <span className="sm:hidden">{mobileTitle}</span>
-            <span className="hidden sm:inline">{title}</span>
+            <span className="lg:hidden">{mobileTitle}</span>
+            <span className="hidden lg:inline">{title}</span>
           </button>
         </h1>
       </div>
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <div className="hidden h-7 items-center rounded-[var(--radius-sm)] border border-line md:flex">
+      <div className="ml-auto flex shrink-0 items-center gap-1 lg:gap-1.5">
+        <div className="hidden h-9 items-center rounded-[var(--radius-sm)] border border-line md:flex lg:h-7">
           {jumps.map((jump, index) => (
             <button
               key={jump.offset}
               type="button"
               onClick={() => onJumpDay(jump.offset)}
               title={jump.offset === 0 ? `${jump.label} (T)` : jump.label}
-              className={`h-full px-2.5 text-[12px] transition-colors ${index > 0 ? 'hairline-l' : ''} ${
+              className={`h-full px-2.5 text-[13px] transition-colors lg:text-[12px] ${index > 0 ? 'hairline-l' : ''} ${
                 selectedDay === jump.day ? 'text-text' : 'text-muted hover:text-text'
               }`}
             >
@@ -184,7 +195,7 @@ export function Toolbar({
         <div
           role="tablist"
           aria-label={t('view')}
-          className="flex h-7 items-center rounded-[var(--radius-sm)] border border-line p-[2px]"
+          className="flex h-9 items-center rounded-[var(--radius-sm)] border border-line p-[2px] lg:h-7"
         >
           {views.map((item) => (
             <button
@@ -194,14 +205,15 @@ export function Toolbar({
               type="button"
               onClick={() => onViewChange(item.id)}
               title={`${item.label} (${item.short})`}
-              className={`h-[22px] rounded-[3px] px-2 text-[12px] transition-colors ${item.wide ? 'hidden lg:block' : ''} ${
+              className={`h-full min-w-7 rounded-[3px] px-1.5 text-[13px] transition-colors
+                          lg:h-[22px] lg:min-w-0 lg:px-2 lg:text-[12px] ${item.wide ? 'hidden lg:block' : ''} ${
                 view === item.id
                   ? 'bg-[var(--canvas)] text-text shadow-[0_0_0_1px_var(--line)]'
                   : 'text-muted hover:text-text'
               }`}
             >
-              <span className="hidden sm:inline">{item.label}</span>
-              <span className="sm:hidden">{item.short}</span>
+              <span className="hidden lg:inline">{item.label}</span>
+              <span className="lg:hidden">{item.short}</span>
             </button>
           ))}
         </div>
@@ -228,7 +240,14 @@ export function Toolbar({
           <Keyboard />
         </button>
 
-        <Link href="/settings" aria-label={t('settings')} title={t('settings')} className={iconButton}>
+        {/* Auf schmalen Geräten wandert die Einstellung in die Fussleiste der
+            Filter – die Kopfzeile braucht den Platz für den Titel. */}
+        <Link
+          href="/settings"
+          aria-label={t('settings')}
+          title={t('settings')}
+          className={`hidden ${iconButton} lg:grid`}
+        >
           <Settings />
         </Link>
       </div>

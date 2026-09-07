@@ -72,7 +72,7 @@ export function Sidebar({
   return (
     <div className="flex h-full flex-col">
       {/* Nur die Filter scrollen; Stand und Impressum bleiben unten sichtbar. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto scroll-quiet px-4 py-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto scroll-quiet px-4 py-4 lg:gap-5">
       {/* Auf schmalen Geräten steht die Suche über dem Kalender, nicht hier. */}
       <SearchField query={query} onQueryChange={onQueryChange} className="hidden lg:block" />
 
@@ -81,7 +81,7 @@ export function Sidebar({
         aria-pressed={availableOnly}
         onClick={() => onAvailableOnlyChange(!availableOnly)}
         className={`chip-hover flex items-center gap-1.5 self-start lg:-mt-2 rounded-full border
-                    py-[3px] pl-2 pr-2.5 text-[12px] ${
+                    py-1.5 pl-2.5 pr-3 text-[13px] lg:py-[3px] lg:pl-2 lg:pr-2.5 lg:text-[12px] ${
                       availableOnly
                         ? 'border-transparent bg-[var(--accent-soft)] text-accent'
                         : 'border-line text-faint hover:border-line-strong hover:text-muted'
@@ -121,7 +121,7 @@ export function Sidebar({
               <div key={group.name}>
                 <div
                   style={{ '--row-mark': groupColor(group.name) } as CSSProperties}
-                  className="group row-hover flex items-center gap-2 pl-1"
+                  className="group row-hover flex items-center gap-2.5 py-1 pl-1 lg:gap-2 lg:py-0"
                 >
                   <Checkbox
                     state={groupState}
@@ -137,7 +137,7 @@ export function Sidebar({
                     title={groupFocused ? t('soloOff') : t('soloOn')}
                     onClick={() => onSolo(ids)}
                     className={`min-w-0 flex-1 truncate rounded-[var(--radius-xs)] py-0.5 text-left
-                                text-[12px] font-medium ${
+                                text-[13px] font-medium lg:text-[12px] ${
                                   groupFocused ? 'text-accent' : 'text-muted hover:text-text'
                                 }`}
                   >
@@ -155,8 +155,8 @@ export function Sidebar({
                     }
                     aria-expanded={!isCollapsed}
                     aria-label={isCollapsed ? t('expand') : t('collapse')}
-                    className="grid h-5 w-5 shrink-0 place-items-center rounded-[var(--radius-xs)]
-                               text-faint hover:bg-[var(--canvas)] hover:text-muted"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-xs)]
+                               text-faint hover:bg-[var(--canvas)] hover:text-muted lg:h-5 lg:w-5"
                   >
                     <ChevronDown
                       className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? '-rotate-90' : ''}`}
@@ -177,8 +177,9 @@ export function Sidebar({
                             /* Der Strich beim Überfahren trägt die Farbe des
                                Ordners – siehe `.row-hover` in `globals.css`. */
                             style={{ '--row-mark': groupColor(source.group) } as CSSProperties}
-                            className={`group row-hover flex items-center gap-2
-                                       rounded-[var(--radius-sm)] py-1.5 pl-[22px] pr-1.5
+                            className={`group row-hover flex items-center gap-2.5
+                                       rounded-[var(--radius-sm)] py-2.5 pl-[22px] pr-1.5
+                                       lg:gap-2 lg:py-1.5
                                        ${sourceFocused ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--canvas)]'}`}
                           >
                             <Checkbox
@@ -197,7 +198,7 @@ export function Sidebar({
                             >
                               <SourceIcon source={source} />
                               <span
-                                className={`flex-1 truncate text-[13px] ${
+                                className={`flex-1 truncate text-[14px] lg:text-[13px] ${
                                   sourceFocused ? 'font-medium text-accent' : isEnabled ? 'text-text' : 'text-faint'
                                 }`}
                               >
@@ -235,7 +236,7 @@ export function Sidebar({
             {t('categories')}
           </h2>
           {/* Pillen statt Kästchen: kompakter und beliebig kombinierbar. */}
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5 lg:gap-1">
             {categories.map((category) => (
               <CategoryPill
                 key={category.name}
@@ -330,8 +331,8 @@ function CategoryPill({
         type="button"
         aria-pressed={active}
         onClick={onToggle}
-        className={`chip-hover flex items-center gap-1.5 rounded-full border py-[3px] pl-2 pr-2
-                    text-[12px] ${tone}`}
+        className={`chip-hover flex items-center gap-1.5 rounded-full border py-1.5 pl-2.5 pr-7
+                    text-[13px] lg:py-[3px] lg:pl-2 lg:pr-2 lg:text-[12px] ${tone}`}
       >
         <span className="truncate">{name ? term(name) : t('noCategory')}</span>
         <span className="tabular-nums text-[10px] opacity-65">{count}</span>
@@ -344,7 +345,7 @@ function CategoryPill({
         ref={trigger}
         aria-expanded={open}
         onClick={() => (open ? setMenu(undefined) : openMenu())}
-        className={`absolute right-0 top-0 grid h-full w-6 place-items-center rounded-full
+        className={`absolute right-0 top-0 grid h-full w-7 place-items-center rounded-full lg:w-6
                     transition-opacity focus-visible:opacity-100
                     [@media(hover:none)]:opacity-100
                     ${solo ? 'text-white' : 'text-muted'}
@@ -395,7 +396,8 @@ function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
       type="button"
       role="menuitem"
       onClick={onClick}
-      className="block w-full px-2.5 py-1.5 text-left text-[13px] text-text hover:bg-[var(--chrome)]"
+      className="block w-full px-3 py-2.5 text-left text-[14px] text-text hover:bg-[var(--chrome)]
+                 lg:px-2.5 lg:py-1.5 lg:text-[13px]"
     >
       {label}
     </button>
@@ -414,23 +416,34 @@ function SourceFootnote({ cityId }: { cityId: string }) {
     // `relative` für das Auswahlfeld des Exports: die Spalte schneidet ab, was
     // über ihre Breite hinausragt, deshalb hängt es an der Fussleiste und
     // nicht am angeklickten Wort.
-    <div className="relative shrink-0 bg-[var(--chrome)] px-4 py-3 hairline-t">
+    <div
+      className="relative shrink-0 bg-[var(--chrome)] px-4 py-3.5 hairline-t lg:py-3"
+      style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
+    >
       <div className="flex items-center gap-3">
         {/* Der Datenstand ist einer je Stadt – der Link nimmt die mit, die
             gerade zu sehen ist. */}
         <Link
           href={`/status?city=${encodeURIComponent(cityId)}`}
-          className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
+          className="text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:text-[11px]"
         >
           {t('status')}
         </Link>
         <Link
           href="/impressum"
-          className="text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline"
+          className="text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:text-[11px]"
         >
           {t('imprint')}
         </Link>
         <ExportLink />
+        {/* Auf schmalen Geräten fehlt das Zahnrad in der Kopfzeile – hier
+            steht der Weg zu den Einstellungen. */}
+        <Link
+          href="/settings"
+          className="ml-auto text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:hidden"
+        >
+          {t('settings')}
+        </Link>
       </div>
     </div>
   );
@@ -467,7 +480,8 @@ function ExportLink() {
     };
   }, [open]);
 
-  const link = 'text-[11px] text-faint underline-offset-2 hover:text-muted hover:underline';
+  const link =
+    'text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:text-[11px]';
 
   if (cities.length < 2) {
     return (

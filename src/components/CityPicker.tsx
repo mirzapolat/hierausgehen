@@ -46,19 +46,19 @@ export function CityPicker({
         aria-expanded={open}
         aria-label={t('selectCity')}
         title={city.name}
-        className="flex h-7 min-w-8 items-center justify-center rounded-[var(--radius-sm)] border border-line
-                   px-1.5 text-[11px] font-medium text-muted hover:bg-[var(--canvas)] hover:text-text
-                   sm:min-w-0 sm:justify-start sm:gap-1 sm:border-transparent sm:text-[12px] sm:font-normal"
+        className="flex h-9 min-w-9 items-center justify-center rounded-[var(--radius-sm)] border border-line
+                   px-1.5 text-[12px] font-medium text-muted hover:bg-[var(--canvas)] hover:text-text
+                   lg:h-7 lg:min-w-0 lg:justify-start lg:gap-1 lg:border-transparent lg:font-normal"
       >
-        <span className="sm:hidden">{city.shortName}</span>
-        <span className="hidden sm:inline">{city.name}</span>
-        <ChevronDown className="hidden h-3.5 w-3.5 text-faint sm:block" />
+        <span className="lg:hidden">{city.shortName}</span>
+        <span className="hidden lg:inline">{city.name}</span>
+        <ChevronDown className="hidden h-3.5 w-3.5 text-faint lg:block" />
       </button>
 
       {open && (
         <ul
           role="listbox"
-          className="absolute left-0 top-[34px] z-50 min-w-[180px] overflow-hidden rounded-[var(--radius-md)]
+          className="absolute left-0 top-[calc(100%+4px)] z-50 min-w-[190px] overflow-hidden rounded-[var(--radius-md)]
                      border border-line bg-[var(--raised)] py-1"
           style={{ boxShadow: 'var(--shadow-overlay)' }}
         >
@@ -72,7 +72,8 @@ export function CityPicker({
                   onChange(city.id);
                   setOpen(false);
                 }}
-                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[13px] hover:bg-[var(--chrome)]"
+                className="flex w-full items-center gap-2 px-2.5 py-2.5 text-left text-[14px]
+                           hover:bg-[var(--chrome)] lg:py-1.5 lg:text-[13px]"
               >
                 <Check
                   className={`h-3.5 w-3.5 ${city.id === cityId ? 'text-accent' : 'text-transparent'}`}

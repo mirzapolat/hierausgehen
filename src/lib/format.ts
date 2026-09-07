@@ -37,6 +37,8 @@ export interface Formatter extends FormatOptions {
   hourLabel: (hour: number) => string;
   stamp: (iso: string) => string;
   rangeLabel: (view: ViewMode, anchor: string) => string;
+  /** Dasselbe in kurz – für die Kopfzeile schmaler Geräte. */
+  rangeLabelShort: (view: ViewMode, anchor: string) => string;
 }
 
 /** UTC-Mittag eines ISO-Tages – stabiler Bezugspunkt für reine Datumsformate. */
@@ -56,6 +58,8 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
   const monthYear = dateFmt({ month: 'long', year: 'numeric' });
   const monthYearShort = dateFmt({ month: 'short', year: 'numeric' });
   const monthName = dateFmt({ month: 'long' });
+  const dayShort = dateFmt({ weekday: 'short', day: 'numeric', month: 'short' });
+  const dayShortNoWeekday = dateFmt({ day: 'numeric', month: 'short' });
   const weekdayShort = dateFmt({ weekday: 'short' });
   const weekdayLong = dateFmt({ weekday: 'long' });
 
@@ -128,6 +132,17 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
       }).format(noon(from));
       const right = dayNoWeekday.format(noon(to));
       return `${left} – ${right}`;
+    },
+    rangeLabelShort: (view, anchor) => {
+      if (isDayView(view)) return dayShort.format(noon(anchor));
+      if (view === 'month') return monthYearShort.format(noon(anchor)).replace(/\./g, '');
+      const from = startOfWeek(anchor);
+      const to = addDays(from, 6);
+      const left = dateFmt({
+        day: 'numeric',
+        ...(isSameMonth(from, to) ? {} : { month: 'short' }),
+      }).format(noon(from));
+      return `${left} – ${dayShortNoWeekday.format(noon(to))}`;
     },
   };
 }

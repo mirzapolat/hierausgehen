@@ -27,7 +27,11 @@ export function Checkbox({
         e.stopPropagation();
         onChange();
       }}
-      className={`grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] border transition-colors ${className}`}
+      /* Das Kästchen bleibt klein, seine Trefferfläche nicht: der unsichtbare
+         Rand ringsum macht daraus auf dem Finger ein Ziel von ~28 px. */
+      className={`relative grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[3px] border
+                  transition-colors after:absolute after:-inset-[7px] after:content-['']
+                  lg:after:-inset-1 ${className}`}
       style={{
         borderColor: filled ? tint : 'var(--line-strong)',
         background: filled ? tint : 'transparent',

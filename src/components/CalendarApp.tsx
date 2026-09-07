@@ -748,6 +748,24 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   /* ------------------------------- Anzeige ------------------------------ */
 
+  /** Wie viele Filter gerade greifen – Punkt am Knopf und „Zurücksetzen“. */
+  const activeFilterCount =
+    disabled.size +
+    solo.size +
+    categorySolo.size +
+    disabledCategories.size +
+    (availableOnly ? 1 : 0) +
+    (query ? 1 : 0);
+
+  const resetFilters = () => {
+    setDisabled(new Set());
+    setSolo(new Set());
+    setCategorySolo(new Set());
+    setDisabledCategories(new Set());
+    setAvailableOnly(false);
+    setQuery('');
+  };
+
   const filterOverlay = useOverlayTransition(filtersOpen, MOTION_MS);
   const sheet = useOverlayTransition(sheetOpen && !!selectedEvent, MOTION_MS);
   // Beim Zumachen darf die Auswahl schon weg sein – das Sheet zeigt trotzdem
@@ -843,14 +861,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           onJumpDay={goToDay}
           selectedDay={selectedDay}
           onOpenFilters={() => setFiltersOpen(true)}
-          activeFilterCount={
-            disabled.size +
-            solo.size +
-            categorySolo.size +
-            disabledCategories.size +
-            (availableOnly ? 1 : 0) +
-            (query ? 1 : 0)
-          }
+          activeFilterCount={activeFilterCount}
           sidebarCollapsed={layout.sidebarCollapsed}
           detailCollapsed={!detailOpen}
           canToggleDetail={detailAvailable}
@@ -1045,18 +1056,40 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             style={{ background: 'var(--overlay)' }}
           />
           <div
-            className={`absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-[var(--chrome)]
+            className={`absolute inset-y-0 left-0 flex w-[88%] max-w-[360px] flex-col bg-[var(--chrome)]
                         transition-transform ${motion}
                         ${filterOverlay.shown ? 'translate-x-0' : '-translate-x-full'}`}
             style={{ boxShadow: 'var(--shadow-overlay)' }}
           >
-            <div className="flex h-12 shrink-0 items-center justify-between px-4 hairline-b">
-              <span className="text-[13px] font-semibold">{t('filters')}</span>
+            <div className="flex h-14 shrink-0 items-center gap-2 px-3 pl-4 hairline-b">
+              <span className="text-[15px] font-semibold">{t('filters')}</span>
+              {activeFilterCount > 0 && (
+                <span
+                  className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--accent-soft)]
+                             px-1.5 text-[11px] font-medium tabular-nums text-accent"
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+              {/* Ein Weg zurück auf den unberührten Bestand – auf dem Finger
+                  ist das Einsammeln einzelner Filter sonst mühsam. */}
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="ml-auto rounded-[var(--radius-sm)] px-2 py-1.5 text-[13px] text-muted
+                             hover:bg-[var(--canvas)] hover:text-text"
+                >
+                  {t('resetFilters')}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setFiltersOpen(false)}
                 aria-label={t('close')}
-                className="grid h-7 w-7 place-items-center rounded-[var(--radius-sm)] text-muted"
+                className={`grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] text-muted
+                            hover:bg-[var(--canvas)] hover:text-text
+                            ${activeFilterCount > 0 ? '' : 'ml-auto'}`}
               >
                 <Close />
               </button>
