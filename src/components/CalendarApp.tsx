@@ -14,6 +14,7 @@ import {
   loadRange,
 } from '@/lib/calendar';
 
+import { track } from '@/lib/analytics';
 import { DETAIL_KEY, SIDEBAR_KEY, matchesKey } from '@/lib/keyboard';
 import { cityById, isKnownCityId } from '@/lib/cities';
 import { sourceColor, sourceName } from '@/lib/events/display';
@@ -467,7 +468,26 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     if (next === 'map') setLayout((current) => ({ ...current, detailCollapsed: false }));
   }, []);
 
-  const selectEvent = useCallback(
+  /**
+   * Fokus auf einzelne Quellen. Ein zweiter Klick auf dieselbe Auswahl hebt
+   * ihn auf – gezählt wird nur das Einschalten, denn die Frage ist, wonach
+   * jemand sucht, nicht wie oft er zurückgeht.
+   */
+  const focusSources = useCallback(
+    (ids: string[], via: 'sidebar' | 'menu') => {
+      const same = solo.size === ids.length && ids.every((id) => solo.has(id));
+      if (same || ids.length === 0) {
+        setSolo(new Set());
+        return;
+      }
+
+      setSolo(new Set(ids));
+      track('source-solo', ids.length === 1 ? { source: ids[0], via } : { count: ids.length, via });
+    },
+    [solo],
+  );
+
+  const openEvent = useCallback(
     (event: CalendarEvent) => {
       const day = clampDay(format.localDay(event.start), coverage);
       setAnchor(day);
@@ -477,6 +497,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       setLayout((current) => ({ ...current, detailCollapsed: false }));
     },
     [format, coverage],
+  );
+
+  /**
+   * Der Weg, den ein Klick nimmt – und der einzige, der gezählt wird.
+   * `stepEvent` blättert mit den Pfeiltasten durch dieselbe Liste; jeder
+   * Tastendruck als geöffnete Veranstaltung wäre eine Zahl ohne Aussage.
+   */
+  const selectEvent = useCallback(
+    (event: CalendarEvent) => {
+      openEvent(event);
+      track('event-open', { source: event.sourceId, category: event.category });
+    },
+    [openEvent],
   );
 
   const selectPerformance = useCallback(
@@ -493,8 +526,17 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       setSelectedEventId(performance.id);
       setSheetOpen(true);
       setLayout((current) => ({ ...current, detailCollapsed: false }));
+
+      // Weitere Termine gehören zur gerade gezeigten Veranstaltung, also auch
+      // zu deren Quelle. Liegt keine vor, wird ohne die Angabe gezählt.
+      track(
+        'event-open',
+        selectedEvent
+          ? { source: selectedEvent.sourceId, category: selectedEvent.category }
+          : undefined,
+      );
     },
-    [events, selectEvent, format, coverage],
+    [events, selectEvent, selectedEvent, format, coverage],
   );
 
   /* -------------------------- Tastatur und Menü -------------------------- */
@@ -519,15 +561,15 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       // Ohne Auswahl beim gewählten Tag einsteigen statt am Anfang des Zeitraums.
       if (index === -1) {
         const atDay = ordered.findIndex((event) => format.localDay(event.start) >= selectedDay);
-        selectEvent(ordered[atDay === -1 ? ordered.length - 1 : atDay]);
+        openEvent(ordered[atDay === -1 ? ordered.length - 1 : atDay]);
       } else {
         const next = index + direction;
         if (next < 0 || next >= ordered.length) return;
-        selectEvent(ordered[next]);
+        openEvent(ordered[next]);
       }
       setRevealSelection((current) => current + 1);
     },
-    [ordered, selectedEventId, selectedDay, selectEvent, format],
+    [ordered, selectedEventId, selectedDay, openEvent, format],
   );
 
   // Eine mit der Tastatur gewählte Veranstaltung muss auch zu sehen sein.
@@ -735,7 +777,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             style={{ background: sourceColor(data.definitions, event.sourceId) }}
           />
         ),
-        onSelect: () => setSolo(new Set([event.sourceId])),
+        onSelect: () => focusSources([event.sourceId], 'menu'),
       },
       {
         key: 'title',
@@ -744,7 +786,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         onSelect: () => setQuery(event.title),
       },
     ];
-  }, [menu, linkCopied, copyLink, selectEvent, data.definitions, t]);
+  }, [menu, linkCopied, copyLink, selectEvent, focusSources, data.definitions, t]);
 
   /* ------------------------------- Anzeige ------------------------------ */
 
@@ -804,12 +846,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         })
       }
       solo={solo}
-      onSolo={(ids) =>
-        setSolo((current) => {
-          const same = current.size === ids.length && ids.every((id) => current.has(id));
-          return same || ids.length === 0 ? new Set() : new Set(ids);
-        })
-      }
+      onSolo={(ids) => focusSources(ids, 'sidebar')}
       categories={categories}
       enabledCategories={enabledCategories}
       onToggleCategory={(name) => {

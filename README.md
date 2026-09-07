@@ -676,6 +676,16 @@ OpenStreetMap einen Ort ganz anders nennt, gibt es `OVERRIDES` in
   bewusst zurück: er speichert nur das Gerüst und die Offline-Seite,
   **Termine kommen immer aus dem Netz** – ein Kalender aus dem Cache wäre
   schlimmer als keiner. Angemeldet wird er nur im Produktionsbetrieb.
+- **Zählung** über eine selbst gehostete Umami-Instanz, konfiguriert in
+  `src/lib/analytics.ts`. `script.js` zählt Aufrufe und ein paar Handgriffe:
+  die drei Links im Detailfenster (`tickets`, `event-page`, `ics-download`),
+  das Öffnen einer Veranstaltung (`event-open`), den Fokus auf eine Quelle
+  (`source-solo`) und den CSV-Export (`csv-export`). Links tragen die Angaben
+  als `data-umami-event-*`, alles andere geht über `track()` aus derselben
+  Datei. `recorder.js` kommt über `components/AnalyticsRecorder.tsx` dazu und
+  liefert die Grundlage für Heatmaps und Sitzungsaufzeichnungen; er lädt erst
+  nach der Seite, nur auf den Domains aus `ANALYTICS_DOMAINS`, und zeichnet nur
+  auf, wenn es in Umami unter „Replays & Heatmaps" eingeschaltet ist.
 
 ## Erhebung: einmal am Tag, zwölf Monate
 

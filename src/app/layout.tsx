@@ -2,10 +2,13 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { SettingsProvider } from '@/lib/settings/context';
 import { ServiceWorker } from '@/components/ServiceWorker';
+import { AnalyticsRecorder } from '@/components/AnalyticsRecorder';
 import {
   ANALYTICS_DOMAINS,
   ANALYTICS_SCRIPT,
   ANALYTICS_WEBSITE_ID,
+} from '@/lib/analytics';
+import {
   SITE_DESCRIPTION,
   SITE_KEYWORDS,
   SITE_NAME,
@@ -93,6 +96,8 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           data-domains={ANALYTICS_DOMAINS}
           strategy="afterInteractive"
         />
+        {/* Heatmaps und Aufzeichnungen – schaltet Umami serverseitig frei. */}
+        <AnalyticsRecorder />
       </body>
     </html>
   );

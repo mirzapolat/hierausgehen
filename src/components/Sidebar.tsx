@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
+import { track } from '@/lib/analytics';
 import { useSettings } from '@/lib/settings/context';
 import { cities } from '@/lib/cities';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
@@ -486,15 +487,21 @@ function ExportLink() {
   if (cities.length < 2) {
     return (
       // Kein <Link>: die CSV kommt von der API, sie ist keine Seite.
-      <a href="/api/events/export" download title={t('exportCsvTitle')} className={link}>
+      <a
+        href="/api/events/export"
+        download
+        title={t('exportCsvTitle')}
+        onClick={() => track('csv-export', { cities: cities[0].id, count: 1 })}
+        className={link}
+      >
         {t('exportCsv')}
       </a>
     );
   }
 
-  const href = `/api/events/export?${cities
-    .filter((city) => selected.has(city.id))
-    .map((city) => `city=${encodeURIComponent(city.id)}`)
+  const chosen = cities.filter((city) => selected.has(city.id)).map((city) => city.id);
+  const href = `/api/events/export?${chosen
+    .map((id) => `city=${encodeURIComponent(id)}`)
     .join('&')}`;
 
   return (
@@ -547,8 +554,12 @@ function ExportLink() {
             download
             aria-disabled={selected.size === 0}
             onClick={(event) => {
-              if (selected.size === 0) event.preventDefault();
-              else setOpen(false);
+              if (selected.size === 0) {
+                event.preventDefault();
+                return;
+              }
+              track('csv-export', { cities: chosen.join(','), count: chosen.length });
+              setOpen(false);
             }}
             className={`mt-3 block rounded-[var(--radius-sm)] px-2 py-1.5 text-center text-[12px]
                         font-medium transition-colors ${

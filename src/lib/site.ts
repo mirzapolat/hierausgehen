@@ -11,17 +11,6 @@ export const SITE_DESCRIPTION =
   'Spielstätte und Ticketverfügbarkeit.';
 
 /**
- * Umami – die selbst gehostete Zählung der Zugriffe.
- *
- * `ANALYTICS_DOMAINS` ist eine Erlaubnisliste im Browser: das Skript meldet
- * nur, wenn der Hostname darin steht. So bleiben lokale Läufe aus der
- * Statistik heraus.
- */
-export const ANALYTICS_SCRIPT = 'https://umami.mirzapolat.com/script.js';
-export const ANALYTICS_WEBSITE_ID = 'be5506d3-65af-439f-b2df-c4ac9d4ca158';
-export const ANALYTICS_DOMAINS = 'hierausgehen.de,www.hierausgehen.de';
-
-/**
  * Die Ordner der Sidebar sind zugleich die Begriffe, nach denen gesucht wird.
  * Bewusst kurz gehalten: eine lange Liste hilft keiner Suchmaschine, sie
  * verwässert nur, wovon die Seite wirklich handelt.
