@@ -200,6 +200,9 @@ function EventDetail({
             href={event.ticketUrl}
             target="_blank"
             rel="noopener noreferrer"
+            data-umami-event="tickets"
+            data-umami-event-source={event.sourceId}
+            data-umami-event-category={event.category}
             className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-md)] bg-accent
                        text-[13px] font-medium text-white hover:opacity-90"
           >
@@ -212,6 +215,9 @@ function EventDetail({
           href={event.url}
           target="_blank"
           rel="noopener noreferrer"
+          data-umami-event="event-page"
+          data-umami-event-source={event.sourceId}
+          data-umami-event-category={event.category}
           className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-md)] border border-line
                      bg-[var(--canvas)] text-[13px] text-text hover:border-line-strong"
         >
@@ -223,6 +229,9 @@ function EventDetail({
         <a
           href={`/api/events/${encodeURIComponent(event.id)}/ics`}
           download
+          data-umami-event="ics-download"
+          data-umami-event-source={event.sourceId}
+          data-umami-event-category={event.category}
           className="flex h-9 items-center justify-center gap-1.5 rounded-[var(--radius-md)] text-[13px]
                      text-muted hover:text-text"
         >

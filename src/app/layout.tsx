@@ -1,7 +1,17 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import { SettingsProvider } from '@/lib/settings/context';
 import { ServiceWorker } from '@/components/ServiceWorker';
-import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site';
+import {
+  ANALYTICS_DOMAINS,
+  ANALYTICS_SCRIPT,
+  ANALYTICS_WEBSITE_ID,
+  SITE_DESCRIPTION,
+  SITE_KEYWORDS,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from '@/lib/site';
 import './globals.css';
 
 
@@ -75,6 +85,14 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
       <body className="h-full" suppressHydrationWarning>
         <SettingsProvider>{children}</SettingsProvider>
         <ServiceWorker />
+        {/* Seitenwechsel im App Router zählt das Skript von selbst mit. */}
+        <Script
+          defer
+          src={ANALYTICS_SCRIPT}
+          data-website-id={ANALYTICS_WEBSITE_ID}
+          data-domains={ANALYTICS_DOMAINS}
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
