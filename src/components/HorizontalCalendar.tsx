@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { addDays, daysBetween, startOfWeek, type ViewMode } from '@/lib/calendar';
-import { byDay, sourceColor } from '@/lib/events/display';
+import { byDay, isPast, sourceColor } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { DayView } from './DayView';
 import { MobileAgenda } from './MobileAgenda';
@@ -101,7 +101,6 @@ function DayPage({
 
   return (
     <DayView
-      day={day}
       events={dayEvents}
       definitions={definitions}
       selectedEventId={selectedEventId}
@@ -114,9 +113,7 @@ function WeekLists({
   anchor,
   events,
   definitions,
-  selectedDay,
   selectedEventId,
-  onSelectDay,
   onSelectEvent,
 }: Omit<Props, 'mode' | 'onStep' | 'canStep'>) {
   const { format, t } = useSettings();
@@ -134,20 +131,17 @@ function WeekLists({
           {desktopDays.map((day) => {
             const dayEvents = grouped.get(day) ?? [];
             const isToday = day === today;
-            const selected = day === selectedDay;
             return (
-              <section
-                key={day}
-                className={`flex min-w-0 flex-col hairline-r ${
-                  selected ? 'bg-[var(--accent-soft)]/35' : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectDay(day)}
-                  className="sticky top-0 z-10 flex items-center gap-1 px-1.5 py-2 text-left hairline-b
-                             hover:bg-[var(--chrome)]"
-                  style={{ background: selected ? 'var(--accent-soft)' : 'var(--canvas)' }}
+              // Kein eingefärbter Tag mehr: die Spalte zeigt ihre Termine
+              // selbst, und die Detailspalte hängt hier nicht mehr an der
+              // Auswahl. Heute bleibt am blauen Punkt in der Kopfzeile kenntlich.
+              <section key={day} className="flex min-w-0 flex-col hairline-r">
+                {/* Nur eine Beschriftung, kein Knopf: einen Tag auszuwählen
+                    bewirkt in dieser Ansicht nichts mehr, seit die Spalte
+                    daneben nur noch einzelne Termine zeigt. */}
+                <div
+                  className="sticky top-0 z-10 flex items-center gap-1 bg-[var(--canvas)] px-1.5 py-2
+                             text-left hairline-b"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[11px] uppercase tracking-[0.05em] text-faint">
@@ -164,7 +158,7 @@ function WeekLists({
                   >
                     {format.dayNumber(day)}
                   </span>
-                </button>
+                </div>
                 <WeekDayList
                   events={dayEvents}
                   definitions={definitions}
@@ -216,6 +210,10 @@ function WeekDayList({
     <ul className="min-w-0">
       {events.map((event) => {
         const selected = selectedEventId === event.id;
+        // Was vorbei ist, tritt zurück – es verschwindet aber nicht, sonst
+        // sähe ein halb gelaufener Tag leerer aus, als er war. Dieselbe
+        // Abstufung wie im Monatsraster (`MonthDayCell`).
+        const past = isPast(event);
         return (
           <li key={event.id} className="min-w-0 hairline-b">
             <button
@@ -223,7 +221,10 @@ function WeekDayList({
               data-event-id={event.id}
               onClick={() => onSelectEvent(event)}
               aria-current={selected}
-              className={`block w-full min-w-0 overflow-hidden px-2 py-2 text-left transition-colors ${
+              /* Der Strich am linken Rand trägt die Farbe der Quelle – dieselbe
+                 Bewegung wie in beiden Spalten (`.row-hover` in `globals.css`). */
+              style={{ '--row-mark': sourceColor(definitions, event.sourceId) } as CSSProperties}
+              className={`row-hover block w-full min-w-0 overflow-hidden px-2 py-2 text-left ${
                 selected ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--chrome)]'
               }`}
             >
@@ -231,16 +232,29 @@ function WeekDayList({
                 <span
                   aria-hidden="true"
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ background: sourceColor(definitions, event.sourceId) }}
+                  style={{
+                    background: sourceColor(definitions, event.sourceId),
+                    opacity: past ? 0.35 : 1,
+                  }}
                 />
-                <span className="truncate text-[11px] tabular-nums text-muted">
+                <span
+                  className={`truncate text-[11px] tabular-nums ${past ? 'text-faint' : 'text-muted'}`}
+                >
                   {event.allDay ? t('allDay') : format.time(event.start)}
                 </span>
               </span>
-              <span className="mt-0.5 block truncate text-[12px] font-medium text-text">
+              <span
+                className={`mt-0.5 block truncate text-[12px] font-medium ${
+                  past ? 'text-faint' : 'text-text'
+                }`}
+              >
                 {event.title}
               </span>
-              <span className="mt-0.5 block truncate text-[10px] text-faint">{event.venue.name}</span>
+              <span
+                className={`mt-0.5 block truncate text-[10px] text-faint ${past ? 'opacity-70' : ''}`}
+              >
+                {event.venue.name}
+              </span>
             </button>
           </li>
         );

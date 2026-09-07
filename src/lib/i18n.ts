@@ -10,7 +10,7 @@ export const locales = ['de', 'en'] as const;
 export type Locale = (typeof locales)[number];
 
 const de = {
-  appName: 'HIERAUSGEHEN.DE',
+  appName: 'HIERAUSGEHEN.de',
   // Der Platzhalter nennt, wonach tatsächlich gesucht wird (`CalendarApp`):
   // Titel, Untertitel, Beschreibung, Ort und Veranstaltungsart. Künstler
   // stehen in aller Regel in Titel oder Beschreibung – ein eigenes Feld dafür
@@ -176,7 +176,7 @@ const de = {
 export type MessageKey = keyof typeof de;
 
 const en: Record<MessageKey, string> = {
-  appName: 'HIERAUSGEHEN.DE',
+  appName: 'HIERAUSGEHEN.de',
   search: 'Name, venue, type, artist …',
   searchAria: 'Search events',
   clearSearch: 'Clear search',

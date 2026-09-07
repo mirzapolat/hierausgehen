@@ -17,16 +17,17 @@ interface Props {
  *
  * Gestaltet ist es als Pille aus Glas – bewusst das einzige Element dieser Art
  * ausserhalb der Karte. Eine laufende Suche verändert alles, was der Kalender
- * zeigt, und soll deshalb auch dann auffallen, wenn man gerade woanders
- * hinsieht: der Ring aus dem laufenden Farbverlauf samt seinem Schein steht
- * dafür. Das Aussehen selbst steht in `globals.css` (`.search-*`), damit die
- * Zustände – schweben, Fokus, gefüllt – an einer Stelle beieinander liegen.
+ * zeigt, und soll deshalb auch dann noch zu sehen sein, wenn man längst
+ * woanders hinsieht: dafür steht `is-searching`, das die Kante des Feldes
+ * einfärbt. Das Aussehen selbst steht in `globals.css` (`.search-*`), damit
+ * die Zustände – schweben, Fokus, gefüllt – an einer Stelle beieinander
+ * liegen.
  */
 export function SearchField({ query, onQueryChange, className = '' }: Props) {
   const { t } = useSettings();
 
   return (
-    <div className={`search-shell ${query ? 'rainbow-ring' : ''} ${className}`}>
+    <div className={`search-shell ${query ? 'is-searching' : ''} ${className}`}>
       <div className="search-glass">
         {/* Die Masse stehen in `globals.css` – ein Icon ohne Grösse würde die
             Pille sprengen, wenn die Klasse einmal nicht ankommt. */}

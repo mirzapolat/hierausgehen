@@ -161,17 +161,6 @@ body {
   &::-webkit-scrollbar { width: 0; height: 0; }
 }
 
-/*
- * Aktive Suche: ein laufender Farbverlauf als Rahmen. Das ist der einzige
- * bunte Akzent der Oberfläche – er soll auffallen, damit niemand vergisst,
- * dass die Ansicht gefiltert ist.
- */
-@utility rainbow-ring {
-  background: var(--rainbow);
-  background-size: 300% 100%;
-  animation: rainbow-pan 6s linear infinite;
-}
-
 @keyframes rainbow-pan {
   to {
     background-position: -300% 0;
@@ -184,17 +173,19 @@ body {
  * Die eine Stelle, an der die Oberfläche lauter sein darf: eine Suche, die
  * läuft, verändert alles, was der Kalender zeigt – das muss man sehen, ohne
  * hinzuschauen. Deshalb hier eine Pille aus Glas statt eines Kastens mit
- * Linie: durchscheinende Fläche, Lichtkante oben, weicher Schatten darunter,
- * und ein Ring aus dem laufenden Farbverlauf, sobald etwas im Feld steht.
+ * Linie: deckende Fläche mit Lichtkante oben, ein Schatten beim Anfassen und
+ * dahinter der laufende Farbverlauf, der beim Schweben leise und bei einer
+ * laufenden Suche deutlich aufscheint.
  *
  * Die Flächen sind aus `--canvas` gemischt statt fest gesetzt, damit das
  * dunkle Schema ohne eigenen Satz Tokens mitkommt.
  */
 .search-shell {
   position: relative;
+  /* Eigener Stapel, damit der Schein per negativem `z-index` hinter die Pille
+     rutscht und nicht hinter die Fläche, in der das Feld steht. */
   isolation: isolate;
   border-radius: 999px;
-  padding: 1.5px;
   transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -208,28 +199,46 @@ body {
 }
 
 /*
- * Der Schein um den Regenbogenring. Er liegt hinter der Pille (negatives
- * `z-index` in einem eigenen Stapel, siehe `isolation`) und läuft im selben
- * Takt wie der Ring – dieselbe Dauer, gleichzeitig begonnen.
+ * Der Schein: der laufende Farbverlauf, weichgezeichnet, hinter der Pille.
  *
- * Sein Radius ist kein Geschmacksurteil, sondern eine Rechnung: das Feld sitzt
- * in Flächen, die ihren Inhalt beschneiden (die Filterspalte scrollt, der
- * Kalender daneben ist `overflow-hidden`). Ein Schein, der weiter reicht als
- * der Abstand zu deren Kante, wird dort geradlinig abgeschnitten – und ein
- * Leuchten mit gerader Kante sieht kaputt aus. Zwölf Pixel sind der Abstand,
- * den beide Seiten sicher hergeben (Spalte 16 px, Kalenderleiste 12 px).
+ * Er hat hier schon einmal gestanden und ist an zwei Dingen gescheitert, die
+ * beide behoben sind – wer ihn anfasst, sollte beide kennen.
+ *
+ * Erstens die Reichweite. `blur(7px)` ist eine Standardabweichung, keine
+ * Weite: sichtbar wurde der Kranz etwa dreimal so breit, gut zwanzig Pixel.
+ * Das Feld sitzt aber in Flächen, die beschneiden – die Filterspalte scrollt
+ * bei 16 px Rand, der Kalender daneben ist `overflow-hidden` bei 12 px –, und
+ * was darüber hinausreicht, endet dort als gerade Kante. Bei `blur(3px)` sind
+ * es mit dem einen Pixel Übermass rund zehn; das bleibt drin.
+ *
+ * Zweitens das Durchschlagen. Die Fläche des Feldes war leicht durchsichtig
+ * und lag zusätzlich unter einem `backdrop-filter`, der den Grund einsammelt –
+ * der Verlauf färbte damit die Fläche, auf der Text steht. Deshalb ist das
+ * Glas jetzt deckend (siehe `.search-glass`): der Verlauf umspielt die Kante
+ * und bleibt draussen.
  */
-.search-shell.rainbow-ring::before {
+.search-shell::before {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: -1px;
   z-index: -1;
   border-radius: inherit;
   background: var(--rainbow);
   background-size: 300% 100%;
   animation: rainbow-pan 6s linear infinite;
-  filter: blur(7px);
-  opacity: 0.5;
+  filter: blur(3px);
+  /* In Ruhe unsichtbar; die Zustände unten blenden ihn auf. */
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+/* Beim Schweben leise, bei laufender Suche deutlich – sie bleibt ja stehen. */
+.search-shell:hover::before {
+  opacity: 0.4;
+}
+
+.search-shell.is-searching::before {
+  opacity: 0.75;
 }
 
 .search-glass {
@@ -243,51 +252,58 @@ body {
   padding: 0 4px 0 8px;
   border-radius: 999px;
   border: 1px solid var(--glass-line);
-  /* Fast deckend: der Schein dahinter darf die Kante umspielen, aber nicht
-     die Fläche einfärben – im Feld steht Text, kein Farbverlauf. */
+  /* Deckend, nicht durchscheinend: hinter dem Feld läuft ein Farbverlauf, und
+     im Feld steht Text. Die leichte Neigung von oben nach unten gibt der Pille
+     ihre Tiefe, ohne den Grund durchzulassen. */
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--canvas) 99%, transparent),
-    color-mix(in srgb, var(--canvas) 94%, transparent)
+    var(--canvas),
+    color-mix(in srgb, var(--canvas) 94%, var(--sunken))
   );
-  /* Auch die Schatten bleiben in den zwölf Pixeln (siehe Schein oben):
-     Versatz plus Weichzeichnung, sonst steht der Schatten als Rechteck da. */
+  /*
+   * Alle Zustände des Feldes stehen in einem einzigen Schatten mit festen
+   * Fächern; die Zustände unten füllen nur die Farben. Das ist nicht Zierat,
+   * sondern Voraussetzung: `box-shadow` blendet nur weich über, wenn die Zahl
+   * der Lagen gleich bleibt. In Ruhe sind alle Fächer bis auf die Lichtkante
+   * durchsichtig – das Feld liegt dann flach in der Fläche.
+   *
+   * Auch die Masse sind gerechnet: der tiefste Schatten reicht Versatz plus
+   * halbe Weichzeichnung weit, 3 + 8 / 2 = 7 px, und bleibt damit in dem, was
+   * die beschneidenden Flächen hergeben (siehe Schein oben).
+   */
   box-shadow:
     inset 0 1px 0 var(--glass-sheen),
-    0 1px 2px rgb(0 0 0 / 0.05),
-    0 3px 8px rgb(0 0 0 / 0.07);
+    0 0 0 3px var(--glass-ring, transparent),
+    0 1px 2px var(--glass-cast-near, transparent),
+    0 3px 8px var(--glass-cast-far, transparent);
   transition: box-shadow 220ms ease, border-color 220ms ease;
 }
 
+/* Beim Schweben hebt sich das Feld; den Schein bringt der Verlauf dahinter. */
+.search-shell:hover .search-glass {
+  --glass-cast-near: rgb(0 0 0 / 0.05);
+  --glass-cast-far: rgb(0 0 0 / 0.07);
+}
+
 /*
- * Zwei Zustände, zwei Zeichen – und nie beide zugleich.
+ * Zwei Zustände, zwei Zeichen – und nie beide zugleich am selben Rand.
  *
- * Läuft eine Suche, ist der Regenbogen der Rand des Feldes; die Pille legt
- * ihren eigenen ab, sonst stehen zwei Ringe um dieselbe Sache. Der blaue
- * Fokusrand entfällt dann ebenfalls: er sagt nichts, was der Regenbogen nicht
- * schon sagt, und übermalt ihn nur. Dass das Feld den Fokus hat, zeigen dann
- * die blaue Lupe, der Sprung und der Lichtstreifen.
+ * Der Fokus färbt die Kante blau. Läuft dagegen eine Suche, ist der Verlauf
+ * dahinter das Zeichen, und die Pille nimmt ihre eigene Kante zurück: sonst
+ * stünden zwei Ringe um dieselbe Sache. Dass das Feld den Fokus hat, zeigen
+ * dann die blaue Lupe, der Sprung und der Lichtstreifen.
  */
-.search-shell.rainbow-ring .search-glass {
-  border-color: transparent;
-}
-
-.search-shell:not(.rainbow-ring):focus-within .search-glass {
+.search-shell:focus-within .search-glass {
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  box-shadow:
-    inset 0 1px 0 var(--glass-sheen),
-    0 2px 4px rgb(0 0 0 / 0.07),
-    0 3px 9px rgb(0 0 0 / 0.10),
-    0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+  --glass-ring: color-mix(in srgb, var(--accent) 14%, transparent);
+  --glass-cast-near: rgb(0 0 0 / 0.07);
+  --glass-cast-far: rgb(0 0 0 / 0.10);
 }
 
-@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-  .search-glass {
-    /* Wenig Sättigung: hinter dem Glas liegt der Schein, und ein kräftiges
-       `saturate` zöge dessen Farbe in die Fläche, auf der Text steht. */
-    -webkit-backdrop-filter: blur(16px) saturate(120%);
-    backdrop-filter: blur(16px) saturate(120%);
-  }
+.search-shell.is-searching .search-glass,
+.search-shell.is-searching:focus-within .search-glass {
+  border-color: transparent;
+  --glass-ring: transparent;
 }
 
 /*
@@ -396,6 +412,79 @@ body {
 }
 
 /*
+ * Zeilen in den Spalten
+ * ---------------------
+ * Filter links, Termine rechts: beides sind Listen, in denen man mit dem
+ * Zeiger sucht. Was unter ihm liegt, soll antworten – aber leise, denn hier
+ * bewegt sich sonst nichts.
+ *
+ * Zwei Dinge zugleich, beide klein: ein Strich fährt am linken Rand auf, und
+ * der Inhalt rückt drei Pixel nach. Der Strich trägt die Farbe des Ordners
+ * (`--row-mark`, von der Komponente gesetzt) – dieselbe Farbe, die auch der
+ * Balken im Kalender hat, damit beide dasselbe meinen. Ohne Angabe bleibt er
+ * eine kräftige Linie.
+ *
+ * Er wächst aus einem Viertel seiner Höhe heraus statt aus dem Nichts: eine
+ * Bewegung, die schon unterwegs ist, wenn man sie bemerkt, wirkt ruhiger als
+ * eine, die bei null anfängt. Wer Bewegung abbestellt hat, bekommt beides
+ * ohne Zeit – siehe `prefers-reduced-motion` ganz unten.
+ */
+.row-hover {
+  position: relative;
+  transition: background-color 170ms ease;
+}
+
+.row-hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--row-mark, var(--line-strong));
+  transform: scaleY(0.25);
+  opacity: 0;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
+}
+
+/* Auch bei Tastaturbedienung: der Fokus ist der Zeiger ohne Maus. */
+.row-hover:hover::before,
+.row-hover:focus-within::before {
+  transform: scaleY(1);
+  opacity: 1;
+}
+
+.row-hover > * {
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.row-hover:hover > *,
+.row-hover:focus-within > * {
+  transform: translateX(3px);
+}
+
+/*
+ * Pillen – Veranstaltungsarten und der Kartenfilter. Sie stehen nebeneinander
+ * statt untereinander, ein Strich am Rand ginge dort unter. Stattdessen heben
+ * sie sich um einen Pixel, mit demselben federnden Verlauf wie das Suchfeld:
+ * eine Bewegung, zwei Orte, eine Handschrift.
+ */
+.chip-hover {
+  transition:
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 170ms ease,
+    border-color 170ms ease,
+    color 170ms ease;
+}
+
+.chip-hover:hover {
+  transform: translateY(-1px);
+}
+
+/*
  * Milchglas für die Bedienelemente der Karte.
  *
  * Die Gestaltung der App kommt sonst ohne Schatten und ohne Transparenz aus –
@@ -431,7 +520,9 @@ body {
  * dunkel) – das erledigt die Komponente.
  */
 .leaflet-container {
-  background: var(--sunken);
+  /* Der Grund unter den Kacheln: dieselbe Fläche wie die Oberfläche, damit
+     beim Ziehen keine graue Platte durchscheint, wo noch nichts geladen ist. */
+  background: var(--canvas);
   font-family: inherit;
   font-size: 12px;
   outline: none;
@@ -447,7 +538,14 @@ body {
  * Ordner, und die sollen Farben bleiben.
  */
 [data-tiles='light'] .leaflet-tile-pane {
-  filter: grayscale(0.92) contrast(0.82) brightness(1.12);
+  /*
+   * Erst die Farbe nehmen, dann leicht stauchen, dann anheben – in dieser
+   * Reihenfolge, weil `contrast` zur Mitte hin zieht und `brightness` danach
+   * alles nach oben schiebt. Gestaucht wird nur wenig: Flächen und Bebauung
+   * sollen ins Weiss der Oberfläche auslaufen, aber die Beschriftung soll
+   * dunkel bleiben – sie ist das Einzige auf der Kachel, das etwas sagt.
+   */
+  filter: grayscale(1) contrast(0.88) brightness(1.2);
 }
 
 [data-tiles='dark'] .leaflet-tile-pane {

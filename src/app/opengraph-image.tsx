@@ -1,11 +1,10 @@
 import { ImageResponse } from 'next/og';
 import { GROUP_COLORS } from '@/lib/events/groups';
-import { cities } from '@/lib/cities';
 import { sources } from '@/lib/events/registry';
 
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = 'HIERAUSGEHEN.DE — Veranstaltungskalender für München und Glasgow';
+export const alt = 'HIERAUSGEHEN.de — Veranstaltungskalender für München und Glasgow';
 
 /**
  * Vorschaubild für geteilte Links.
@@ -49,8 +48,6 @@ const WEEKS: string[][][] = [
 const FIRST_DAY = 2;
 
 export default function OpengraphImage() {
-  const cityNames = cities.map((city) => city.name).join(' · ');
-
   return new ImageResponse(
     (
       <div
@@ -76,16 +73,6 @@ export default function OpengraphImage() {
             <div
               style={{
                 display: 'flex',
-                fontSize: 21,
-                letterSpacing: '0.18em',
-                color: FAINT,
-              }}
-            >
-              {cityNames.toUpperCase()}
-            </div>
-            <div
-              style={{
-                display: 'flex',
                 fontSize: 52,
                 fontWeight: 700,
                 color: TEXT,
@@ -93,10 +80,10 @@ export default function OpengraphImage() {
                 lineHeight: 1,
               }}
             >
-              HIERAUSGEHEN.DE
+              HIERAUSGEHEN.de
             </div>
             <div style={{ display: 'flex', fontSize: 27, color: MUTED, lineHeight: 1.4 }}>
-              Oper, Theater, Konzert, Club, Kino und Literatur — alle Termine in einem Kalender.
+              Oper, Theater, Konzert, Club, Kino und Literatur. Alle Termine in einem Kalender.
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
 import { cities } from '@/lib/cities';
@@ -80,8 +80,8 @@ export function Sidebar({
         type="button"
         aria-pressed={availableOnly}
         onClick={() => onAvailableOnlyChange(!availableOnly)}
-        className={`flex items-center gap-1.5 self-start lg:-mt-2 rounded-full border py-[3px] pl-2 pr-2.5
-                    text-[12px] transition-colors ${
+        className={`chip-hover flex items-center gap-1.5 self-start lg:-mt-2 rounded-full border
+                    py-[3px] pl-2 pr-2.5 text-[12px] ${
                       availableOnly
                         ? 'border-transparent bg-[var(--accent-soft)] text-accent'
                         : 'border-line text-faint hover:border-line-strong hover:text-muted'
@@ -119,7 +119,10 @@ export function Sidebar({
 
             return (
               <div key={group.name}>
-                <div className="group relative flex items-center gap-2 pl-1">
+                <div
+                  style={{ '--row-mark': groupColor(group.name) } as CSSProperties}
+                  className="group row-hover flex items-center gap-2 pl-1"
+                >
                   <Checkbox
                     state={groupState}
                     color={groupColor(group.name)}
@@ -171,7 +174,10 @@ export function Sidebar({
                       return (
                         <li key={source.id}>
                           <div
-                            className={`group relative flex items-center gap-2
+                            /* Der Strich beim Überfahren trägt die Farbe des
+                               Ordners – siehe `.row-hover` in `globals.css`. */
+                            style={{ '--row-mark': groupColor(source.group) } as CSSProperties}
+                            className={`group row-hover flex items-center gap-2
                                        rounded-[var(--radius-sm)] py-1.5 pl-[22px] pr-1.5
                                        ${sourceFocused ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--canvas)]'}`}
                           >
@@ -324,8 +330,8 @@ function CategoryPill({
         type="button"
         aria-pressed={active}
         onClick={onToggle}
-        className={`flex items-center gap-1.5 rounded-full border py-[3px] pl-2 pr-2 text-[12px]
-                    transition-colors ${tone}`}
+        className={`chip-hover flex items-center gap-1.5 rounded-full border py-[3px] pl-2 pr-2
+                    text-[12px] ${tone}`}
       >
         <span className="truncate">{name ? term(name) : t('noCategory')}</span>
         <span className="tabular-nums text-[10px] opacity-65">{count}</span>

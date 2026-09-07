@@ -6,8 +6,8 @@ import type { MetadataRoute } from 'next';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'HIERAUSGEHEN.DE',
-    short_name: 'HIERAUSGEHEN.DE',
+    name: 'HIERAUSGEHEN.de',
+    short_name: 'HIERAUSGEHEN.de',
     description:
       'Ein Kalender für alle Veranstaltungen in München: Oper, Ballett, Theater und Konzert an einem Ort.',
     id: '/',

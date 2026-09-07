@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { displayAvailability, sourceColor } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
@@ -33,7 +34,10 @@ export function AgendaList({ events, definitions, selectedId, onSelect, emptyLab
             data-event-id={event.id}
             onClick={() => onSelect(event)}
             aria-current={selectedId === event.id}
-            className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hairline-b
+            /* Der Strich beim Überfahren trägt die Farbe der Quelle – dieselbe
+               wie der Balken zwei Spalten weiter (siehe `.row-hover`). */
+            style={{ '--row-mark': sourceColor(definitions, event.sourceId) } as CSSProperties}
+            className={`row-hover flex w-full items-start gap-3 px-4 py-2.5 text-left hairline-b
                         ${selectedId === event.id ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--chrome)]'}`}
           >
             {/* Etwas breiter als für „19:30" nötig: in dieselbe Spalte muss

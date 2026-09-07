@@ -34,6 +34,8 @@ interface Props {
   activeFilterCount: number;
   sidebarCollapsed: boolean;
   detailCollapsed: boolean;
+  /** In Tag und Woche gibt es ohne gewählten Termin nichts aufzuklappen. */
+  canToggleDetail: boolean;
   onToggleSidebar: () => void;
   onToggleDetail: () => void;
   onOpenShortcuts: () => void;
@@ -55,6 +57,7 @@ export function Toolbar({
   activeFilterCount,
   sidebarCollapsed,
   detailCollapsed,
+  canToggleDetail,
   onToggleSidebar,
   onToggleDetail,
   onOpenShortcuts,
@@ -206,10 +209,11 @@ export function Toolbar({
         <button
           type="button"
           onClick={onToggleDetail}
+          disabled={!canToggleDetail}
           title={`${detailCollapsed ? t('expand') : t('collapse')} (${detailKey})`}
           aria-label={detailCollapsed ? t('expand') : t('collapse')}
           aria-pressed={!detailCollapsed}
-          className={`hidden ${iconButton} lg:grid`}
+          className={`hidden ${stepButton} lg:grid`}
         >
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
         </button>

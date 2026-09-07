@@ -15,7 +15,7 @@ import {
 } from '@/lib/calendar';
 
 import { DETAIL_KEY, SIDEBAR_KEY, matchesKey } from '@/lib/keyboard';
-import { isKnownCityId } from '@/lib/cities';
+import { cityById, isKnownCityId } from '@/lib/cities';
 import { sourceColor, sourceName } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
@@ -62,7 +62,6 @@ interface CitySpacePrefs {
 }
 
 interface LayoutPrefs {
-  view: ViewMode;
   sidebarWidth: number;
   detailWidth: number;
   sidebarCollapsed: boolean;
@@ -77,8 +76,25 @@ const defaultSpacePrefs: CitySpacePrefs = {
   disabledCategories: [],
 };
 
+/**
+ * Womit die Seite aufgeht – und zwar jedes Mal gleich: die zuletzt benutzte
+ * Ansicht wird bewusst nicht gemerkt. Wer die Seite öffnet, will zuerst
+ * wissen, was läuft, nicht wo er zuletzt war. Ein Link mit `?view=` sticht das.
+ *
+ * Am Schreibtisch ist das die Woche: dort ist Platz für sieben Spalten mit
+ * Titeln. Auf dem Telefon der Monat, weil eine Woche dort auf sieben schmale
+ * Streifen zusammenfällt. Die Breite kennt erst der Browser, deshalb steht
+ * beim Rendern auf dem Server der Monat und die Woche kommt nach der
+ * Hydration – wie Stadt, Datum und Filter auch.
+ */
+const SSR_VIEW: ViewMode = 'month';
+const DESKTOP_QUERY = '(min-width: 1024px)';
+
+function defaultView(): ViewMode {
+  return window.matchMedia(DESKTOP_QUERY).matches ? 'week' : 'month';
+}
+
 const defaultLayout: LayoutPrefs = {
-  view: 'month',
   sidebarWidth: 228,
   detailWidth: 336,
   sidebarCollapsed: false,
@@ -92,7 +108,7 @@ const emptyResult: AggregateResult = { events: [], sources: [], definitions: [] 
 export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
   const { settings, cityStatus, chooseCity, format, t, term } = useSettings();
 
-  const [view, setView] = useState<ViewMode>(defaultLayout.view);
+  const [view, setView] = useState<ViewMode>(SSR_VIEW);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [selectedDay, setSelectedDay] = useState<string>(anchor);
   const [selectedEventId, setSelectedEventId] = useState<string>();
@@ -165,17 +181,18 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     const stored = readLayoutPrefs(startupCityId);
     const storedSpace = spacePrefs(stored, startupCityId);
 
+    // Ein Deeplink ist eine Ansage; ohne ihn entscheidet die Breite des Geräts.
+    const urlView = params.get('view');
+    const startupView = isViewMode(urlView) ? urlView : defaultView();
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLayout(stored);
+    setView(startupView);
+    // Die Karte bringt ihre Tagesübersicht mit – auch aus einem Deeplink heraus.
+    setLayout(startupView === 'map' ? { ...stored, detailCollapsed: false } : stored);
     setDisabled(new Set(storedSpace.disabledSources));
     setAvailableOnly(storedSpace.availableOnly);
     setDisabledCategories(new Set(storedSpace.disabledCategories));
     setRestoredSpaceCityId(startupCityId);
-
-    // Die URL hat Vorrang vor dem, was zuletzt lokal gemerkt wurde.
-    const urlView = params.get('view');
-    if (isViewMode(urlView)) setView(urlView);
-    else if (stored.view) setView(stored.view);
 
     const urlDate = params.get('date');
     const wanted = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : format.today();
@@ -204,6 +221,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     window.history.replaceState(null, '', `?${params}`);
   }, [restored, cityId, view, anchor, selectedEventId]);
 
+  // Der Stadtwechsel lädt die Seite nicht neu; der Titel im Tab muss deshalb
+  // von Hand nachziehen, damit er dem entspricht, was der Server geliefert hat.
+  useEffect(() => {
+    if (!restored) return;
+    document.title = `${cityById(cityId).name} ${t('appName')}`;
+  }, [restored, cityId, t]);
+
   useEffect(() => {
     if (!restored) return;
     if (restoredSpaceCityId === cityId) return;
@@ -227,7 +251,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       const prefs: LayoutPrefs = {
         ...current,
         ...layout,
-        view,
         spaces: {
           ...current.spaces,
           ...layout.spaces,
@@ -242,7 +265,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     } catch {
       // Privater Modus – nicht kritisch.
     }
-  }, [restored, restoredSpaceCityId, cityId, layout, view, disabled, availableOnly, disabledCategories]);
+  }, [restored, restoredSpaceCityId, cityId, layout, disabled, availableOnly, disabledCategories]);
 
   /* ------------------------------- Laden -------------------------------- */
 
@@ -359,6 +382,18 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     [events, selectedEventId],
   );
 
+  /**
+   * Wann die rechte Spalte überhaupt etwas zu sagen hat.
+   *
+   * Tag und Woche zeigen die Termine des Tages schon im Kalender – die Spalte
+   * daneben würde dieselbe Liste ein zweites Mal zeigen. Dort steht sie
+   * deshalb nur für einen einzelnen Termin, sonst gar nicht. Monat und Karte
+   * haben keine solche Liste; da bleibt sie die Tagesübersicht.
+   */
+  const detailShowsDay = view === 'month' || view === 'map';
+  const detailAvailable = detailShowsDay || Boolean(selectedEvent);
+  const detailOpen = detailAvailable && !layout.detailCollapsed;
+
   /* ------------------------------ Aktionen ------------------------------ */
 
   /** Wohin ein Schritt führt – auf den abgedeckten Zeitraum begrenzt. */
@@ -412,9 +447,25 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       setAnchor(target);
       setSelectedDay(target);
       setSelectedEventId(undefined);
+      // Einen Tag anzuklicken ist die Frage, was an ihm läuft – die Antwort
+      // steht rechts. In Tag und Woche gibt es dort nichts aufzuklappen, dann
+      // bleibt das ohne Wirkung (siehe `detailAvailable`).
+      setLayout((current) => ({ ...current, detailCollapsed: false }));
     },
     [coverage],
   );
+
+  /**
+   * Der Wechsel der Ansicht.
+   *
+   * Die Karte zeigt einen Tag als Orte und beantwortet damit nur die halbe
+   * Frage – was dort läuft, steht in der Spalte daneben. Wer sie öffnet, soll
+   * beides sehen, auch wenn die Spalte zuletzt zugeklappt war.
+   */
+  const changeView = useCallback((next: ViewMode) => {
+    setView(next);
+    if (next === 'map') setLayout((current) => ({ ...current, detailCollapsed: false }));
+  }, []);
 
   const selectEvent = useCallback(
     (event: CalendarEvent) => {
@@ -587,7 +638,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         return;
       }
       if (matchesKey(e, DETAIL_KEY)) {
-        setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
+        // In Tag und Woche ohne gewählten Termin gibt es nichts aufzuklappen.
+        if (detailAvailable) setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
         e.preventDefault();
         return;
       }
@@ -600,10 +652,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         case 'ArrowUp': stepEvent(-1); break;
         case 'ArrowDown': stepEvent(1); break;
         case 't': case 'T': goToday(); break;
-        case 'd': case 'D': setView('day'); break;
-        case 'w': case 'W': setView('week'); break;
-        case 'm': case 'M': setView('month'); break;
-        case 'k': case 'K': setView('map'); break;
+        case 'd': case 'D': changeView('day'); break;
+        case 'w': case 'W': changeView('week'); break;
+        case 'm': case 'M': changeView('month'); break;
+        case 'k': case 'K': changeView('map'); break;
         case 'o': case 'O':
           if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
           break;
@@ -615,7 +667,18 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [step, stepEvent, goToday, focusSearch, dismiss, menu, shortcutsOpen, selectedEvent]);
+  }, [
+    step,
+    stepEvent,
+    goToday,
+    focusSearch,
+    dismiss,
+    menu,
+    shortcutsOpen,
+    selectedEvent,
+    detailAvailable,
+    changeView,
+  ]);
 
   /**
    * Ein einziger Zuhörer für alle Ansichten: das Menü hängt am Termin im DOM
@@ -772,7 +835,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           anchor={anchor}
           cityId={cityId}
           onCityChange={chooseCity}
-          onViewChange={setView}
+          onViewChange={changeView}
           onStep={step}
           canStepBack={!restored || canStep(-1)}
           canStepForward={!restored || canStep(1)}
@@ -789,7 +852,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             (query ? 1 : 0)
           }
           sidebarCollapsed={layout.sidebarCollapsed}
-          detailCollapsed={layout.detailCollapsed}
+          detailCollapsed={!detailOpen}
+          canToggleDetail={detailAvailable}
           onToggleSidebar={() =>
             setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }))
           }
@@ -936,7 +1000,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           </main>
 
           {/* Details – rechts, mit derselben Bewegung wie die Filterspalte */}
-          {!layout.detailCollapsed && (
+          {detailOpen && (
             <ResizeHandle
               side="right"
               className="hidden lg:block"
@@ -949,10 +1013,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           )}
           <aside
             className={`hidden min-h-0 shrink-0 overflow-hidden lg:block
-                        ${layout.detailCollapsed ? '' : 'hairline-l'}
+                        ${detailOpen ? 'hairline-l' : ''}
                         ${resizing ? '' : `transition-[width] ${motion}`}`}
-            style={{ width: layout.detailCollapsed ? 0 : layout.detailWidth }}
-            inert={layout.detailCollapsed}
+            style={{ width: detailOpen ? layout.detailWidth : 0 }}
+            inert={!detailOpen}
           >
             <div className="h-full" style={{ width: layout.detailWidth }}>
               <DetailPanel
@@ -1095,7 +1159,6 @@ function normalizeLayoutPrefs(stored: StoredLayoutPrefs, cityId: string): Layout
 
   return {
     ...defaultLayout,
-    view: isViewMode(stored.view) ? stored.view : defaultLayout.view,
     sidebarWidth:
       typeof stored.sidebarWidth === 'number' ? stored.sidebarWidth : defaultLayout.sidebarWidth,
     detailWidth: typeof stored.detailWidth === 'number' ? stored.detailWidth : defaultLayout.detailWidth,
