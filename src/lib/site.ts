@@ -6,7 +6,7 @@ export const SITE_URL = 'https://hierausgehen.de';
 export const SITE_NAME = 'HIERAUSGEHEN.de';
 export const SITE_TITLE = 'Veranstaltungskalender für München und Glasgow';
 export const SITE_DESCRIPTION =
-  'Ein Kalender für alle Veranstaltungen in München und Glasgow: Oper, Ballett, Theater, ' +
+  'Ein Kalender für Veranstaltungen in München und Glasgow: Oper, Ballett, Theater, ' +
   'Konzert, Club, Kino und Literatur aus vielen Häusern an einem Ort — mit Datum, ' +
   'Spielstätte und Ticketverfügbarkeit.';
 
@@ -46,7 +46,7 @@ export function cityUrl(cityId: string): string {
 
 /** Der Titel im Browser: erst die Stadt, dann die Seite. */
 export function cityTitle(cityName: string): string {
-  return `${cityName} ${SITE_NAME}`;
+  return `Veranstaltungen in ${cityName} – Kalender & Tickets`;
 }
 
 /**
@@ -64,8 +64,13 @@ export function cityMetadata(cityId: string): { title: string; description: stri
     // an den ersten Zeichen zu sehen, welcher Kalender offen ist.
     title: cityTitle(city.name),
     description:
-      `Alle Veranstaltungen in ${city.name} in einem Kalender: Oper, Ballett, Theater, ` +
+      `Veranstaltungen in ${city.name} in einem Kalender: Oper, Ballett, Theater, ` +
       `Konzert, Club, Kino und Literatur aus ${count} Häusern — mit Datum, Spielstätte ` +
       'und Ticketverfügbarkeit, täglich aktualisiert.',
   };
+}
+
+/** Lesbare Programmübersicht, auch ohne JavaScript. */
+export function programmePath(cityId: string): string {
+  return `/veranstaltungen/${cityId}`;
 }

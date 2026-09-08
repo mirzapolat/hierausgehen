@@ -1,11 +1,12 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { CalendarApp } from '@/components/CalendarApp';
 import { StructuredData } from '@/components/StructuredData';
 import { eventsInRange } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { coverageRange, loadRange } from '@/lib/calendar';
-import { DEFAULT_CITY_ID, cityById, isKnownCityId } from '@/lib/cities';
-import { SITE_NAME, cityMetadata, cityPath } from '@/lib/site';
+import { cities, DEFAULT_CITY_ID, cityById, isKnownCityId } from '@/lib/cities';
+import { SITE_NAME, cityMetadata, cityPath, programmePath } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,14 +61,19 @@ export default async function Page({ searchParams }: PageProps<'/'>) {
   const data = await eventsInRange(cityId, range);
 
   return (
-    <>
+    <div className="flex h-full flex-col">
       <StructuredData cityId={cityId} events={data.events} definitions={data.definitions} />
-      <CalendarApp
-        initialData={data}
-        initialRange={range}
-        initialCityId={cityId}
-        initialAnchor={today}
-      />
-    </>
+      <div className="min-h-0 flex-1">
+        <CalendarApp
+          initialData={data}
+          initialRange={range}
+          initialCityId={cityId}
+          initialAnchor={today}
+        />
+      </div>
+      <nav aria-label="Veranstaltungsübersichten" className="flex shrink-0 justify-center gap-5 border-t border-line bg-[var(--chrome)] px-3 py-2 text-xs text-muted">
+        {cities.map((city) => <Link key={city.id} href={programmePath(city.id)} prefetch={false}>Veranstaltungen {city.name}</Link>)}
+      </nav>
+    </div>
   );
 }

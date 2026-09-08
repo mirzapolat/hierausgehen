@@ -757,3 +757,19 @@ Gemessen im Container, Gärtnerplatz auf eine unroutbare Adresse umgebogen:
 | Kalter Cache, Quelle tot | 129 s / Zeitüberschreitung | 12 s (zweimal), danach 0,02 s |
 | Warmer Cache, Quelle stirbt | 31 s | 0,08 s |
 | Alles gesund, kalt | – | 0,5 s |
+
+## SEO und Auffindbarkeit
+
+`/veranstaltungen/muenchen` und `/veranstaltungen/glasgow` liefern die nächsten
+bis zu 60 Termine als servergerenderten Text, mit Originalquellen, Ticketlinks
+und passenden strukturierten Daten. Diese Seiten funktionieren ohne JavaScript;
+der Kalender verlinkt sie und die Sitemap enthält beide Ansichten jeder Stadt.
+Unbekannte Städte liefern eine 404. Es werden keine Ticketpreise oder
+Veranstaltungsbilder erfunden; die Übersichten garantieren keine Event-Rich-Results.
+
+Die bestehende robots.txt erlaubt das Crawlen öffentlicher Seiten auch für
+Such- und KI-Crawler. Nach Veröffentlichung die Sitemap
+`https://hierausgehen.de/sitemap.xml` in Google Search Console und Bing Webmaster
+Tools einreichen und die Programmseiten mit der URL-Prüfung kontrollieren.
+Hosting/CDN-Regeln müssen die Crawler ebenfalls durchlassen. Indexierung und
+Erwähnungen in KI-Antworten werden dadurch ermöglicht, aber nicht garantiert.

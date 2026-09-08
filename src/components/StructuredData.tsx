@@ -23,20 +23,24 @@ export function StructuredData({
   cityId,
   events,
   definitions,
+  pageUrl,
 }: {
   cityId: string;
   events: CalendarEvent[];
   definitions: SourceDefinition[];
+  pageUrl?: string;
 }) {
   const city = cityById(cityId);
-  const url = cityUrl(city.id);
+  const url = pageUrl ?? cityUrl(city.id);
   const { title, description } = cityMetadata(city.id);
   // Serverkomponente auf einer dynamischen Seite: die Uhr zu lesen ist hier
   // genau richtig, es gibt kein erneutes Rendern mit anderem Ergebnis.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
   const upcoming = events
-    .filter((event) => Date.parse(event.start) >= now)
+    // Die Programmseite übergibt genau ihre sichtbare Auswahl.
+    .filter((event) => pageUrl || Date.parse(event.start) >= now)
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
     .slice(0, MAX_EVENTS)
     .map((event) => eventSchema(event, city.name, definitions));
 
@@ -82,8 +86,8 @@ export function StructuredData({
   return (
     <script
       type="application/ld+json"
-      // Nur selbst erzeugte Daten; der Inhalt stammt aus dem eigenen Modell.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }) }}
+      // Quelltexte dürfen den Script-Tag nicht vorzeitig schließen.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c') }}
     />
   );
 }
@@ -97,9 +101,8 @@ function eventSchema(event: CalendarEvent, cityName: string, definitions: Source
     '@id': `${SITE_URL}/#event-${event.id}`,
     name: event.title,
     ...(eventDescription(event) ? { description: eventDescription(event) } : {}),
-    startDate: event.start,
+    startDate: event.allDay ? event.start.slice(0, 10) : event.start,
     ...(event.end ? { endDate: event.end } : {}),
-    eventStatus: 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     location: {
       '@type': 'Place',
