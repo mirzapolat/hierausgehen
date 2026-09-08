@@ -421,6 +421,21 @@ function SourceFootnote({ cityId }: { cityId: string }) {
       className="relative shrink-0 bg-[var(--chrome)] px-4 py-3.5 hairline-t lg:py-3"
       style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
     >
+      <a
+        href="https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={t('donateTitle')}
+        title={t('donateTitle')}
+        className="mb-3 flex min-h-9 items-center justify-center gap-2 rounded-[var(--radius-sm)]
+                   border border-red-500/30 bg-red-500/10 px-3 text-[12px] font-medium text-red-500
+                   transition-colors hover:border-red-500/50 hover:bg-red-500/20"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+          <path d="M12 21s-9-5.5-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.5-9 12-9 12Z" />
+        </svg>
+        {t('donate')}
+      </a>
       <div className="flex items-center gap-3">
         {/* Der Datenstand ist einer je Stadt – der Link nimmt die mit, die
             gerade zu sehen ist. */}
