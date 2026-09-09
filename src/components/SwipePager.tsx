@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+
+/** Wartezeit nur für Browser ohne das native `scrollend`-Ereignis. */
+const SCROLL_END_FALLBACK_MS = 180;
+
+function supportsScrollEnd(element: HTMLDivElement): boolean {
+  return 'onscrollend' in element;
+}
 
 interface Props {
   /** Anker der mittleren Seite. Ändert er sich, steht sie wieder in der Mitte. */
@@ -54,6 +61,31 @@ export function SwipePager({
   const offsets: (-1 | 0 | 1)[] = [...(back ? [-1 as const] : []), 0, ...(canStep(1) ? [1 as const] : [])];
   const centerPage = back ? 1 : 0;
 
+  const settle = useCallback(() => {
+    const element = scroller.current;
+    if (!element || pageSpan === 0 || navigating.current) return;
+    const page = Math.round(element.scrollLeft / pageSpan);
+    if (page === centerPage) return;
+    navigating.current = true;
+    onStep(page < centerPage ? -1 : 1);
+  }, [centerPage, onStep, pageSpan]);
+
+  /**
+   * Alte Browser erkennen das Ende einer Geste nur über eine kurze Pause.
+   * Solange nach einem Schritt noch Trägheit ankommt, bleibt der Pager
+   * gesperrt und wird wieder auf die neue mittlere Seite gezogen.
+   */
+  const releaseFallbackNavigation = useCallback(
+    (element: HTMLDivElement) => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+      settleTimer.current = setTimeout(() => {
+        element.scrollLeft = pageSpan * centerPage;
+        navigating.current = false;
+      }, SCROLL_END_FALLBACK_MS);
+    },
+    [centerPage, pageSpan],
+  );
+
   useLayoutEffect(() => {
     const element = scroller.current;
     if (!element) return;
@@ -69,8 +101,23 @@ export function SwipePager({
     const element = scroller.current;
     if (!element || pageSpan === 0) return;
     element.scrollLeft = pageSpan * centerPage;
-    navigating.current = false;
-  }, [anchor, centerPage, resetKey, pageSpan]);
+    if (navigating.current && !supportsScrollEnd(element)) {
+      releaseFallbackNavigation(element);
+    } else {
+      navigating.current = false;
+    }
+  }, [anchor, centerPage, resetKey, pageSpan, releaseFallbackNavigation]);
+
+  // `scrollend` wartet auf Trägheit und Scroll-Snap. Der bisherige reine
+  // 90-ms-Timer konnte mitten in einer Trackpad-Geste auslösen; deren restliche
+  // Bewegung traf dann schon die nächste Woche und übersprang sie.
+  useEffect(() => {
+    const element = scroller.current;
+    if (!element || !supportsScrollEnd(element)) return;
+    const onScrollEnd = () => settle();
+    element.addEventListener('scrollend', onScrollEnd);
+    return () => element.removeEventListener('scrollend', onScrollEnd);
+  }, [settle]);
 
   useEffect(
     () => () => {
@@ -81,14 +128,19 @@ export function SwipePager({
 
   const onScroll = () => {
     const element = scroller.current;
-    if (!element || pageSpan === 0 || navigating.current) return;
+    if (!element || pageSpan === 0) return;
+    if (navigating.current) {
+      if (!supportsScrollEnd(element)) {
+        element.scrollLeft = pageSpan * centerPage;
+        releaseFallbackNavigation(element);
+      }
+      return;
+    }
+    // Moderne Browser melden das tatsächliche Ende einschließlich Momentum
+    // und Snap selbst. Der Timer bleibt nur als kompatibler Rückfall erhalten.
+    if (supportsScrollEnd(element)) return;
     if (settleTimer.current) clearTimeout(settleTimer.current);
-    settleTimer.current = setTimeout(() => {
-      const page = Math.round(element.scrollLeft / pageSpan);
-      if (page === centerPage) return;
-      navigating.current = true;
-      onStep(page < centerPage ? -1 : 1);
-    }, 90);
+    settleTimer.current = setTimeout(settle, SCROLL_END_FALLBACK_MS);
   };
 
   return (
