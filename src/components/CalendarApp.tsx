@@ -31,6 +31,7 @@ import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
+import { StatusBar } from './StatusBar';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
 import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
@@ -823,7 +824,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   const sidebar = (
     <Sidebar
-      cityId={cityId}
       definitions={data.definitions}
       status={data.sources}
       enabled={enabled}
@@ -1080,6 +1080,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             </div>
           </aside>
         </div>
+
+      <StatusBar cityId={cityId} />
 
       {/* Mobile: Filter als Overlay, das von links hereinfährt */}
       {filterOverlay.mounted && (

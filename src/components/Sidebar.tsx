@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
-import { track } from '@/lib/analytics';
 import { useSettings } from '@/lib/settings/context';
-import { cities } from '@/lib/cities';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
@@ -34,8 +32,6 @@ interface Props {
   onAvailableOnlyChange: (next: boolean) => void;
   query: string;
   onQueryChange: (next: string) => void;
-  /** Angezeigte Stadt – Status und Export folgen ihr. */
-  cityId: string;
 }
 
 /**
@@ -60,7 +56,6 @@ export function Sidebar({
   onAvailableOnlyChange,
   query,
   onQueryChange,
-  cityId,
 }: Props) {
   const { t, term, format, settings } = useSettings();
   const groups = useMemo(
@@ -72,7 +67,6 @@ export function Sidebar({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Nur die Filter scrollen; Stand und Impressum bleiben unten sichtbar. */}
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto scroll-quiet px-4 py-4 lg:gap-5">
       {/* Auf schmalen Geräten steht die Suche über dem Kalender, nicht hier. */}
       <SearchField query={query} onQueryChange={onQueryChange} className="hidden lg:block" />
@@ -256,7 +250,13 @@ export function Sidebar({
 
       </div>
 
-      <SourceFootnote cityId={cityId} />
+      <Link
+        href="/settings"
+        className="shrink-0 px-4 py-3 text-[12px] text-faint hairline-t hover:text-muted lg:hidden"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
+        {t('settings')}
+      </Link>
     </div>
   );
 }
@@ -408,191 +408,6 @@ function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
 /** Trifft die temporäre Quellen-Auswahl genau diese Quellen? */
 function isSolo(solo: Set<string>, ids: string[]): boolean {
   return solo.size === ids.length && ids.every((id) => solo.has(id));
-}
-
-function SourceFootnote({ cityId }: { cityId: string }) {
-  const { t } = useSettings();
-
-  return (
-    // `relative` für das Auswahlfeld des Exports: die Spalte schneidet ab, was
-    // über ihre Breite hinausragt, deshalb hängt es an der Fussleiste und
-    // nicht am angeklickten Wort.
-    <div
-      className="relative shrink-0 bg-[var(--chrome)] px-4 py-3.5 hairline-t lg:py-3"
-      style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' }}
-    >
-      <a
-        href="https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={t('donateTitle')}
-        title={t('donateTitle')}
-        className="mb-3 flex min-h-9 items-center justify-center gap-2 rounded-[var(--radius-sm)]
-                   border border-red-500/30 bg-red-500/10 px-3 text-[12px] font-medium text-red-500
-                   transition-colors hover:border-red-500/50 hover:bg-red-500/20"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
-          <path d="M12 21s-9-5.5-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.5-9 12-9 12Z" />
-        </svg>
-        {t('donate')}
-      </a>
-      <div className="flex items-center gap-3">
-        {/* Der Datenstand ist einer je Stadt – der Link nimmt die mit, die
-            gerade zu sehen ist. */}
-        <Link
-          href={`/status?city=${encodeURIComponent(cityId)}`}
-          className="text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:text-[11px]"
-        >
-          {t('status')}
-        </Link>
-        <Link
-          href="/impressum"
-          className="text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:text-[11px]"
-        >
-          {t('imprint')}
-        </Link>
-        <ExportLink />
-        {/* Auf schmalen Geräten fehlt das Zahnrad in der Kopfzeile – hier
-            steht der Weg zu den Einstellungen. */}
-        <Link
-          href="/settings"
-          className="ml-auto text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:hidden"
-        >
-          {t('settings')}
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Export als CSV.
- *
- * Bei einer einzigen Stadt gibt es nichts zu wählen und der Link lädt direkt.
- * Sobald es mehrere sind, fragt ein kleines Feld darüber, welche mit sollen –
- * voreingestellt alle, denn der Endpunkt ohne Parameter meint denselben
- * ganzen Bestand.
- */
-function ExportLink() {
-  const { t } = useSettings();
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(() => allCityIds());
-  const panel = useRef<HTMLDivElement>(null);
-
-  // Alles, was das Feld aus dem Zusammenhang reisst, schliesst es.
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!panel.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('pointerdown', onPointerDown, true);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open]);
-
-  const link =
-    'text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:text-[11px]';
-
-  if (cities.length < 2) {
-    return (
-      // Kein <Link>: die CSV kommt von der API, sie ist keine Seite.
-      <a
-        href="/api/events/export"
-        download
-        title={t('exportCsvTitle')}
-        onClick={() => track('csv-export', { cities: cities[0].id, count: 1 })}
-        className={link}
-      >
-        {t('exportCsv')}
-      </a>
-    );
-  }
-
-  const chosen = cities.filter((city) => selected.has(city.id)).map((city) => city.id);
-  const href = `/api/events/export?${chosen
-    .map((id) => `city=${encodeURIComponent(id)}`)
-    .join('&')}`;
-
-  return (
-    <div className="contents" ref={panel}>
-      <button
-        type="button"
-        aria-expanded={open}
-        title={t('exportCsvTitle')}
-        onClick={() => {
-          // Beim Öffnen wieder alle: die Voreinstellung ist der ganze Bestand.
-          if (!open) setSelected(allCityIds());
-          setOpen((value) => !value);
-        }}
-        className={link}
-      >
-        {t('exportCsv')}
-      </button>
-
-      {open && (
-        <div
-          className="absolute bottom-full left-4 right-4 z-50 mb-2 rounded-[var(--radius-md)]
-                     border border-line bg-[var(--raised)] p-3"
-          style={{ boxShadow: 'var(--shadow-overlay)' }}
-        >
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
-            {t('exportCities')}
-          </p>
-          <ul className="flex flex-col gap-1.5">
-            {cities.map((city) => (
-              <li key={city.id}>
-                <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text">
-                  <Checkbox
-                    state={selected.has(city.id) ? 'on' : 'off'}
-                    label={city.name}
-                    onChange={() =>
-                      setSelected((current) => {
-                        const next = new Set(current);
-                        if (!next.delete(city.id)) next.add(city.id);
-                        return next;
-                      })
-                    }
-                  />
-                  {city.name}
-                </label>
-              </li>
-            ))}
-          </ul>
-          <a
-            href={href}
-            download
-            aria-disabled={selected.size === 0}
-            onClick={(event) => {
-              if (selected.size === 0) {
-                event.preventDefault();
-                return;
-              }
-              track('csv-export', { cities: chosen.join(','), count: chosen.length });
-              setOpen(false);
-            }}
-            className={`mt-3 block rounded-[var(--radius-sm)] px-2 py-1.5 text-center text-[12px]
-                        font-medium transition-colors ${
-                          selected.size === 0
-                            ? 'cursor-not-allowed bg-[var(--chrome)] text-faint'
-                            : 'bg-[var(--accent)] text-white hover:opacity-90'
-                        }`}
-          >
-            {t('exportDownload')}
-          </a>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function allCityIds(): Set<string> {
-  return new Set(cities.map((city) => city.id));
 }
 
 /**
