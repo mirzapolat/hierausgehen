@@ -94,6 +94,14 @@ export const MapPin = (p: Props) => (
   </Svg>
 );
 export const Check = (p: Props) => <Svg {...p}><path d="m3 8.4 3.2 3.1L13 4.5" /></Svg>;
+export const Share = (p: Props) => (
+  <Svg {...p}>
+    <circle cx="4" cy="8" r="1.5" />
+    <circle cx="12" cy="3.5" r="1.5" />
+    <circle cx="12" cy="12.5" r="1.5" />
+    <path d="m5.3 7.2 5.4-3M5.3 8.8l5.4 3" />
+  </Svg>
+);
 export const MoreHorizontal = (p: Props) => (
   <Svg {...p}>
     <circle cx="3.5" cy="8" r="1" fill="currentColor" stroke="none" />

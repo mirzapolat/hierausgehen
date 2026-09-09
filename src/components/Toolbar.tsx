@@ -5,6 +5,7 @@ import { addDays, type ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
 import { CityPicker } from './CityPicker';
+import { ShareButton } from './ShareButton';
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,6 +20,7 @@ interface Props {
   view: ViewMode;
   anchor: string;
   cityId: string;
+  shareUrl: string;
   onCityChange: (id: string) => void;
   onViewChange: (view: ViewMode) => void;
   onStep: (direction: -1 | 1) => void;
@@ -45,6 +47,7 @@ export function Toolbar({
   view,
   anchor,
   cityId,
+  shareUrl,
   onCityChange,
   onViewChange,
   onStep,
@@ -250,6 +253,17 @@ export function Toolbar({
         >
           <Settings />
         </Link>
+
+        <ShareButton
+          url={shareUrl}
+          title={t('appName')}
+          label={t('shareWebsite')}
+          visibleLabel={t('share')}
+          copiedLabel={t('menuLinkCopied')}
+          umamiEvent="share-website"
+          className="hidden h-7 items-center gap-1.5 rounded-[var(--radius-sm)] px-2
+                     text-[12px] text-muted hover:bg-[var(--canvas)] hover:text-text lg:flex"
+        />
       </div>
     </header>
   );

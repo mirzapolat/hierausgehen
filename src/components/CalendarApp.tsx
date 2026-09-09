@@ -603,7 +603,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     setTimeout(focus, MOTION_MS + 20);
   }, []);
 
-  const eventLink = useCallback(
+  const eventShareUrl = useCallback(
     (event: CalendarEvent) => {
       const params = new URLSearchParams({
         city: cityId,
@@ -611,10 +611,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         date: clampDay(format.localDay(event.start), coverage),
         event: event.id,
       });
-      return `${window.location.origin}${window.location.pathname}?${params}`;
+      return `?${params}`;
     },
     [cityId, view, format, coverage],
   );
+
+  const eventLink = useCallback(
+    (event: CalendarEvent) => new URL(eventShareUrl(event), window.location.href).toString(),
+    [eventShareUrl],
+  );
+
+  // Die allgemeine Teilen-Aktion bleibt beim Stadtkalender. Ein offenes Event
+  // gehört nur in den Link des Teilen-Knopfs in dessen Detailansicht.
+  const websiteShareUrl = `/?city=${encodeURIComponent(cityId)}`;
 
   const copyLink = useCallback(
     async (event: CalendarEvent) => {
@@ -889,6 +898,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           view={view}
           anchor={anchor}
           cityId={cityId}
+          shareUrl={websiteShareUrl}
           onCityChange={chooseCity}
           onViewChange={changeView}
           onStep={step}
@@ -1071,6 +1081,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 day={selectedDay}
                 dayEvents={dayEvents}
                 event={selectedEvent}
+                shareUrl={selectedEvent ? eventShareUrl(selectedEvent) : undefined}
                 definitions={data.definitions}
                 onSelectEvent={selectEvent}
                 onSelectPerformance={selectPerformance}
@@ -1081,7 +1092,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           </aside>
         </div>
 
-      <StatusBar cityId={cityId} />
+      <StatusBar cityId={cityId} shareUrl={websiteShareUrl} />
 
       {/* Mobile: Filter als Overlay, das von links hereinfährt */}
       {filterOverlay.mounted && (
@@ -1165,6 +1176,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 day={selectedDay}
                 dayEvents={dayEvents}
                 event={sheetEvent}
+                shareUrl={eventShareUrl(sheetEvent)}
                 definitions={data.definitions}
                 onSelectEvent={selectEvent}
                 onSelectPerformance={selectPerformance}

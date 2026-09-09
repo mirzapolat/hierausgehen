@@ -7,11 +7,13 @@ import { useSettings } from '@/lib/settings/context';
 import { AgendaList } from './AgendaList';
 import { AvailabilityDot } from './AvailabilityDot';
 import { CalendarPlus, ChevronLeft, Close, External, Ticket } from './icons';
+import { ShareButton } from './ShareButton';
 
 interface Props {
   day: string;
   dayEvents: CalendarEvent[];
   event?: CalendarEvent;
+  shareUrl?: string;
   definitions: SourceDefinition[];
   onSelectEvent: (event: CalendarEvent) => void;
   onSelectPerformance: (performance: EventPerformance) => void;
@@ -32,6 +34,7 @@ export function DetailPanel({
   day,
   dayEvents,
   event,
+  shareUrl,
   definitions,
   onSelectEvent,
   onSelectPerformance,
@@ -78,6 +81,7 @@ export function DetailPanel({
         {event ? (
           <EventDetail
             event={event}
+            shareUrl={shareUrl}
             definitions={definitions}
             onSelectPerformance={onSelectPerformance}
             revealPerformances={revealPerformances}
@@ -97,11 +101,13 @@ export function DetailPanel({
 
 function EventDetail({
   event,
+  shareUrl,
   definitions,
   onSelectPerformance,
   revealPerformances,
 }: {
   event: CalendarEvent;
+  shareUrl?: string;
   definitions: SourceDefinition[];
   onSelectPerformance: (performance: EventPerformance) => void;
   revealPerformances: number;
@@ -135,7 +141,26 @@ function EventDetail({
         )}
       </div>
 
-      <h3 className="mt-2 text-[19px] font-semibold leading-snug tracking-[-0.015em]">{event.title}</h3>
+      <div className="mt-2 flex items-start gap-2">
+        <h3 className="min-w-0 flex-1 text-[19px] font-semibold leading-snug tracking-[-0.015em]">
+          {event.title}
+        </h3>
+        {shareUrl && (
+          <ShareButton
+            url={shareUrl}
+            title={event.title}
+            label={t('shareEvent')}
+            copiedLabel={t('menuLinkCopied')}
+            iconOnly
+            umamiEvent="share-event"
+            umamiSource={event.sourceId}
+            umamiCategory={event.category}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full
+                       border border-line bg-[var(--canvas)] text-muted
+                       hover:border-line-strong hover:text-text"
+          />
+        )}
+      </div>
       {event.subtitle && <p className="mt-1 text-[13px] text-muted">{event.subtitle}</p>}
 
       <dl className="mt-5 flex flex-col">

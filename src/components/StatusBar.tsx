@@ -6,8 +6,9 @@ import { track } from '@/lib/analytics';
 import { cities } from '@/lib/cities';
 import { useSettings } from '@/lib/settings/context';
 import { Checkbox } from './Checkbox';
+import { ShareButton } from './ShareButton';
 
-export function StatusBar({ cityId }: { cityId: string }) {
+export function StatusBar({ cityId, shareUrl }: { cityId: string; shareUrl: string }) {
   const { t } = useSettings();
   const link = 'shrink-0 whitespace-nowrap px-1 py-2 text-[12px] text-faint underline-offset-2 hover:text-muted hover:underline lg:py-1 lg:text-[11px]';
 
@@ -33,20 +34,33 @@ export function StatusBar({ cityId }: { cityId: string }) {
           </Link>
         ))}
       </nav>
-      <a
-        href="https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={t('donateTitle')}
-        title={t('donateTitle')}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-red-500/30
-                   bg-red-500/10 text-red-500 transition-colors
-                   hover:border-red-500/50 hover:bg-red-500/20 lg:h-7 lg:w-7"
-      >
-        <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3 shrink-0">
-          <path d="M12 21s-9-5.5-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.5-9 12-9 12Z" />
-        </svg>
-      </a>
+      <div className="flex shrink-0 items-center gap-2">
+        <ShareButton
+          url={shareUrl}
+          title={t('appName')}
+          label={t('shareWebsite')}
+          visibleLabel={t('share')}
+          copiedLabel={t('menuLinkCopied')}
+          umamiEvent="share-website"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-line
+                     bg-[var(--canvas)] px-3 text-[12px] text-muted transition-colors
+                     hover:border-line-strong hover:text-text lg:hidden"
+        />
+        <a
+          href="https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={t('donateTitle')}
+          title={t('donateTitle')}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-red-500/30
+                     bg-red-500/10 text-red-500 transition-colors
+                     hover:border-red-500/50 hover:bg-red-500/20 lg:h-7 lg:w-7"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3 shrink-0">
+            <path d="M12 21s-9-5.5-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.5-9 12-9 12Z" />
+          </svg>
+        </a>
+      </div>
     </footer>
   );
 }
@@ -180,4 +194,3 @@ function ExportLink() {
 function allCityIds(): Set<string> {
   return new Set(cities.map((city) => city.id));
 }
-
