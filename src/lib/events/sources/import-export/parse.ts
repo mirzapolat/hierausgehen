@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das Programm des Import Export (`https://import-export.cc/programm/`).
@@ -37,11 +38,8 @@ const DATE = /^(\d{1,2})\.(\d{1,2})\.?$/;
 /** "Einlass: 19:00" */
 const TIME = /(\d{1,2})[.:](\d{2})/;
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke ohne Datum, Uhrzeit, Titel oder Link – für Monitoring/Logs. */
-  skipped: number;
-}
+/** Termine, übersprungene Blöcke und ob die Liste leer ist (siehe `page.ts`). */
+export type ParseResult = PageResult;
 
 /**
  * @param today Bezugstag "YYYY-MM-DD" für das fehlende Jahr.
@@ -56,7 +54,9 @@ export function parseProgrammePage(html: string, today: string): ParseResult {
   // Vor dem Trenner läuft die Liste vorwärts, danach rückwärts.
   let nextDate = yearWalker(today, 'forward');
 
-  $('#content .events.list').first().children().each((_, element) => {
+  const list = $('#content .events.list').first();
+
+  list.children().each((_, element) => {
     const node = $(element);
 
     if (node.is('.archive-stick') || node.find('.archive-stick').length > 0) {
@@ -105,7 +105,7 @@ export function parseProgrammePage(html: string, today: string): ParseResult {
     });
   });
 
-  return { events, skipped };
+  return { events, skipped, empty: list.length > 0 && events.length === 0 };
 }
 
 /**

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { addDays, type ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
+import { AppMenu } from './AppMenu';
 import { CityPicker } from './CityPicker';
 import { ShareButton } from './ShareButton';
 import {
@@ -264,6 +265,8 @@ export function Toolbar({
           className="hidden h-7 items-center gap-1.5 rounded-[var(--radius-sm)] px-2
                      text-[12px] text-muted hover:bg-[var(--canvas)] hover:text-text lg:flex"
         />
+
+        <AppMenu cityId={cityId} shareUrl={shareUrl} className={iconButton} />
       </div>
     </header>
   );

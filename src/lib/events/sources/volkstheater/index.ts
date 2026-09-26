@@ -2,6 +2,8 @@ import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '
 import { fetchText } from '../../http.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseSchedulePage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, withinRange } from '../collect.ts';
 
 /**
  * Muenchner Volkstheater.
@@ -41,9 +43,7 @@ export const volkstheater: EventSource = {
     });
 
     const { events, skipped, empty } = parseSchedulePage(html, range.from.slice(0, 7));
-    if (events.length === 0 && !empty) {
-      throw new Error('Spielplan: kein Termin erkannt (Layout geaendert?)');
-    }
+    assertRecognised(events.length, empty, 'Spielplan');
     if (skipped > 0) {
       console.warn(`[volkstheater] ${skipped} Termin(e) uebersprungen`);
     }
@@ -59,17 +59,6 @@ export const volkstheater: EventSource = {
     });
   },
 };
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
 
 function productionKey(event: CalendarEvent): string | undefined {
   try {

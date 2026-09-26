@@ -1,8 +1,9 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ } from '../../time.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseProgramme } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { today, withinRange } from '../collect.ts';
 
 /**
  * Literaturhaus München.
@@ -52,9 +53,7 @@ export const literaturhaus: EventSource = {
     // Eine gerenderte, aber leere Liste wäre eine gültige Auskunft (Programm
     // noch nicht veröffentlicht). Fehlt der Container, hat sich der Aufbau
     // geändert – dann lieber werfen und den Cache ausliefern lassen.
-    if (!empty && events.length === 0) {
-      throw new Error('Kein Terminblock erkannt (Layout geändert?)');
-    }
+    assertRecognised(events.length, empty, 'Programm');
     if (skipped > 0) console.warn(`[literaturhaus] ${skipped} Block/Blöcke übersprungen`);
 
     const filtered = events.filter((event) => withinRange(event.start, range));
@@ -67,20 +66,5 @@ export const literaturhaus: EventSource = {
     });
   },
 };
-
-/** Heutiger Tag in Münchner Zeit, "YYYY-MM-DD". */
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
 
 export default literaturhaus;

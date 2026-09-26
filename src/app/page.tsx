@@ -5,7 +5,8 @@ import { eventsInRange } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { coverageRange, loadRange } from '@/lib/calendar';
 import { DEFAULT_CITY_ID, cityById, isKnownCityId } from '@/lib/cities';
-import { SITE_NAME, cityMetadata, cityPath } from '@/lib/site';
+import { SITE_NAME, cityPath } from '@/lib/site';
+import { cityMetadata } from '@/lib/site-metadata';
 
 export const dynamic = 'force-dynamic';
 

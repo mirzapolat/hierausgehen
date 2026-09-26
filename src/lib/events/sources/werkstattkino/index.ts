@@ -1,7 +1,7 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ } from '../../time.ts';
 import { parseProgrammePage } from './parse.ts';
+import { today } from '../collect.ts';
 
 /**
  * Werkstattkino – Programmkino im Keller der Fraunhoferstrasse 9.
@@ -67,15 +67,5 @@ export const werkstattkino: EventSource = {
     );
   },
 };
-
-/** Heutiger Tag in Münchner Zeit – Bezugspunkt für das fehlende Jahr. */
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
 
 export default werkstattkino;

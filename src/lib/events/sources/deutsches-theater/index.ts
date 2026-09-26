@@ -9,6 +9,8 @@ import {
   type DetailInfo,
   type ProgrammeEntry,
 } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, errorMessage, today, withinRange } from '../collect.ts';
 
 const SOURCE_ID = 'deutsches-theater';
 const AJAX = `${BASE}/core/wp-admin/admin-ajax.php`;
@@ -63,9 +65,7 @@ export const deutschesTheater: EventSource = {
     });
     const { entries, skipped, empty } = parseProgrammeList(html);
 
-    if (entries.length === 0 && !empty) {
-      throw new Error('Keine Programmliste erkannt (Layout geändert?)');
-    }
+    assertRecognised(entries.length, empty, 'Programmliste');
     if (skipped > 0) {
       console.warn(`[${SOURCE_ID}] ${skipped} Programmkarte(n) übersprungen`);
     }
@@ -171,34 +171,10 @@ function intersects(entry: ProgrammeEntry, range: FetchRange): boolean {
   return !!entry.dateRange && entry.dateRange.from <= range.to && entry.dateRange.to >= range.from;
 }
 
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const byId = new Map<string, CalendarEvent>();
-  for (const event of events) byId.set(event.id, event);
-  return [...byId.values()];
-}
-
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Berlin',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
 function hash(value: string): string {
   let h = 5381;
   for (let i = 0; i < value.length; i++) h = (h * 33) ^ value.charCodeAt(i);
   return (h >>> 0).toString(36);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export default deutschesTheater;

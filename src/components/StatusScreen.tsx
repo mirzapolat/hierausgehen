@@ -155,6 +155,10 @@ function SourceRow({
       {problem && status?.error && (
         <p className="text-[12px] leading-relaxed text-[var(--danger)] sm:col-span-4">{status.error}</p>
       )}
+      {/* Erreichbar, aber ohne Termin – Saisonpause, keine Störung. */}
+      {!problem && status?.eventCount === 0 && (
+        <p className="text-[12px] leading-relaxed text-faint sm:col-span-4">{t('statusNoEvents')}</p>
+      )}
     </li>
   );
 }

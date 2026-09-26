@@ -7,6 +7,8 @@ import {
   theaterakademieBaseUrl as BASE,
   theaterakademieProgrammeUrl as PROGRAMME_URL,
 } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { withinRange } from '../collect.ts';
 
 /**
  * Bayerische Theaterakademie August Everding (Prinzregententheater).
@@ -50,9 +52,7 @@ export const theaterakademie: EventSource = {
     });
 
     const { events, skipped, empty, described } = parseProgrammePage(html);
-    if (events.length === 0 && !empty) {
-      throw new Error('Spielplan: kein Termin erkannt (Layout geändert?)');
-    }
+    assertRecognised(events.length, empty, 'Spielplan');
     if (skipped > 0) {
       console.warn(`[${SOURCE_ID}] ${skipped} Eintrag/Einträge übersprungen`);
     }
@@ -70,11 +70,6 @@ export const theaterakademie: EventSource = {
     });
   },
 };
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
 
 /**
  * Mehrere Abende derselben Produktion teilen sich eine Seite – der Detailtext

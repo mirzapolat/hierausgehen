@@ -106,3 +106,11 @@ test('erkennt leere und kaputte Antworten', () => {
     empty: false,
   });
 });
+
+test('erkennt die leere Liste ausserhalb der Saison', () => {
+  assert.deepEqual(parseEventsPage(fixture('events-leer-2026-09-27.html')), {
+    events: [],
+    skipped: 0,
+    empty: true,
+  });
+});

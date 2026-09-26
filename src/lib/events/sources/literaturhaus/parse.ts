@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das Programm des Literaturhauses München (`/programm/`).
@@ -22,10 +23,7 @@ import { clean } from '../../text.ts';
 const SOURCE_ID = 'literaturhaus';
 const BASE = 'https://www.literaturhaus-muenchen.de';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke, die nicht verwertbar waren – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Liste wurde gerendert, enthält aber keinen Termin. */
   empty: boolean;
 }

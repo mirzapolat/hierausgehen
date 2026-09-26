@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das Programm des Bahnwärter Thiel (`https://www.bahnwaerterthiel.de/`).
@@ -46,11 +47,8 @@ const SPAN = /(\d{1,2})(?:[.:](\d{2}))?\s*[-–]\s*(\d{1,2})(?:[.:](\d{2}))?\s*U
 /** "20 Uhr" – falls eine Zeile nur den Beginn nennt. */
 const SINGLE = /(\d{1,2})(?:[.:](\d{2}))?\s*Uhr/;
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke mit Datum, aber ohne Titel oder Uhrzeit – für Monitoring/Logs. */
-  skipped: number;
-}
+/** Termine, übersprungene Blöcke und ob die Liste leer ist (siehe `page.ts`). */
+export type ParseResult = PageResult;
 
 export function parseProgrammePage(html: string): ParseResult {
   const $ = cheerio.load(html);
@@ -59,7 +57,10 @@ export function parseProgrammePage(html: string): ParseResult {
   const seen = new Set<string>();
   let skipped = 0;
 
-  $('div.bmt-wrap').each((_, element) => {
+  // Der Container steht auch in der Spielpause; fehlt er, ist der Aufbau neu.
+  const list = $('.bmt-events');
+
+  list.find('div.bmt-wrap').each((_, element) => {
     const item = $(element);
     const label = item.children('label').first();
     if (label.length === 0) return;
@@ -119,7 +120,7 @@ export function parseProgrammePage(html: string): ParseResult {
     });
   });
 
-  return { events, skipped };
+  return { events, skipped, empty: list.length > 0 && events.length === 0 };
 }
 
 /* ------------------------------------------------------------------ */

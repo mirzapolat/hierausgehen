@@ -1,9 +1,10 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ } from '../../time.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseListPage } from './parse.ts';
 import type { ParseResult } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, today, withinRange } from '../collect.ts';
 
 /**
  * MünchenMusik – Konzertveranstalter mit eigenem Spielplan über mehrere Häuser
@@ -122,9 +123,7 @@ async function loadPage(
   if (!result.rendered) {
     throw new Error(`Veranstaltungen Seite ${page}: kein Pager (Layout geändert?)`);
   }
-  if (result.blocks === 0 && !result.empty) {
-    throw new Error(`Veranstaltungen Seite ${page}: kein Termin erkannt (Layout geändert?)`);
-  }
+  assertRecognised(result.blocks, result.empty, `Veranstaltungen Seite ${page}`);
   if (result.skipped > 0) {
     console.warn(`[muenchenmusik] Seite ${page}: ${result.skipped} Block/Blöcke übersprungen`);
   }
@@ -145,26 +144,6 @@ function pageUrl(range: FetchRange, page: number): string {
 function german(day: string): string {
   const [year, month, date] = day.split('-');
   return `${date}.${month}.${year}`;
-}
-
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
 }
 
 /**

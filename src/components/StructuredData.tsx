@@ -1,6 +1,7 @@
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { cityById } from '@/lib/cities';
-import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, cityMetadata, cityUrl } from '@/lib/site';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL, cityUrl } from '@/lib/site';
+import { cityMetadata } from '@/lib/site-metadata';
 
 /**
  * Strukturierte Daten für Suchmaschinen (schema.org).

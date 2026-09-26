@@ -18,7 +18,9 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../types.ts';
 import { fetchText } from '../http.ts';
 import { berlinIso } from '../time.ts';
+import { withinRange } from './collect.ts';
 import { enrichEventDescriptions } from './detail.ts';
+import { assertRecognised, type PageResult } from './page.ts';
 
 const BASE = 'https://example.com';
 
@@ -45,18 +47,17 @@ export const templateSource: EventSource = {
       timeoutMs: options?.requestTimeoutMs,
     });
 
-    const events = parse(html);
+    const { events, skipped, empty } = parse(html);
 
-    // Antwort ohne erkennbare Termine heisst in der Regel: Layout geändert.
-    // Werfen ist hier richtig – die Aggregation liefert dann den Cache aus
-    // und meldet die Quelle als veraltet, statt still nichts anzuzeigen.
-    if (events.length === 0 && html.length > 2000) {
-      throw new Error('Kein Termin erkannt (Layout geändert?)');
-    }
+    // Leere Liste (Spielpause) ist ein gültiger Stand; eine Seite ohne
+    // erkennbare Liste heisst: Layout geändert. Dann werfen – die Aggregation
+    // liefert den Cache aus und meldet die Quelle als gestört (siehe `page.ts`).
+    assertRecognised(events.length, empty, 'Spielplan');
+    if (skipped > 0) console.warn(`[template] ${skipped} Block/Blöcke übersprungen`);
 
-    const filtered = events.filter(
-      (e) => e.start.slice(0, 10) >= range.from && e.start.slice(0, 10) <= range.to,
-    );
+    // Lädt die Quelle monatsweise, die Monate über `settleParts` aus
+    // `collect.ts` holen: einzelne Lücken hinnehmen, Totalausfall werfen.
+    const filtered = events.filter((event) => withinRange(event.start, range));
     return enrichEventDescriptions({
       sourceId: 'template',
       events: filtered,
@@ -70,7 +71,7 @@ export const templateSource: EventSource = {
   },
 };
 
-function parse(html: string): CalendarEvent[] {
+function parse(html: string): PageResult {
   void html; // In der echten Quelle wird hier geparst.
   // Beispielhafte Abbildung – in der echten Quelle nach `parse.ts` auslagern.
   const example: CalendarEvent = {
@@ -91,7 +92,8 @@ function parse(html: string): CalendarEvent[] {
     url: `${BASE}/stuecke/12345`,
     notes: ['Preise: 15–65 €'],
   };
-  return [example];
+  // `empty`: der Container der Liste ist da, enthält aber nichts.
+  return { events: [example], skipped: 0, empty: false };
 }
 
 function parseDetailDescription(html: string): string | undefined {

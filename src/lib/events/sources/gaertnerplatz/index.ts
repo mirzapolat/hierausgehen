@@ -1,6 +1,7 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { type CookieJar, createCookieJar, fetchText } from '../../http.ts';
 import { parseEventList, parseSparten } from './parse.ts';
+import { dedupeById, settleParts, withinRange } from '../collect.ts';
 
 /**
  * Staatstheater am Gärtnerplatz – über den Kartenshop des Staatstheaters
@@ -78,25 +79,18 @@ export const gaertnerplatz: EventSource = {
     // als gar keine. `genre: '0'` ist im Shop „alle Sparten".
     const filters = sparten.length > 0 ? sparten : [{ id: '0', name: '' }];
 
-    const events: CalendarEvent[] = [];
-    const failures: string[] = [];
-    let blocks = 0;
-
+    // Eine kaputte Sparte ist zu verschmerzen, ein Totalausfall nicht.
     // Bewusst nacheinander: der Shop führt die Liste in der Sitzung, und
     // elf kleine Abrufe am Tag sind ihm zuzumuten, ein Schwall nicht.
-    for (const sparte of filters) {
-      try {
-        const collected = await collectSparte(jar, sparte, range, signal, options);
-        blocks += collected.blocks;
-        events.push(...collected.events);
-      } catch (error) {
-        failures.push(`${sparte.name || 'alle Sparten'}: ${errorMessage(error)}`);
-      }
-    }
-
-    // Eine kaputte Sparte ist zu verschmerzen, ein Totalausfall nicht.
-    if (failures.length === filters.length) throw new Error(failures.join('; '));
-    if (failures.length) console.warn(`[gaertnerplatz] Teilausfall – ${failures.join('; ')}`);
+    const collected = await settleParts({
+      sourceId: 'gaertnerplatz',
+      parts: filters,
+      label: (sparte) => sparte.name || 'alle Sparten',
+      load: (sparte) => collectSparte(jar, sparte, range, signal, options),
+      sequential: true,
+    });
+    const events = collected.flatMap((sparte) => sparte.events);
+    const blocks = collected.reduce((sum, sparte) => sum + sparte.blocks, 0);
 
     // Antwortet der Shop, ohne dass ein einziger Block zu erkennen ist, hat
     // sich sein Aufbau geändert. Ein stilles „keine Veranstaltungen" wäre die
@@ -177,21 +171,6 @@ function deltaBody(genre: string, page: number, from: string): string {
 function germanDate(iso: string): string {
   const [year, month, day] = iso.split('-');
   return `${day}.${month}.${year}`;
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export default gaertnerplatz;

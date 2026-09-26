@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser fuer den oeffentlichen Spielplan des Muenchner Volkstheaters.
@@ -13,9 +14,7 @@ import { clean, softenShouted } from '../../text.ts';
 const SOURCE_ID = 'volkstheater';
 const BASE = 'https://www.muenchner-volkstheater.de';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Schedule wurde gerendert, enthaelt aber keine Termine. */
   empty: boolean;
 }

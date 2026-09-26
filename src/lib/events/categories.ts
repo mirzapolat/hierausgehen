@@ -71,7 +71,20 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   Musical: ['Musicalshow', 'Musical Gala', 'Musicalgala', 'Musical Theatre'],
   Ballett: ['Tanztheater'],
   Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend'],
-  Theater: ['Schauspiel', 'Sprechtheater', 'Commercial-Play', 'Plays', 'Drama', 'JGPTheater', 'Junges Theater'],
+  Theater: [
+    'Schauspiel',
+    'Sprechtheater',
+    'Commercial-Play',
+    'Plays',
+    'Drama',
+    'JGPTheater',
+    'Junges Theater',
+    // Oldenburg: Sparten des Staatstheaters.
+    'Junges Staatstheater',
+    'Niederdeutsches Schauspiel',
+    // Benennt die Form, nicht die Gattung – an einem Theater meist Theater.
+    'Gastspiel',
+  ],
   Performance: ['Performances'],
   Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus'],
   Comedy: [
@@ -161,6 +174,8 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Other Talks',
     'Podium',
     'Panel',
+    // Theaterpädagogik: Workshops, Jugendclubs, Gespräche.
+    'Theatervermittlung',
   ],
   Netzwerk: ['Networking', 'Vernetzung', 'Austausch'],
   Ausstellung: ['Ausstellungen', 'Installation', 'Exhibition'],
@@ -170,7 +185,9 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   Führung: ['Heritage Tours', 'Heritage Building Tours', 'Building Tours', 'Guided Tour', 'Tour', 'Rundgang', 'Hausführung'],
   // Sammelbegriff für Häuser, die zu ihren Terminen gar keine Gattung führen
   // und deren Programm quer über Konzert, Bühne und Ausstellung läuft.
-  Kultur: ['Arts, Music and Culture', 'Arts', 'Culture'],
+  // „Sparte 7“ (Staatstheater Oldenburg) ist so ein Programm: Diskursabende,
+  // Bingo, Experimente – quer durch alle Formen.
+  Kultur: ['Arts, Music and Culture', 'Arts', 'Culture', 'Sparte 7'],
   'Kinder & Familie': [
     'Kinder',
     'Familie',

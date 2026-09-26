@@ -46,19 +46,7 @@ export function ShareButton({
   const currentVisibleLabel = copied ? copiedLabel : (visibleLabel ?? label);
 
   const onShare = async () => {
-    const absoluteUrl = new URL(url, window.location.href).toString();
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: title ?? document.title, url: absoluteUrl });
-        return;
-      } catch (error) {
-        // Wer den Systemdialog schliesst, wollte nicht ersatzweise kopieren.
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-      }
-    }
-
-    if (!(await copyText(absoluteUrl))) return;
+    if ((await shareLink(url, title)) !== 'copied') return;
     setCopied(true);
     if (resetTimer.current) window.clearTimeout(resetTimer.current);
     resetTimer.current = window.setTimeout(() => setCopied(false), 1800);
@@ -81,6 +69,26 @@ export function ShareButton({
       </span>
     </button>
   );
+}
+
+/**
+ * Teilt über das Gerät oder legt den Link ersatzweise in die Zwischenablage.
+ * `copied` heisst: der Aufrufer sollte das kurz bestätigen.
+ */
+export async function shareLink(url: string, title?: string): Promise<'shared' | 'copied' | 'none'> {
+  const absoluteUrl = new URL(url, window.location.href).toString();
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: title ?? document.title, url: absoluteUrl });
+      return 'shared';
+    } catch (error) {
+      // Wer den Systemdialog schliesst, wollte nicht ersatzweise kopieren.
+      if (error instanceof DOMException && error.name === 'AbortError') return 'none';
+    }
+  }
+
+  return (await copyText(absoluteUrl)) ? 'copied' : 'none';
 }
 
 async function copyText(value: string): Promise<boolean> {

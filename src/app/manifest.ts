@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { SITE_DESCRIPTION } from '@/lib/site';
 
 /**
  * Web-App-Manifest. Damit lässt sich der Kalender auf dem Startbildschirm
@@ -8,8 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'HIERAUSGEHEN.de',
     short_name: 'HIERAUSGEHEN.de',
-    description:
-      'Ein Kalender für alle Veranstaltungen in München: Oper, Ballett, Theater und Konzert an einem Ort.',
+    description: SITE_DESCRIPTION,
     id: '/',
     start_url: '/',
     scope: '/',

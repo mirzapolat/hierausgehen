@@ -18,6 +18,7 @@ import { muenchenmusik } from './sources/muenchenmusik/index.ts';
 import { pavilionGlasgow } from './sources/pavilion-glasgow/index.ts';
 import { rcs } from './sources/rcs/index.ts';
 import { residenztheater } from './sources/residenztheater/index.ts';
+import { staatstheaterOldenburg } from './sources/staatstheater-oldenburg/index.ts';
 import { staatsoper } from './sources/staatsoper/index.ts';
 import { tron } from './sources/tron/index.ts';
 import { theaterakademie } from './sources/theaterakademie/index.ts';
@@ -57,6 +58,7 @@ export const sources: EventSource[] = [
   tron,
   rcs,
   thestandGlasgow,
+  staatstheaterOldenburg,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));

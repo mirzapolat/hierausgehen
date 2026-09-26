@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für den Spielplan der Unterfahrt (`programm.php?month=MM&year=YYYY`).
@@ -34,10 +35,7 @@ const EINSTEIN = 'Einstein Kultur';
 /** "DI•01•09•2026, 20••30" */
 const VISIBLE = /^\p{L}{2}•(\d{1,2})•(\d{1,2})•(\d{4}),\s*(\d{1,2})••(\d{2})$/u;
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke ohne Termin oder ID – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Liste wurde gerendert, enthält aber kein Konzert. */
   empty: boolean;
 }

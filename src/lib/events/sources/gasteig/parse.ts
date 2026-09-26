@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für den Gasteig (HP8 und Motorama).
@@ -33,10 +34,7 @@ const BASE = `https://${HOST}`;
  */
 const EXCLUDED_TAGS = new Set(['categories:kreativ', 'general:kinder-jugend']);
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke ohne Titel, Datum oder ID – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Blöcke, die wegen eines ausgeschlossenen Schlagworts wegfallen. */
   excluded: number;
   /** Die Antwort war leer – bei dieser Quelle: kein Termin im Zeitraum. */

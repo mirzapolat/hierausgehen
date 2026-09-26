@@ -108,12 +108,21 @@ test('liest den Programmtext der Detailseite', () => {
 });
 
 test('meldet nichts statt zu raten, wenn die Antwort unbrauchbar ist', () => {
-  assert.deepEqual(parseProgrammePage('', '2026-09-01'), { events: [], skipped: 0 });
+  assert.deepEqual(parseProgrammePage('', '2026-09-01'), { events: [], skipped: 0, empty: false });
   assert.deepEqual(parseProgrammePage('<html><body><p>Wartung</p>', '2026-09-01'), {
     events: [],
     skipped: 0,
+    empty: false,
   });
   assert.equal(parseDetailDescription(''), undefined);
   // Ein einzelnes Gattungswort ist noch kein Programmtext.
   assert.equal(parseDetailDescription('<article><div class="content"><p>KONZERT</p></div></article>'), undefined);
+});
+
+test('hält die Spielpause von einem geänderten Aufbau auseinander', () => {
+  assert.deepEqual(parseProgrammePage('<main><section class="events"></section></main>', '2026-09-01'), {
+    events: [],
+    skipped: 0,
+    empty: true,
+  });
 });

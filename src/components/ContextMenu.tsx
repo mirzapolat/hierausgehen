@@ -41,7 +41,8 @@ export function ContextMenu({ x, y, items, label, onClose }: Props) {
   useLayoutEffect(() => {
     const element = menu.current;
     if (!element) return;
-    const { width, height } = element.getBoundingClientRect();
+    // Ohne Transform messen: beim Einblenden ist das Menü noch verkleinert.
+    const { offsetWidth: width, offsetHeight: height } = element;
     setPosition({
       left: Math.max(MARGIN, Math.min(x, window.innerWidth - width - MARGIN)),
       top: Math.max(MARGIN, Math.min(y, window.innerHeight - height - MARGIN)),

@@ -3,6 +3,8 @@ import { fetchText } from '../../http.ts';
 import { monthsInRange } from '../../time.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseSchedulePage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, settleParts, withinRange } from '../collect.ts';
 
 /**
  * Residenztheater München (Residenztheater, Cuvilliéstheater, Marstall).
@@ -46,36 +48,28 @@ export const residenztheater: EventSource = {
   ): Promise<CalendarEvent[]> {
     const months = monthsInRange(range.from.slice(0, 7), range.to.slice(0, 7));
 
-    const results = await Promise.allSettled(
-      months.map(async (month) => {
-        const html = await fetchText(`${BASE}/spielplan?month=${month}`, {
-          signal,
-          timeoutMs: options?.requestTimeoutMs,
-        });
-        const { events, skipped, empty } = parseSchedulePage(html, month);
-
-        // Fehlt die Liste ganz, hat sich der Aufbau der Seite geändert. Ein
-        // leerer, aber vorhandener Container ist dagegen ein normaler Monat.
-        if (events.length === 0 && !empty) {
-          throw new Error(`Spielplan ${month}: Terminliste nicht gefunden (Layout geändert?)`);
-        }
-        if (skipped > 0) {
-          console.warn(`[residenztheater] ${month}: ${skipped} Termin(e) übersprungen`);
-        }
-        return events;
-      }),
-    );
-
-    const events: CalendarEvent[] = [];
-    const failures: string[] = [];
-    for (const [i, result] of results.entries()) {
-      if (result.status === 'fulfilled') events.push(...result.value);
-      else failures.push(`${months[i]}: ${errorMessage(result.reason)}`);
-    }
-
     // Einzelne Monatslücken sind hinnehmbar, ein Totalausfall nicht.
-    if (failures.length === months.length) throw new Error(failures.join('; '));
-    if (failures.length) console.warn(`[residenztheater] Teilausfall – ${failures.join('; ')}`);
+    const events = (
+      await settleParts({
+        sourceId: 'residenztheater',
+        parts: months,
+        load: async (month) => {
+          const html = await fetchText(`${BASE}/spielplan?month=${month}`, {
+            signal,
+            timeoutMs: options?.requestTimeoutMs,
+          });
+          const { events, skipped, empty } = parseSchedulePage(html, month);
+
+          // Fehlt die Liste ganz, hat sich der Aufbau der Seite geändert. Ein
+          // leerer, aber vorhandener Container ist dagegen ein normaler Monat.
+          assertRecognised(events.length, empty, `Spielplan ${month}`);
+          if (skipped > 0) {
+            console.warn(`[residenztheater] ${month}: ${skipped} Termin(e) übersprungen`);
+          }
+          return events;
+        },
+      })
+    ).flat();
 
     const filtered = dedupeById(events).filter((event) => withinRange(event.start, range));
     return enrichEventDescriptions({
@@ -89,17 +83,6 @@ export const residenztheater: EventSource = {
   },
 };
 
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
-
 function productionKey(event: CalendarEvent): string | undefined {
   try {
     const url = new URL(event.url);
@@ -107,10 +90,6 @@ function productionKey(event: CalendarEvent): string | undefined {
   } catch {
     return event.url;
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export default residenztheater;

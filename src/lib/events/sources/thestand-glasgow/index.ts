@@ -10,6 +10,7 @@ import {
   parseMonth,
   showKey,
 } from './parse.ts';
+import { settleParts, withinRange } from '../collect.ts';
 
 /**
  * The Stand Comedy Club, Glasgow.
@@ -53,42 +54,28 @@ export const thestandGlasgow: EventSource = {
   ): Promise<CalendarEvent[]> {
     const months = monthsInRange(range.from.slice(0, 7), range.to.slice(0, 7));
 
-    const results = await Promise.allSettled(
-      months.map(async (month) => {
-        const html = await fetchText(monthUrl(month), {
-          signal,
-          timeoutMs: options?.requestTimeoutMs,
-        });
-        const parsed = parseMonth(html);
-        // Ein leerer Monat ist eine Auskunft, keine kaputte Seite – die Quelle
-        // schreibt sie selbst ins Markup. Fehlt dagegen das Monatsraster ganz,
-        // ist der Aufbau geändert.
-        if (!parsed.recognised) throw new Error(`${month}: kein Monatsraster (Layout geändert?)`);
-        return parsed.events;
-      }),
-    );
-
-    const events: CalendarEvent[] = [];
-    let failed = 0;
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        failed++;
-        console.warn(`[${SOURCE_ID}] ${months[index]}: ${message(result.reason)}`);
-        return;
-      }
-      events.push(...result.value);
-    });
-
     // Einzelne Lücken sind hinnehmbar; fällt jeder Monat aus, muss die Quelle
     // sich als kaputt melden, damit die Aggregation den Cache ausliefert.
-    if (failed === months.length) {
-      throw new Error(`Keine der ${months.length} Monatsseiten lesbar`);
-    }
+    const events = (
+      await settleParts({
+        sourceId: SOURCE_ID,
+        parts: months,
+        load: async (month) => {
+          const html = await fetchText(monthUrl(month), {
+            signal,
+            timeoutMs: options?.requestTimeoutMs,
+          });
+          const parsed = parseMonth(html);
+          // Ein leerer Monat ist eine Auskunft, keine kaputte Seite – die Quelle
+          // schreibt sie selbst ins Markup. Fehlt dagegen das Monatsraster ganz,
+          // ist der Aufbau geändert.
+          if (!parsed.recognised) throw new Error(`${month}: kein Monatsraster (Layout geändert?)`);
+          return parsed.events;
+        },
+      })
+    ).flat();
 
-    const inRange = events.filter((event) => {
-      const day = event.start.slice(0, 10);
-      return day >= range.from && day <= range.to;
-    });
+    const inRange = events.filter((event) => withinRange(event.start, range));
 
     return enrichEventDescriptions({
       sourceId: SOURCE_ID,
@@ -102,8 +89,5 @@ export const thestandGlasgow: EventSource = {
   },
 };
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 export default thestandGlasgow;

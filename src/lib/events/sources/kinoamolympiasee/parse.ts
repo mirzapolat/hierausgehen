@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser fuer Kino am Olympiasee.
@@ -21,10 +22,12 @@ const SOURCE_ID = 'kinoamolympiasee';
 const BASE = 'https://kinoamolympiasee.de';
 const VENUE = 'Kino am Olympiasee';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  skipped: number;
-  /** Der Karten-Container wurde gerendert, enthaelt aber keine Vorstellung. */
+export interface ParseResult extends PageResult {
+  /**
+   * Keine Vorstellung angekuendigt – etwa ausserhalb der Sommersaison. Avada
+   * rendert dann entweder einen leeren Karten-Container oder statt der Liste
+   * `.fusion-nothing-found`.
+   */
   empty: boolean;
 }
 
@@ -33,7 +36,8 @@ export function parseEventsPage(html: string): ParseResult {
   const cards = $('.post-card');
 
   if (cards.length === 0) {
-    return { events: [], skipped: 0, empty: $('.fusion-post-cards, ul.fusion-grid-posts-cards').length > 0 };
+    const empty = $('.fusion-post-cards, ul.fusion-grid-posts-cards, .fusion-nothing-found').length > 0;
+    return { events: [], skipped: 0, empty };
   }
 
   const events: CalendarEvent[] = [];

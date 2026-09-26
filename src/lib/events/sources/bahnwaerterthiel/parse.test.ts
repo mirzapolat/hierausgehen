@@ -94,9 +94,18 @@ test('leitet die Ticketlage aus dem Vorverkaufslink ab', () => {
 });
 
 test('kommt mit leerer und kaputter Antwort klar', () => {
-  assert.deepEqual(parseProgrammePage(''), { events: [], skipped: 0 });
+  assert.deepEqual(parseProgrammePage(''), { events: [], skipped: 0, empty: false });
   assert.deepEqual(parseProgrammePage('<html><body><div class="bmt-wrap">'), {
     events: [],
     skipped: 0,
+    empty: false,
+  });
+});
+
+test('hält die Spielpause von einem geänderten Aufbau auseinander', () => {
+  assert.deepEqual(parseProgrammePage('<div class="bmt-events"></div>'), {
+    events: [],
+    skipped: 0,
+    empty: true,
   });
 });

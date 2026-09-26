@@ -2,6 +2,7 @@ import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '
 import { fetchText } from '../../http.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseProgrammePage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
 
 /**
  * Münchner Kammerspiele – Schauspielhaus, Werkraum, Therese-Giehse-Halle,
@@ -51,12 +52,11 @@ export const kammerspiele: EventSource = {
       timeoutMs: options?.requestTimeoutMs,
     });
 
-    const { events, skipped } = parseProgrammePage(html);
+    const { events, skipped, empty } = parseProgrammePage(html);
 
-    // Die Seite ist die ganze Spielzeit in einem Stück. Keinen einzigen Termin
-    // zu finden heisst hier nicht "Spielpause", sondern: der Aufbau hat sich
-    // geändert. Werfen, damit die Aggregation den Cache ausliefert.
-    if (events.length === 0) throw new Error('Kein Termin erkannt (Layout geändert?)');
+    // Ein leerer, aber vorhandener Container ist eine Spielpause; fehlt er,
+    // hat sich der Aufbau geändert (siehe `page.ts`).
+    assertRecognised(events.length, empty, 'Programm');
     if (skipped > 0) console.warn(`[kammerspiele] ${skipped} Block/Blöcke übersprungen`);
 
     const filtered = events.filter(

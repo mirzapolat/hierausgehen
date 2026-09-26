@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für die Spielplanseite des Residenztheaters
@@ -16,10 +17,7 @@ import { clean, softenShouted } from '../../text.ts';
 const SOURCE_ID = 'residenztheater';
 const BASE = 'https://www.residenztheater.de';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Termine, die nicht verwertbar waren – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Liste wurde gerendert, enthält aber keinen Termin. */
   empty: boolean;
 }

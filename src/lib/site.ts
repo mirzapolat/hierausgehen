@@ -1,12 +1,18 @@
-import { cities, cityById } from './cities.ts';
-import { sourcesForCity } from './events/registry.ts';
+import { cities } from './cities.ts';
 
-/** Feste Angaben zur Seite – von Layout, Sitemap und strukturierten Daten genutzt. */
+/**
+ * Feste Angaben zur Seite – von Layout, Sitemap und strukturierten Daten genutzt.
+ *
+ * Bewusst ohne Registry: die Datei darf auch im Browser landen. Was die
+ * Quellen braucht, steht in `site-metadata.ts`.
+ */
 export const SITE_URL = 'https://hierausgehen.de';
 export const SITE_NAME = 'HIERAUSGEHEN.de';
-export const SITE_TITLE = 'Veranstaltungskalender für München und Glasgow';
+/** „München, Glasgow und Oldenburg“ – folgt der Liste in `cities.ts`. */
+export const CITY_NAMES = listOf(cities.map((city) => city.name));
+export const SITE_TITLE = `Veranstaltungskalender für ${CITY_NAMES}`;
 export const SITE_DESCRIPTION =
-  'Ein Kalender für Veranstaltungen in München und Glasgow: Oper, Ballett, Theater, ' +
+  `Ein Kalender für Veranstaltungen in ${CITY_NAMES}: Oper, Ballett, Theater, ` +
   'Konzert, Club, Kino und Literatur aus vielen Häusern an einem Ort — mit Datum, ' +
   'Spielstätte und Ticketverfügbarkeit.';
 
@@ -49,28 +55,11 @@ export function cityTitle(cityName: string): string {
   return `Veranstaltungen in ${cityName} – Kalender & Tickets`;
 }
 
-/**
- * Titel und Beschreibung einer Stadt.
- *
- * Die Zahl der Häuser kommt aus der Registry statt aus einem gepflegten Text –
- * eine neue Quelle aktualisiert die Beschreibung damit von selbst.
- */
-export function cityMetadata(cityId: string): { title: string; description: string } {
-  const city = cityById(cityId);
-  const count = sourcesForCity(city.id).length;
-
-  return {
-    // Die Stadt steht vorn, der Name der Seite dahinter – so ist im Tab schon
-    // an den ersten Zeichen zu sehen, welcher Kalender offen ist.
-    title: cityTitle(city.name),
-    description:
-      `Veranstaltungen in ${city.name} in einem Kalender: Oper, Ballett, Theater, ` +
-      `Konzert, Club, Kino und Literatur aus ${count} Häusern — mit Datum, Spielstätte ` +
-      'und Ticketverfügbarkeit, täglich aktualisiert.',
-  };
-}
-
 /** Lesbare Programmübersicht, auch ohne JavaScript. */
 export function programmePath(cityId: string): string {
   return `/veranstaltungen/${cityId}`;
+}
+
+function listOf(names: string[]): string {
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} und ${names.at(-1)}`;
 }

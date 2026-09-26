@@ -39,6 +39,14 @@ export const cities: City[] = [
     country: 'GB',
     coordinates: { latitude: 55.860916, longitude: -4.251433 },
   },
+  {
+    id: 'oldenburg',
+    name: 'Oldenburg',
+    shortName: 'OLD',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 53.143889, longitude: 8.213889 },
+  },
 ];
 
 export const DEFAULT_CITY_ID = 'muenchen';

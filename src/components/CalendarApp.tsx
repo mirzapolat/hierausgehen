@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AggregateResult, CalendarEvent, EventPerformance } from '@/lib/events/types';
 import {
   type ViewMode,
@@ -15,10 +15,13 @@ import {
 } from '@/lib/calendar';
 
 import { track } from '@/lib/analytics';
-import { DETAIL_KEY, SIDEBAR_KEY, matchesKey } from '@/lib/keyboard';
 import { cityById, isKnownCityId } from '@/lib/cities';
 import { sourceColor, sourceName } from '@/lib/events/display';
+import { defaultLayout, readLayoutPrefs, saveLayoutPrefs, spacePrefs } from '@/lib/layoutPrefs';
 import { useSettings } from '@/lib/settings/context';
+import { useCalendarShortcuts } from '@/lib/useCalendarShortcuts';
+import { useEventData } from '@/lib/useEventData';
+import { useEventFilters } from '@/lib/useEventFilters';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { AgendaList } from './AgendaList';
 import { CityIntroScreen } from './CityIntroScreen';
@@ -31,7 +34,6 @@ import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
-import { StatusBar } from './StatusBar';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
 import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
@@ -55,29 +57,6 @@ interface Props {
   initialAnchor: string;
 }
 
-const LAYOUT_STORAGE_KEY = 'hierausgehen.layout.v1';
-
-interface CitySpacePrefs {
-  disabledSources: string[];
-  availableOnly: boolean;
-  disabledCategories: string[];
-}
-
-interface LayoutPrefs {
-  sidebarWidth: number;
-  detailWidth: number;
-  sidebarCollapsed: boolean;
-  detailCollapsed: boolean;
-  /** Dauerhafte Filter pro Stadt-Space. */
-  spaces: Record<string, CitySpacePrefs>;
-}
-
-const defaultSpacePrefs: CitySpacePrefs = {
-  disabledSources: [],
-  availableOnly: false,
-  disabledCategories: [],
-};
-
 /**
  * Womit die Seite aufgeht – und zwar jedes Mal gleich: die zuletzt benutzte
  * Ansicht wird bewusst nicht gemerkt. Wer die Seite öffnet, will zuerst
@@ -96,17 +75,6 @@ function defaultView(): ViewMode {
   return window.matchMedia(DESKTOP_QUERY).matches ? 'week' : 'month';
 }
 
-const defaultLayout: LayoutPrefs = {
-  sidebarWidth: 228,
-  detailWidth: 336,
-  sidebarCollapsed: false,
-  detailCollapsed: false,
-  spaces: {},
-};
-
-/** Solange die Daten einer anderen Stadt gehören, zeigt der Kalender nichts. */
-const emptyResult: AggregateResult = { events: [], sources: [], definitions: [] };
-
 export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
   const { settings, cityStatus, chooseCity, format, t, term } = useSettings();
 
@@ -117,23 +85,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   /** Erzwingt bei erneutem „Heute" ein Zentrieren, auch wenn das Datum gleich bleibt. */
   const [calendarFocusKey, setCalendarFocusKey] = useState(0);
 
-  const [disabled, setDisabled] = useState<Set<string>>(new Set());
-  const [availableOnly, setAvailableOnly] = useState(false);
-  /** Quellenfokus ist absichtlich flüchtig: er überlebt kein Neuladen. */
-  const [solo, setSolo] = useState<Set<string>>(new Set());
-  const [disabledCategories, setDisabledCategories] = useState<Set<string>>(new Set());
-  /** Fokus für Veranstaltungsarten – wie der Quellenfokus bewusst flüchtig. */
-  const [categorySolo, setCategorySolo] = useState<Set<string>>(new Set());
-  const [query, setQuery] = useState('');
   const [layout, setLayout] = useState(defaultLayout);
-
-  /**
-   * Der Datenstand trägt seine Stadt mit sich. Nur so zeigen Kopfzeile,
-   * Quellenliste und Kalender zwangsläufig dieselbe Stadt: bis die Daten der
-   * neuen Stadt da sind, gilt der Kalender als leer, statt kurz die Quellen der
-   * alten Stadt unter dem neuen Namen zu zeigen.
-   */
-  const [loaded, setLoaded] = useState({ cityId: initialCityId, result: initialData });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -147,9 +99,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   /** Zähler: jede Erhöhung holt die Auswahl in den sichtbaren Bereich. */
   const [revealSelection, setRevealSelection] = useState(0);
 
-  const cache = useRef(new Map<string, AggregateResult>([[key(initialCityId, initialRange), initialData]]));
-  /** Zuletzt angeforderter Datenstand – ältere Antworten laufen ins Leere. */
-  const wanted = useRef(key(initialCityId, initialRange));
   /**
    * Erst wenn URL und Speicher gelesen sind, darf zurückgeschrieben werden.
    * Bewusst State und kein Ref: der Schreib-Effekt liefe sonst noch im selben
@@ -168,7 +117,23 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    * München – und bleibt dort, wenn das Nachziehen ins Leere läuft.
    */
   const cityId = restored && settings.cityId ? settings.cityId : initialCityId;
-  const data = loaded.cityId === cityId ? loaded.result : emptyResult;
+
+  /**
+   * Der Server erhebt zwölf Monate im Voraus; weiter kommt der Kalender nicht.
+   * Alles, was den Anker verschiebt, geht durch `clampDay`.
+   */
+  const coverageDay = restored ? format.today() : initialAnchor;
+  const coverage = useMemo(() => coverageRange(coverageDay), [coverageDay]);
+  const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
+
+  const data = useEventData({ initialCityId, initialRange, initialData, cityId, range });
+  const filters = useEventFilters({
+    events: data.events,
+    definitions: data.definitions,
+    locale: settings.locale,
+    term,
+  });
+  const { events, focusSources, setQuery, restore: restoreFilters, space: filterSpace } = filters;
 
   /* --------------------- Einstellungen und Deeplinks --------------------- */
 
@@ -191,9 +156,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     setView(startupView);
     // Die Karte bringt ihre Tagesübersicht mit – auch aus einem Deeplink heraus.
     setLayout(startupView === 'map' ? { ...stored, detailCollapsed: false } : stored);
-    setDisabled(new Set(storedSpace.disabledSources));
-    setAvailableOnly(storedSpace.availableOnly);
-    setDisabledCategories(new Set(storedSpace.disabledCategories));
+    restoreFilters(storedSpace);
     setRestoredSpaceCityId(startupCityId);
 
     const urlDate = params.get('date');
@@ -235,145 +198,17 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     if (restoredSpaceCityId === cityId) return;
 
     const storedSpace = spacePrefs(readLayoutPrefs(cityId), cityId);
+    restoreFilters(storedSpace);
     /* eslint-disable react-hooks/set-state-in-effect */
-    setDisabled(new Set(storedSpace.disabledSources));
-    setAvailableOnly(storedSpace.availableOnly);
-    setDisabledCategories(new Set(storedSpace.disabledCategories));
-    setSolo(new Set());
-    setCategorySolo(new Set());
     setSelectedEventId(undefined);
     setRestoredSpaceCityId(cityId);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [restored, restoredSpaceCityId, cityId]);
+  }, [restored, restoredSpaceCityId, cityId, restoreFilters]);
 
   useEffect(() => {
     if (!restored || restoredSpaceCityId !== cityId) return;
-    try {
-      const current = readLayoutPrefs(cityId);
-      const prefs: LayoutPrefs = {
-        ...current,
-        ...layout,
-        spaces: {
-          ...current.spaces,
-          ...layout.spaces,
-          [cityId]: {
-            disabledSources: [...disabled],
-            availableOnly,
-            disabledCategories: [...disabledCategories],
-          },
-        },
-      };
-      localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(prefs));
-    } catch {
-      // Privater Modus – nicht kritisch.
-    }
-  }, [restored, restoredSpaceCityId, cityId, layout, disabled, availableOnly, disabledCategories]);
-
-  /* ------------------------------- Laden -------------------------------- */
-
-  /**
-   * Der Server erhebt zwölf Monate im Voraus; weiter kommt der Kalender nicht.
-   * Alles, was den Anker verschiebt, geht durch `clampDay`.
-   */
-  const coverageDay = restored ? format.today() : initialAnchor;
-  const coverage = useMemo(() => coverageRange(coverageDay), [coverageDay]);
-
-  const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
-
-  const load = useCallback(
-    async (target: { from: string; to: string }, city: string) => {
-      const cacheKey = key(city, target);
-      wanted.current = cacheKey;
-      if (cache.current.has(cacheKey)) {
-        setLoaded({ cityId: city, result: cache.current.get(cacheKey)! });
-        return;
-      }
-      try {
-        const params = new URLSearchParams({ from: target.from, to: target.to, city });
-        const res = await fetch(`/api/events?${params}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const next = (await res.json()) as AggregateResult;
-        cache.current.set(cacheKey, next);
-        // Eine Antwort, die zu spät kommt, gehört nicht mehr auf den Schirm.
-        if (wanted.current === cacheKey) setLoaded({ cityId: city, result: next });
-      } catch (error) {
-        console.error('[calendar] Laden fehlgeschlagen', error);
-      }
-    },
-    [],
-  );
-
-  useEffect(() => {
-    void load(range, cityId);
-  }, [range, cityId, load]);
-
-  /* ------------------------------ Filtern ------------------------------- */
-
-  // Quellenfokus hat Vorrang vor der dauerhaften Auswahl, verändert sie aber nicht.
-  const enabled = useMemo(
-    () => new Set(data.definitions.filter((d) => !disabled.has(d.id)).map((d) => d.id)),
-    [data.definitions, disabled],
-  );
-  const visibleSources = solo.size > 0 ? solo : enabled;
-
-  /** Gattungen, die im geladenen Zeitraum vorkommen – ohne die Ticket- und Textfilter. */
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const event of data.events) {
-      if (!visibleSources.has(event.sourceId)) continue;
-      const name = event.category ?? '';
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-    return [...counts.entries()]
-      .map(([name, count]) => ({ name, count }))
-      // Bei gleicher Anzahl alphabetisch nach dem angezeigten Namen.
-      .sort((a, b) => b.count - a.count || term(a.name).localeCompare(term(b.name), settings.locale));
-  }, [data.events, visibleSources, settings.locale, term]);
-
-  // Kategorienfokus hat Vorrang vor der Pillen-Auswahl, verändert sie aber nicht.
-  const enabledCategories = useMemo(
-    () =>
-      categorySolo.size > 0
-        ? new Set(categories.map((c) => c.name).filter((name) => categorySolo.has(name)))
-        : new Set(categories.map((c) => c.name).filter((name) => !disabledCategories.has(name))),
-    [categories, disabledCategories, categorySolo],
-  );
-
-  const events = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase(settings.locale);
-    return data.events.filter((event) => {
-      if (!visibleSources.has(event.sourceId)) return false;
-      const category = event.category ?? '';
-      if (categorySolo.size > 0 ? !categorySolo.has(category) : disabledCategories.has(category))
-        return false;
-      if (availableOnly && !['available', 'limited'].includes(event.availability)) return false;
-      if (!needle) return true;
-      // Auch der Wortlaut der Quelle ist durchsuchbar: wer "Live Music" tippt,
-      // soll das Konzert finden, das im Kalender "Konzert" heisst.
-      return [
-        event.title,
-        event.subtitle,
-        event.description,
-        event.venue.name,
-        event.category,
-        // Auch in der eingestellten Sprache: wer "Concert" tippt, sucht nicht
-        // nach dem deutschen Schlüssel, der am Termin steht.
-        event.category ? term(event.category) : undefined,
-        event.categoryLabel,
-      ]
-        .filter(Boolean)
-        .some((field) => field!.toLocaleLowerCase(settings.locale).includes(needle));
-    });
-  }, [
-    data.events,
-    visibleSources,
-    disabledCategories,
-    categorySolo,
-    availableOnly,
-    query,
-    settings.locale,
-    term,
-  ]);
+    saveLayoutPrefs(cityId, layout, filterSpace);
+  }, [restored, restoredSpaceCityId, cityId, layout, filterSpace]);
 
   const dayEvents = useMemo(
     () => events.filter((event) => format.localDay(event.start) === selectedDay),
@@ -468,25 +303,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     setView(next);
     if (next === 'map') setLayout((current) => ({ ...current, detailCollapsed: false }));
   }, []);
-
-  /**
-   * Fokus auf einzelne Quellen. Ein zweiter Klick auf dieselbe Auswahl hebt
-   * ihn auf – gezählt wird nur das Einschalten, denn die Frage ist, wonach
-   * jemand sucht, nicht wie oft er zurückgeht.
-   */
-  const focusSources = useCallback(
-    (ids: string[], via: 'sidebar' | 'menu') => {
-      const same = solo.size === ids.length && ids.every((id) => solo.has(id));
-      if (same || ids.length === 0) {
-        setSolo(new Set());
-        return;
-      }
-
-      setSolo(new Set(ids));
-      track('source-solo', ids.length === 1 ? { source: ids[0], via } : { count: ids.length, via });
-    },
-    [solo],
-  );
 
   const openEvent = useCallback(
     (event: CalendarEvent) => {
@@ -653,84 +469,29 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     setSheetOpen(false);
   }, []);
 
-  // Tastatur: Pfeile blättern und wählen, Buchstaben schalten Ansicht und
-  // Spalten. Kürzel bleiben absichtlich einzeln und ohne Modifikator – sie
-  // sollen im Kalender liegen, nicht mit denen des Browsers streiten.
-  //
-  // Buchstaben und `/` `?` liefert `key` auf jedem Layout richtig. Die beiden
-  // Spaltenkürzel liegen dagegen auf einer Taste, deren Zeichen vom Layout
-  // abhängt – die laufen über `matchesKey` und werden vor der
-  // Modifikatorsperre geprüft, weil AltGr unter Windows als Strg+Alt ankommt.
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const typing =
-        !!target &&
-        (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
-
-      // Escape wirkt überall, auch aus dem Suchfeld heraus – aber nur für
-      // sich allein, damit Tastenfolgen des Systems unberührt bleiben.
-      if (e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (typing) target.blur();
-        dismiss();
-        setSelectedEventId(undefined);
-        setSolo(new Set());
-        setCategorySolo(new Set());
-        e.preventDefault();
-        return;
-      }
-      // Ein offenes Menü führt seine Tastatur selbst; die Kürzelübersicht lässt
-      // nur das Kürzel durch, das sie wieder zumacht.
-      if (typing || menu) return;
-      if (shortcutsOpen && e.key !== '?') return;
-
-      if (matchesKey(e, SIDEBAR_KEY)) {
-        setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed }));
-        e.preventDefault();
-        return;
-      }
-      if (matchesKey(e, DETAIL_KEY)) {
-        // In Tag und Woche ohne gewählten Termin gibt es nichts aufzuklappen.
-        if (detailAvailable) setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
-        e.preventDefault();
-        return;
-      }
-
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-
-      switch (e.key) {
-        case 'ArrowLeft': step(-1); break;
-        case 'ArrowRight': step(1); break;
-        case 'ArrowUp': stepEvent(-1); break;
-        case 'ArrowDown': stepEvent(1); break;
-        case 't': case 'T': goToday(); break;
-        case 'd': case 'D': changeView('day'); break;
-        case 'w': case 'W': changeView('week'); break;
-        case 'm': case 'M': changeView('month'); break;
-        case 'k': case 'K': changeView('map'); break;
-        case 'o': case 'O':
-          if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
-          break;
-        case '/': focusSearch(); break;
-        case '?': setShortcutsOpen((open) => !open); break;
-        default: return;
-      }
-      e.preventDefault();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [
-    step,
-    stepEvent,
-    goToday,
-    focusSearch,
-    dismiss,
-    menu,
+  useCalendarShortcuts({
+    menuOpen: Boolean(menu),
     shortcutsOpen,
-    selectedEvent,
-    detailAvailable,
-    changeView,
-  ]);
+    onEscape: () => {
+      dismiss();
+      setSelectedEventId(undefined);
+      filters.clearFocus();
+    },
+    onToggleSidebar: () => setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed })),
+    onToggleDetail: () => {
+      // In Tag und Woche ohne gewählten Termin gibt es nichts aufzuklappen.
+      if (detailAvailable) setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }));
+    },
+    onStep: step,
+    onStepEvent: stepEvent,
+    onToday: goToday,
+    onView: changeView,
+    onOpenSelected: () => {
+      if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
+    },
+    onSearch: focusSearch,
+    onToggleShortcuts: () => setShortcutsOpen((open) => !open),
+  });
 
   /**
    * Ein einziger Zuhörer für alle Ansichten: das Menü hängt am Termin im DOM
@@ -796,27 +557,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         onSelect: () => setQuery(event.title),
       },
     ];
-  }, [menu, linkCopied, copyLink, selectEvent, focusSources, data.definitions, t]);
+  }, [menu, linkCopied, copyLink, selectEvent, focusSources, setQuery, data.definitions, t]);
 
   /* ------------------------------- Anzeige ------------------------------ */
-
-  /** Wie viele Filter gerade greifen – Punkt am Knopf und „Zurücksetzen“. */
-  const activeFilterCount =
-    disabled.size +
-    solo.size +
-    categorySolo.size +
-    disabledCategories.size +
-    (availableOnly ? 1 : 0) +
-    (query ? 1 : 0);
-
-  const resetFilters = () => {
-    setDisabled(new Set());
-    setSolo(new Set());
-    setCategorySolo(new Set());
-    setDisabledCategories(new Set());
-    setAvailableOnly(false);
-    setQuery('');
-  };
 
   const filterOverlay = useOverlayTransition(filtersOpen, MOTION_MS);
   const sheet = useOverlayTransition(sheetOpen && !!selectedEvent, MOTION_MS);
@@ -835,55 +578,20 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     <Sidebar
       definitions={data.definitions}
       status={data.sources}
-      enabled={enabled}
-      onToggleSource={(id) =>
-        setDisabled((prev) => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-          return next;
-        })
-      }
-      onToggleGroup={(ids, on) =>
-        setDisabled((prev) => {
-          const next = new Set(prev);
-          for (const id of ids) {
-            if (on) next.delete(id);
-            else next.add(id);
-          }
-          return next;
-        })
-      }
-      solo={solo}
+      enabled={filters.enabled}
+      onToggleSource={filters.toggleSource}
+      onToggleGroup={filters.toggleGroup}
+      solo={filters.solo}
       onSolo={(ids) => focusSources(ids, 'sidebar')}
-      categories={categories}
-      enabledCategories={enabledCategories}
-      onToggleCategory={(name) => {
-        // Bei aktivem Fokus führt ein Klick zunächst dorthin zurück, wo man war.
-        if (categorySolo.size > 0) {
-          setCategorySolo(new Set());
-          return;
-        }
-        setDisabledCategories((prev) => {
-          const next = new Set(prev);
-          if (next.has(name)) next.delete(name);
-          else next.add(name);
-          return next;
-        });
-      }}
-      categorySolo={categorySolo}
-      onCategorySolo={(name) =>
-        setCategorySolo((current) =>
-          current.size === 1 && current.has(name) ? new Set() : new Set([name]),
-        )
-      }
-      onShowAllCategories={() => {
-        setCategorySolo(new Set());
-        setDisabledCategories(new Set());
-      }}
-      availableOnly={availableOnly}
-      onAvailableOnlyChange={setAvailableOnly}
-      query={query}
+      categories={filters.categories}
+      enabledCategories={filters.enabledCategories}
+      onToggleCategory={filters.toggleCategory}
+      categorySolo={filters.categorySolo}
+      onCategorySolo={filters.focusCategory}
+      onShowAllCategories={filters.showAllCategories}
+      availableOnly={filters.availableOnly}
+      onAvailableOnlyChange={filters.setAvailableOnly}
+      query={filters.query}
       onQueryChange={setQuery}
     />
   );
@@ -908,7 +616,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           onJumpDay={goToDay}
           selectedDay={selectedDay}
           onOpenFilters={() => setFiltersOpen(true)}
-          activeFilterCount={activeFilterCount}
+          activeFilterCount={filters.activeFilterCount}
           sidebarCollapsed={layout.sidebarCollapsed}
           detailCollapsed={!detailOpen}
           canToggleDetail={detailAvailable}
@@ -945,12 +653,16 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           )}
 
           {/* Kalender */}
-          <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Ohne Fussleiste hält die Hauptfläche selbst Abstand zum Home-Indikator. */}
+          <main
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+          >
             {/* Mobile: die Suche steht über dem Kalender statt in den Filtern.
                 Die 12 px ringsum sind Platz für den Schein des Suchfelds –
                 `main` beschneidet, was darüber hinausgeht. */}
             <div className="shrink-0 px-3 py-3 hairline-b lg:hidden">
-              <SearchField query={query} onQueryChange={setQuery} />
+              <SearchField query={filters.query} onQueryChange={setQuery} />
             </div>
 
             {(view === 'day' || view === 'week') && (
@@ -1092,8 +804,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           </aside>
         </div>
 
-      <StatusBar cityId={cityId} shareUrl={websiteShareUrl} />
-
       {/* Mobile: Filter als Overlay, das von links hereinfährt */}
       {filterOverlay.mounted && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -1113,20 +823,20 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           >
             <div className="flex h-14 shrink-0 items-center gap-2 px-3 pl-4 hairline-b">
               <span className="text-[15px] font-semibold">{t('filters')}</span>
-              {activeFilterCount > 0 && (
+              {filters.activeFilterCount > 0 && (
                 <span
                   className="grid h-5 min-w-5 place-items-center rounded-full bg-[var(--accent-soft)]
                              px-1.5 text-[11px] font-medium tabular-nums text-accent"
                 >
-                  {activeFilterCount}
+                  {filters.activeFilterCount}
                 </span>
               )}
               {/* Ein Weg zurück auf den unberührten Bestand – auf dem Finger
                   ist das Einsammeln einzelner Filter sonst mühsam. */}
-              {activeFilterCount > 0 && (
+              {filters.activeFilterCount > 0 && (
                 <button
                   type="button"
-                  onClick={resetFilters}
+                  onClick={filters.reset}
                   className="ml-auto rounded-[var(--radius-sm)] px-2 py-1.5 text-[13px] text-muted
                              hover:bg-[var(--canvas)] hover:text-text"
                 >
@@ -1139,7 +849,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 aria-label={t('close')}
                 className={`grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] text-muted
                             hover:bg-[var(--canvas)] hover:text-text
-                            ${activeFilterCount > 0 ? '' : 'ml-auto'}`}
+                            ${filters.activeFilterCount > 0 ? '' : 'ml-auto'}`}
               >
                 <Close />
               </button>
@@ -1205,74 +915,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
-}
-
-function key(cityId: string, range: { from: string; to: string }): string {
-  return `${cityId}_${range.from}_${range.to}`;
-}
-
-type StoredLayoutPrefs = Partial<Omit<LayoutPrefs, 'spaces'>> &
-  Partial<CitySpacePrefs> & {
-    spaces?: Record<string, Partial<CitySpacePrefs>>;
-  };
-
-function readLayoutPrefs(cityId: string): LayoutPrefs {
-  try {
-    return normalizeLayoutPrefs(
-      JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) ?? '{}') as StoredLayoutPrefs,
-      cityId,
-    );
-  } catch {
-    return defaultLayout;
-  }
-}
-
-function normalizeLayoutPrefs(stored: StoredLayoutPrefs, cityId: string): LayoutPrefs {
-  const spaces = Object.fromEntries(
-    Object.entries(stored.spaces ?? {}).map(([id, prefs]) => [id, normalizeSpacePrefs(prefs)]),
-  );
-
-  if (stored.disabledSources || stored.availableOnly !== undefined || stored.disabledCategories) {
-    spaces[cityId] = normalizeSpacePrefs({
-      ...spaces[cityId],
-      disabledSources: stored.disabledSources,
-      availableOnly: stored.availableOnly,
-      disabledCategories: stored.disabledCategories,
-    });
-  }
-
-  return {
-    ...defaultLayout,
-    sidebarWidth:
-      typeof stored.sidebarWidth === 'number' ? stored.sidebarWidth : defaultLayout.sidebarWidth,
-    detailWidth: typeof stored.detailWidth === 'number' ? stored.detailWidth : defaultLayout.detailWidth,
-    sidebarCollapsed:
-      typeof stored.sidebarCollapsed === 'boolean'
-        ? stored.sidebarCollapsed
-        : defaultLayout.sidebarCollapsed,
-    detailCollapsed:
-      typeof stored.detailCollapsed === 'boolean'
-        ? stored.detailCollapsed
-        : defaultLayout.detailCollapsed,
-    spaces,
-  };
-}
-
-function spacePrefs(layout: LayoutPrefs, cityId: string): CitySpacePrefs {
-  return normalizeSpacePrefs(layout.spaces[cityId]);
-}
-
-function normalizeSpacePrefs(prefs: Partial<CitySpacePrefs> | undefined): CitySpacePrefs {
-  return {
-    disabledSources: stringList(prefs?.disabledSources),
-    availableOnly:
-      typeof prefs?.availableOnly === 'boolean' ? prefs.availableOnly : defaultSpacePrefs.availableOnly,
-    disabledCategories: stringList(prefs?.disabledCategories),
-  };
-}
-
-function stringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }
 
 function isViewMode(value: unknown): value is ViewMode {

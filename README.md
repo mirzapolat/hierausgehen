@@ -1,6 +1,6 @@
 # Hier ausgehen
 
-Ein zentraler Kalender für Veranstaltungen in München und Glasgow. Die App liest die
+Ein zentraler Kalender für Veranstaltungen in München, Glasgow und Oldenburg. Die App liest die
 Spielpläne einzelner Häuser aus, überführt sie in ein gemeinsames Format und
 zeigt sie zusammen in Monats-, Wochen- und Tagesansicht — öffentlich, ohne
 Konto.
@@ -29,6 +29,12 @@ src/
     map.ts                 reine Rechnung der Karte: Orte und ihre Bündelung
     format.ts              alle sichtbaren Datums- und Zeitformate
     i18n.ts                Wörterbuch Deutsch / Englisch
+    site.ts                Name, Adressen, Pfade – auch im Browser nutzbar
+    site-metadata.ts       Titel und Beschreibung je Stadt (liest die Registry, nur Server)
+    layoutPrefs.ts         gemerkte Spalten und Filter je Stadt (localStorage)
+    useEventData.ts        Datenstand zu Stadt und Zeitraum, mit Zwischenspeicher
+    useEventFilters.ts     Quellen-, Arten-, Ticket- und Textfilter des Kalenders
+    useCalendarShortcuts.ts Tastaturkürzel
     settings/context.tsx   Erscheinungsbild, Sprache, Zeitformat, Zeitzone, Stadt
     events/
       types.ts             CalendarEvent, SourceDefinition, EventSource
@@ -45,6 +51,8 @@ src/
       text.ts                geteilte Textwerkzeuge (Versalien, Leerraum)
       sources/
         _template.ts       Vorlage für eine neue Quelle
+        page.ts            PageResult: leere Liste vs. unerkannte Seite
+        collect.ts         settleParts (Monate/Sparten laden), withinRange, dedupeById
         staatsoper/        erste Quelle, zugleich Vorbild
         gaertnerplatz/     Termine nur über einen nachgeladenen Endpunkt
         residenztheater/   Monatsseite ohne Jahresangabe

@@ -8,6 +8,8 @@ import {
   parsePostDetails,
   type PostDetail,
 } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, errorMessage, settleParts, withinRange } from '../collect.ts';
 
 /**
  * Lost Weekend – Café, Buchladen, Bar und Veranstaltungsort in der Maxvorstadt.
@@ -65,46 +67,33 @@ export const lostweekend: EventSource = {
     const months = monthsInRange(range.from.slice(0, 7), range.to.slice(0, 7));
     if (months.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      months.map(async (month) => {
-        const body = await fetchText(AJAX, {
-          signal,
-          timeoutMs: options?.requestTimeoutMs,
-          headers: AJAX_HEADERS,
-          body: monthBody(month),
-        });
-
-        const { events, skipped, empty, reported, postIds } = parseMonthResponse(body, month);
-
-        // Der leere Container ist eine gültige Auskunft (das Haus bespielt
-        // nicht jeden Monat). Fehlt er, hat sich der Aufbau geändert.
-        if (!empty && events.length === 0) {
-          throw new Error(`${month}: kein Terminblock erkannt (Layout geändert?)`);
-        }
-        if (skipped > 0) console.warn(`[lostweekend] ${month}: ${skipped} Block/Blöcke übersprungen`);
-        if (reported !== undefined && reported >= MONTH_LIMIT) {
-          console.warn(`[lostweekend] ${month}: Antwort am Limit (${reported}) – womöglich abgeschnitten`);
-        }
-
-        return { events, postIds };
-      }),
-    );
-
-    const events: CalendarEvent[] = [];
-    const postIds = new Set<number>();
-    const failures: string[] = [];
-    for (const [i, result] of results.entries()) {
-      if (result.status === 'fulfilled') {
-        events.push(...result.value.events);
-        for (const id of result.value.postIds) postIds.add(id);
-      } else {
-        failures.push(`${months[i]}: ${errorMessage(result.reason)}`);
-      }
-    }
-
     // Einzelne Monatslücken sind hinnehmbar, ein Totalausfall nicht.
-    if (failures.length === months.length) throw new Error(failures.join('; '));
-    if (failures.length) console.warn(`[lostweekend] Teilausfall – ${failures.join('; ')}`);
+    const loaded = await settleParts({
+      sourceId: 'lostweekend',
+      parts: months,
+      load: async (month) => {
+          const body = await fetchText(AJAX, {
+            signal,
+            timeoutMs: options?.requestTimeoutMs,
+            headers: AJAX_HEADERS,
+            body: monthBody(month),
+          });
+
+          const { events, skipped, empty, reported, postIds } = parseMonthResponse(body, month);
+
+          // Der leere Container ist eine gültige Auskunft (das Haus bespielt
+          // nicht jeden Monat). Fehlt er, hat sich der Aufbau geändert.
+          assertRecognised(events.length, empty, month);
+          if (skipped > 0) console.warn(`[lostweekend] ${month}: ${skipped} Block/Blöcke übersprungen`);
+          if (reported !== undefined && reported >= MONTH_LIMIT) {
+            console.warn(`[lostweekend] ${month}: Antwort am Limit (${reported}) – womöglich abgeschnitten`);
+          }
+
+          return { events, postIds };
+        },
+    });
+    const events = loaded.flatMap((month) => month.events);
+    const postIds = new Set(loaded.flatMap((month) => month.postIds));
 
     const filtered = dedupeById(events).filter((event) => withinRange(event.start, range));
     return applyPostDetails(filtered, await loadPostDetails([...postIds], signal, options));
@@ -172,21 +161,6 @@ function chunks<T>(values: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < values.length; i += size) out.push(values.slice(i, i + size));
   return out;
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export default lostweekend;

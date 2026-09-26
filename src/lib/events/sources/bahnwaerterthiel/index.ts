@@ -1,6 +1,7 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
 import { parseProgrammePage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
 
 /**
  * Bahnwärter Thiel – Kulturhaus, Club und Open-Air-Gelände an der
@@ -49,12 +50,11 @@ export const bahnwaerterthiel: EventSource = {
       timeoutMs: options?.requestTimeoutMs,
     });
 
-    const { events, skipped } = parseProgrammePage(html);
+    const { events, skipped, empty } = parseProgrammePage(html);
 
-    // Es gibt genau diese eine Seite, und sie führt immer mindestens den
-    // laufenden Monat. Kein Termin darauf heisst nicht "Spielpause",
-    // sondern: der Aufbau hat sich geändert.
-    if (events.length === 0) throw new Error('Kein Termin erkannt (Layout geändert?)');
+    // Ein leerer, aber vorhandener Container ist eine Spielpause; fehlt er,
+    // hat sich der Aufbau geändert (siehe `page.ts`).
+    assertRecognised(events.length, empty, 'Programm');
     if (skipped > 0) console.warn(`[bahnwaerterthiel] ${skipped} Block/Blöcke übersprungen`);
 
     return events.filter(

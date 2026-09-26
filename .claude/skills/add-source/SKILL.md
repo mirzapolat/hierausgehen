@@ -138,12 +138,17 @@ In `index.ts`:
   findet; die Erkennung hat Vorrang, damit ein Icon-Wechsel sich selbst heilt.
 - `ttlSeconds` so, dass die Quelle höchstens ein paar Mal pro Stunde angefasst
   wird (30 Minuten sind der übliche Wert).
-- Mehrere Monate mit `Promise.allSettled`: einzelne Lücken hinnehmen und
-  protokollieren, Totalausfall werfen.
-- Antwort ohne erkennbaren Termin **muss werfen** (`Layout geändert?`). Die
+- Mehrere Monate (oder Sparten, Seiten) über `settleParts` aus
+  `sources/collect.ts`: einzelne Lücken werden protokolliert, ein Totalausfall
+  wirft. Dort liegen auch `withinRange`, `dedupeById` und `today` — nicht neu
+  schreiben.
+- Der Parser liefert ein `PageResult` (`sources/page.ts`): `events`,
+  `skipped` und `empty`. Das Adapter ruft `assertRecognised(events.length,
+  empty, '<Ort>')` — eine Antwort ohne erkennbaren Termin **muss werfen**. Die
   Aggregation liefert dann den Cache aus und meldet die Quelle als veraltet —
   ein stilles „keine Termine" wäre die schlechtere Antwort.
-- **Ausnahme:** ein leerer Monat ist kein Fehler. Drei Bauarten sind uns
+- **Ausnahme:** ein leerer Monat ist kein Fehler, der Parser meldet ihn als
+  `empty: true`. Drei Bauarten sind uns
   begegnet: eine ausdrückliche Leermeldung im Markup (Staatsoper
   `.activity-list__col--empty`), ein vorhandener, aber leerer Container
   (Residenztheater `div.schedule`) und eine leere Antwort plus Endesignal

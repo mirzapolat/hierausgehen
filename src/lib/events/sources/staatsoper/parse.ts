@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das HTML-Fragment von
@@ -23,10 +24,7 @@ interface ScheduleFilter {
 
 type Row = cheerio.Cheerio<never>;
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Zeilen, die nicht verwertbar waren – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /**
    * Die Seite meldet ausdrücklich „In diesem Zeitraum gibt es keine
    * Vorstellungen". Das unterscheidet einen leeren Monat (Sommerpause,

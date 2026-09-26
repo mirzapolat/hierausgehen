@@ -1,8 +1,9 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ } from '../../time.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseProgrammePage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { today } from '../collect.ts';
 
 /**
  * Milla – Club für Musik und Kunst in der Holzstrasse, fast täglich Livemusik.
@@ -55,11 +56,11 @@ export const milla: EventSource = {
       timeoutMs: options?.requestTimeoutMs,
     });
 
-    const { events, skipped } = parseProgrammePage(html, today());
+    const { events, skipped, empty } = parseProgrammePage(html, today());
 
-    // Es gibt genau diese eine Seite. Kein Termin darauf heisst nicht
-    // "Spielpause", sondern: der Aufbau hat sich geändert.
-    if (events.length === 0) throw new Error('Kein Termin erkannt (Layout geändert?)');
+    // Ein leerer, aber vorhandener Container ist eine Spielpause; fehlt er,
+    // hat sich der Aufbau geändert (siehe `page.ts`).
+    assertRecognised(events.length, empty, 'Programm');
     if (skipped > 0) console.warn(`[milla] ${skipped} Block/Blöcke übersprungen`);
 
     const filtered = events.filter(
@@ -75,15 +76,5 @@ export const milla: EventSource = {
     });
   },
 };
-
-/** Heutiger Tag in Münchner Zeit – Bezugspunkt für das fehlende Jahr. */
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
 
 export default milla;

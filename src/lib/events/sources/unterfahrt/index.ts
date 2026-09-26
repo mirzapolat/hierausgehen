@@ -1,7 +1,9 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ, monthsInRange } from '../../time.ts';
+import { monthsInRange } from '../../time.ts';
 import { parseAvailableMonths, parseMonthPage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { settleParts, today } from '../collect.ts';
 
 /**
  * Unterfahrt – Jazzclub in der Einsteinstrasse, spielt praktisch jeden Abend.
@@ -55,58 +57,37 @@ export const unterfahrt: EventSource = {
     );
     if (months.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      months.map(async (month) => {
-        const [year, m] = month.split('-');
-        const html = await fetchText(`${BASE}/programm.php?month=${m}&year=${year}`, {
-          signal,
-          timeoutMs: options?.requestTimeoutMs,
-        });
-
-        const { events, skipped, empty } = parseMonthPage(html);
-
-        // Fehlt der Container, wurde die Liste gar nicht gerendert.
-        if (!empty && events.length === 0) {
-          throw new Error(`${month}: kein Konzertblock erkannt (Layout geändert?)`);
-        }
-        // Leer, obwohl die Seite selbst diesen Monat als bespielt führt.
-        if (empty && parseAvailableMonths(html).includes(month)) {
-          throw new Error(`${month}: laut Datepicker bespielt, aber leer (Layout geändert?)`);
-        }
-        if (skipped > 0) console.warn(`[unterfahrt] ${month}: ${skipped} Block/Blöcke übersprungen`);
-
-        return events;
-      }),
-    );
-
-    const events: CalendarEvent[] = [];
-    const failures: string[] = [];
-    for (const [index, result] of results.entries()) {
-      if (result.status === 'fulfilled') events.push(...result.value);
-      else failures.push(`${months[index]}: ${errorMessage(result.reason)}`);
-    }
-
     // Einzelne Monatslücken sind hinnehmbar, ein Totalausfall nicht.
-    if (failures.length === months.length) throw new Error(failures.join('; '));
-    if (failures.length) console.warn(`[unterfahrt] Teilausfall – ${failures.join('; ')}`);
+    const events = (
+      await settleParts({
+        sourceId: 'unterfahrt',
+        parts: months,
+        load: async (month) => {
+          const [year, m] = month.split('-');
+          const html = await fetchText(`${BASE}/programm.php?month=${m}&year=${year}`, {
+            signal,
+            timeoutMs: options?.requestTimeoutMs,
+          });
+
+          const { events, skipped, empty } = parseMonthPage(html);
+
+          // Fehlt der Container, wurde die Liste gar nicht gerendert.
+          assertRecognised(events.length, empty, month);
+          // Leer, obwohl die Seite selbst diesen Monat als bespielt führt.
+          if (empty && parseAvailableMonths(html).includes(month)) {
+            throw new Error(`${month}: laut Datepicker bespielt, aber leer (Layout geändert?)`);
+          }
+          if (skipped > 0) console.warn(`[unterfahrt] ${month}: ${skipped} Block/Blöcke übersprungen`);
+
+          return events;
+        },
+      })
+    ).flat();
 
     return events.filter(
       (event) => event.start.slice(0, 10) >= range.from && event.start.slice(0, 10) <= range.to,
     );
   },
 };
-
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 export default unterfahrt;

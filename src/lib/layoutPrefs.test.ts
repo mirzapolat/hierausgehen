@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { defaultLayout, normalizeLayoutPrefs, spacePrefs } from './layoutPrefs.ts';
+
+test('ein leerer Speicher ergibt die Voreinstellung', () => {
+  assert.deepEqual(normalizeLayoutPrefs({}, 'muenchen'), defaultLayout);
+});
+
+test('übernimmt gültige Werte und verwirft kaputte', () => {
+  const prefs = normalizeLayoutPrefs(
+    {
+      sidebarWidth: 260,
+      detailWidth: 'breit' as unknown as number,
+      sidebarCollapsed: true,
+      spaces: {
+        glasgow: {
+          disabledSources: ['tron', 7 as unknown as string],
+          availableOnly: 'ja' as unknown as boolean,
+        },
+      },
+    },
+    'muenchen',
+  );
+  assert.equal(prefs.sidebarWidth, 260);
+  assert.equal(prefs.detailWidth, defaultLayout.detailWidth);
+  assert.equal(prefs.sidebarCollapsed, true);
+  assert.deepEqual(prefs.spaces.glasgow, {
+    disabledSources: ['tron'],
+    availableOnly: false,
+    disabledCategories: [],
+  });
+});
+
+test('ordnet Filter aus einem alten Stand ohne Städte der gelesenen Stadt zu', () => {
+  const prefs = normalizeLayoutPrefs(
+    { disabledSources: ['milla'], availableOnly: true, spaces: { glasgow: { disabledSources: ['tron'] } } },
+    'muenchen',
+  );
+  assert.deepEqual(spacePrefs(prefs, 'muenchen'), {
+    disabledSources: ['milla'],
+    availableOnly: true,
+    disabledCategories: [],
+  });
+  assert.deepEqual(spacePrefs(prefs, 'glasgow').disabledSources, ['tron']);
+});
+
+test('eine Stadt ohne gemerkte Filter hat keine', () => {
+  assert.deepEqual(spacePrefs(defaultLayout, 'glasgow'), {
+    disabledSources: [],
+    availableOnly: false,
+    disabledCategories: [],
+  });
+});

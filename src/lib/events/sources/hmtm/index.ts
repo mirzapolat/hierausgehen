@@ -9,6 +9,8 @@ import {
   parseTypeAssignments,
   type ParseResult,
 } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, errorMessage, settleParts, withinRange } from '../collect.ts';
 
 /**
  * Hochschule für Musik und Theater München.
@@ -84,44 +86,36 @@ export const hmtm: EventSource = {
     if (!nonce) throw new Error('Kein Filter-Nonce auf /veranstaltungen/ (Seite geändert?)');
     const types = parseEventTypes(page);
 
-    const results = await Promise.allSettled(
-      months.map(async (month) => {
-        let pages = PAGES;
-        let result = await loadMonth(month, nonce, pages, signal, options);
-
-        // Ein Monat mit mehr als 480 Terminen ist nicht vorgesehen, aber
-        // stillschweigend abschneiden wäre die schlechtere Antwort.
-        while (result.hasMore && pages < PAGES_MAX) {
-          pages = Math.min(pages * 4, PAGES_MAX);
-          result = await loadMonth(month, nonce, pages, signal, options);
-        }
-        if (result.hasMore) {
-          console.warn(`[hmtm] ${month}: Liste reicht über ${pages} Seiten hinaus – womöglich abgeschnitten`);
-        }
-
-        // Die ausdrückliche Leermeldung ist eine gültige Auskunft; eine
-        // Antwort mit Inhalt, aber ohne Terminblock heisst: Aufbau geändert.
-        if (!result.empty && result.events.length === 0) {
-          throw new Error(`${month}: kein Terminblock erkannt (Layout geändert?)`);
-        }
-        if (result.skipped > 0) {
-          console.warn(`[hmtm] ${month}: ${result.skipped} Block/Blöcke übersprungen`);
-        }
-
-        return result.events;
-      }),
-    );
-
-    const events: CalendarEvent[] = [];
-    const failures: string[] = [];
-    for (const [i, result] of results.entries()) {
-      if (result.status === 'fulfilled') events.push(...result.value);
-      else failures.push(`${months[i]}: ${errorMessage(result.reason)}`);
-    }
-
     // Einzelne Monatslücken sind hinnehmbar, ein Totalausfall nicht.
-    if (failures.length === months.length) throw new Error(failures.join('; '));
-    if (failures.length) console.warn(`[hmtm] Teilausfall – ${failures.join('; ')}`);
+    const events = (
+      await settleParts({
+        sourceId: 'hmtm',
+        parts: months,
+        load: async (month) => {
+          let pages = PAGES;
+          let result = await loadMonth(month, nonce, pages, signal, options);
+
+          // Ein Monat mit mehr als 480 Terminen ist nicht vorgesehen, aber
+          // stillschweigend abschneiden wäre die schlechtere Antwort.
+          while (result.hasMore && pages < PAGES_MAX) {
+            pages = Math.min(pages * 4, PAGES_MAX);
+            result = await loadMonth(month, nonce, pages, signal, options);
+          }
+          if (result.hasMore) {
+            console.warn(`[hmtm] ${month}: Liste reicht über ${pages} Seiten hinaus – womöglich abgeschnitten`);
+          }
+
+          // Die ausdrückliche Leermeldung ist eine gültige Auskunft; eine
+          // Antwort mit Inhalt, aber ohne Terminblock heisst: Aufbau geändert.
+          assertRecognised(result.events.length, result.empty, month);
+          if (result.skipped > 0) {
+            console.warn(`[hmtm] ${month}: ${result.skipped} Block/Blöcke übersprungen`);
+          }
+
+          return result.events;
+        },
+      })
+    ).flat();
 
     const filtered = dedupeById(events).filter((event) => withinRange(event.start, range));
     return applyEventTypes(filtered, await loadTypeAssignments(signal, options), types);
@@ -197,21 +191,6 @@ async function loadTypeAssignments(
 function lastDayOfMonth(month: string): string {
   const [year, m] = month.split('-').map(Number);
   return String(new Date(Date.UTC(year, m, 0)).getUTCDate());
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export default hmtm;

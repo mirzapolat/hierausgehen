@@ -1,8 +1,9 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ } from '../../time.ts';
 import { enrichEventDescriptions } from '../detail.ts';
 import { parseDetailDescription, parseEventsPage } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, today, withinRange } from '../collect.ts';
 
 /**
  * Kino am Olympiasee – Open-Air-Kino und Sommer-Events im Olympiapark.
@@ -44,9 +45,7 @@ export const kinoamolympiasee: EventSource = {
     });
     const { events, skipped, empty } = parseEventsPage(html);
 
-    if (!empty && events.length === 0) {
-      throw new Error('Kein Termin erkannt (Layout geändert?)');
-    }
+    assertRecognised(events.length, empty, 'Eventliste');
     if (skipped > 0) {
       console.warn(`[kinoamolympiasee] ${skipped} Block/Blöcke übersprungen`);
     }
@@ -62,25 +61,5 @@ export const kinoamolympiasee: EventSource = {
     });
   },
 };
-
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
 
 export default kinoamolympiasee;

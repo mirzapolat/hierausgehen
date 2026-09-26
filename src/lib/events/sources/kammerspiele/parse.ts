@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für die Spielplanseite der Münchner Kammerspiele (`/de/programm/`).
@@ -28,11 +29,8 @@ const TIME = /^(\d{1,2}):(\d{2})(?:\s*[\u2013\u2014-]\s*(\d{1,2}):(\d{2}))?\s*/;
 const SOURCE_ID = 'kammerspiele';
 const BASE = 'https://www.muenchner-kammerspiele.de';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke ohne Titel oder Vorstellungs-ID – für Monitoring/Logs. */
-  skipped: number;
-}
+/** Termine, übersprungene Blöcke und ob die Liste leer ist (siehe `page.ts`). */
+export type ParseResult = PageResult;
 
 export function parseProgrammePage(html: string): ParseResult {
   const $ = cheerio.load(html);
@@ -40,7 +38,10 @@ export function parseProgrammePage(html: string): ParseResult {
   const events: CalendarEvent[] = [];
   let skipped = 0;
 
-  $('div.events-group').each((_, group) => {
+  // Der Kalenderblock steht auch ohne Vorstellungen – etwa in der Sommerpause.
+  const calendar = $('.block--calendar-a');
+
+  calendar.find('div.events-group').each((_, group) => {
     const date = $(group).attr('data-date');
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
 
@@ -87,7 +88,7 @@ export function parseProgrammePage(html: string): ParseResult {
       });
   });
 
-  return { events, skipped };
+  return { events, skipped, empty: calendar.length > 0 && events.length === 0 };
 }
 
 /**

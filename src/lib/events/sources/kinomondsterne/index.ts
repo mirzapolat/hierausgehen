@@ -1,7 +1,8 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ } from '../../time.ts';
 import { parseProgrammeStart, parseProjections, type Clock } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { today, withinRange } from '../collect.ts';
 
 /**
  * Kino, Mond & Sterne – das Open-Air-Kino im Westpark.
@@ -65,9 +66,7 @@ export const kinomondsterne: EventSource = {
 
     // Eine leere Liste ist ausserhalb der Spielzeit die richtige Antwort.
     // Eine Antwort mit Vorstellungen, von denen keine lesbar ist, nicht.
-    if (!empty && events.length === 0) {
-      throw new Error('Keine Vorstellung erkannt (Format geändert?)');
-    }
+    assertRecognised(events.length, empty, 'Vorstellungen');
     if (skipped > 0) console.warn(`[kinomondsterne] ${skipped} Vorstellung(en) übersprungen`);
     if (starts.size === 0) {
       console.warn('[kinomondsterne] Keine Anfangszeiten im FAQ gefunden – Termine bleiben ganztägig');
@@ -101,21 +100,6 @@ async function loadProgrammeStart(
     );
     return new Map();
   }
-}
-
-/** Heutiger Tag in Münchner Zeit, "YYYY-MM-DD". */
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
 }
 
 export default kinomondsterne;

@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für den Spielplan der Bayerischen Theaterakademie August Everding.
@@ -27,9 +28,7 @@ export const theaterakademieProgrammeUrl = `${theaterakademieBaseUrl}/de/theater
 const BR = '\n';
 const BR_TAG = /<\s*\/?\s*br\s*\/?\s*>/gi;
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Liste wurde gerendert, enthält aber keinen Termin. */
   empty: boolean;
   /**

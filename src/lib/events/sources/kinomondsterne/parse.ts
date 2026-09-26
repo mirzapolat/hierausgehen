@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das Open-Air-Kino „Kino, Mond & Sterne" im Westpark.
@@ -33,10 +34,7 @@ export interface Clock {
   minute: number;
 }
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Einträge, die nicht verwertbar waren – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Antwort war gültig, nennt aber keine Vorstellung (Spielzeitpause). */
   empty: boolean;
 }

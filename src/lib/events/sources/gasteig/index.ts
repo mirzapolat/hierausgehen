@@ -1,8 +1,10 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { TZ, monthsInRange } from '../../time.ts';
+import { monthsInRange } from '../../time.ts';
 import { applyEnrichment, parseTeaserFragment, parseUpcomingFeed } from './parse.ts';
 import type { Enrichment } from './parse.ts';
+import { assertRecognised } from '../page.ts';
+import { dedupeById, errorMessage, settleParts, today, withinRange } from '../collect.ts';
 
 /**
  * Gasteig HP8.
@@ -76,20 +78,14 @@ export const gasteig: EventSource = {
     const months = monthsInRange(range.from.slice(0, 7), range.to.slice(0, 7));
     if (months.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      months.map((month) => loadMonth(month, signal, options)),
-    );
-
-    const events: CalendarEvent[] = [];
-    const failures: string[] = [];
-    for (const [index, result] of results.entries()) {
-      if (result.status === 'fulfilled') events.push(...result.value);
-      else failures.push(`${months[index]}: ${errorMessage(result.reason)}`);
-    }
-
     // Einzelne Monatslücken sind hinnehmbar, ein Totalausfall nicht.
-    if (failures.length === months.length) throw new Error(failures.join('; '));
-    if (failures.length) console.warn(`[gasteig] Teilausfall – ${failures.join('; ')}`);
+    const events = (
+      await settleParts({
+        sourceId: 'gasteig',
+        parts: months,
+        load: (month) => loadMonth(month, signal, options),
+      })
+    ).flat();
 
     return dedupeById(events).filter((event) => withinRange(event.start, range));
   },
@@ -130,9 +126,7 @@ async function loadTeasers(
   // Eine leere Antwort heisst „kein Termin im Zeitraum" – das ist bei einem
   // Monat jenseits des Vorverkaufs der Normalfall. Inhalt ohne einen
   // einzigen Teaser heisst dagegen: Aufbau geändert.
-  if (!empty && blocks === 0) {
-    throw new Error(`Teaser ${month} (${Object.keys(filters)[0]}): kein Block erkannt (Layout geändert?)`);
-  }
+  assertRecognised(blocks, empty, `Teaser ${month} (${Object.keys(filters)[0]})`);
   if (skipped > 0) {
     console.warn(`[gasteig] ${month}: ${skipped} Block/Blöcke übersprungen`);
   }
@@ -205,30 +199,6 @@ function monthBounds(month: string): [string, string] {
 function german(day: string): string {
   const [year, month, date] = day.split('-');
   return `${date}.${month}.${year}`;
-}
-
-function today(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-function withinRange(start: string, range: FetchRange): boolean {
-  const day = start.slice(0, 10);
-  return day >= range.from && day <= range.to;
-}
-
-function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
-  const map = new Map<string, CalendarEvent>();
-  for (const event of events) map.set(event.id, event);
-  return [...map.values()];
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export default gasteig;

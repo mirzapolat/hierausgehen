@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für den Veranstaltungskalender der Hochschule für Musik und Theater
@@ -21,10 +22,7 @@ import { clean } from '../../text.ts';
 const SOURCE_ID = 'hmtm';
 const BASE = 'https://hmtm.de';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke, die nicht verwertbar waren – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Quelle meldet ausdrücklich, dass der Zeitraum keinen Termin hat. */
   empty: boolean;
   /** Es gäbe weitere Seiten – die Abfrage war zu klein bemessen. */

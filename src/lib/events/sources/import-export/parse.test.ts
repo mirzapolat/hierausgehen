@@ -101,3 +101,9 @@ test('kommt mit leerem und kaputtem HTML zurecht', () => {
     assert.equal(parseDetailDescription(html), undefined);
   }
 });
+
+test('hält die Spielpause von einem geänderten Aufbau auseinander', () => {
+  const leer = '<div id="content"><div class="events list"></div></div>';
+  assert.equal(parseProgrammePage(leer, '2026-09-03').empty, true);
+  assert.equal(parseProgrammePage('<html><body><p>Wartung</p>', '2026-09-03').empty, false);
+});

@@ -4,7 +4,8 @@ import { notFound } from 'next/navigation';
 import { cities, cityById, isKnownCityId } from '@/lib/cities';
 import { getSnapshot } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
-import { SITE_NAME, SITE_URL, cityMetadata, programmePath } from '@/lib/site';
+import { SITE_NAME, SITE_URL, programmePath } from '@/lib/site';
+import { cityMetadata } from '@/lib/site-metadata';
 import { StructuredData } from '@/components/StructuredData';
 
 export const dynamic = 'force-dynamic';

@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { CalendarEvent } from '../../types.ts';
 import { TZ, berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für die Veranstaltungsliste von MünchenMusik
@@ -27,10 +28,7 @@ const BASE = 'https://www.muenchenmusik.de';
 /** Der View meldet einen leeren Treffersatz im Klartext. */
 const EMPTY_MARKER = 'keine Ergebnisse gefunden';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke ohne Titel oder Datum – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Der View wurde gerendert und meldet ausdrücklich keine Treffer. */
   empty: boolean;
   /** Gefundene Terminblöcke, unabhängig davon, ob sie verwertbar waren. */

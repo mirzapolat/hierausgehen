@@ -154,8 +154,16 @@ test('liest den Programmtext der Produktionsseite', () => {
 });
 
 test('meldet nichts statt zu raten, wenn die Antwort unbrauchbar ist', () => {
-  assert.deepEqual(parseProgrammePage(''), { events: [], skipped: 0 });
-  assert.deepEqual(parseProgrammePage('<html><body><p>Wartung</p>'), { events: [], skipped: 0 });
+  assert.deepEqual(parseProgrammePage(''), { events: [], skipped: 0, empty: false });
+  assert.deepEqual(parseProgrammePage('<html><body><p>Wartung</p>'), { events: [], skipped: 0, empty: false });
   assert.equal(parseDetailDescription(''), undefined);
   assert.equal(parseDetailDescription('<html><body><p>kurz</p>'), undefined);
+});
+
+test('hält die Spielpause von einem geänderten Aufbau auseinander', () => {
+  assert.deepEqual(parseProgrammePage('<div class="block block--calendar-a"></div>'), {
+    events: [],
+    skipped: 0,
+    empty: true,
+  });
 });

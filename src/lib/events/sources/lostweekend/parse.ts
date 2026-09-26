@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das Lost Weekend (Modern Events Calendar in WordPress).
@@ -22,10 +23,7 @@ import { clean, softenShouted } from '../../text.ts';
 const SOURCE_ID = 'lostweekend';
 const BASE = 'https://lostweekend.de';
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke, die nicht verwertbar waren – für Monitoring/Logs. */
-  skipped: number;
+export interface ParseResult extends PageResult {
   /** Die Liste wurde gerendert, enthält aber keinen Termin. */
   empty: boolean;
   /** `count` aus dem Umschlag – dient dem Vergleich mit den gelesenen Blöcken. */

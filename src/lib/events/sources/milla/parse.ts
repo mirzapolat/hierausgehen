@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import type { CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean, softenShouted } from '../../text.ts';
+import type { PageResult } from '../page.ts';
 
 /**
  * Parser für das Programm des Milla (`https://milla-club.de/`).
@@ -37,11 +38,8 @@ const MONTHS: Record<string, number> = {
 /** "Tue 19.00" */
 const TIME = /(\d{1,2})[.:](\d{2})/;
 
-export interface ParseResult {
-  events: CalendarEvent[];
-  /** Blöcke ohne Datum, Titel oder Link – für Monitoring/Logs. */
-  skipped: number;
-}
+/** Termine, übersprungene Blöcke und ob die Liste leer ist (siehe `page.ts`). */
+export type ParseResult = PageResult;
 
 /**
  * @param today Bezugstag "YYYY-MM-DD" für das fehlende Jahr.
@@ -54,7 +52,10 @@ export function parseProgrammePage(html: string, today: string): ParseResult {
 
   const nextDate = yearWalker(today);
 
-  $('.event').not('.featured-event').each((_, element) => {
+  // Die Monatsabschnitte; ohne sie ist der Aufbau ein anderer.
+  const sections = $('section.events');
+
+  sections.find('.event').not('.featured-event').each((_, element) => {
     const item = $(element);
 
     const link = item.find('.event__title a').first();
@@ -91,7 +92,7 @@ export function parseProgrammePage(html: string, today: string): ParseResult {
     });
   });
 
-  return { events, skipped };
+  return { events, skipped, empty: sections.length > 0 && events.length === 0 };
 }
 
 /**
