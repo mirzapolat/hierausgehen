@@ -4,7 +4,8 @@
  * Designsystem
  * ------------
  * Ruhige Flächen, feine Linien, klare Typografie. Keine Schatten ausser für
- * echte Overlays, kleine Radien, gedeckte Farben. Quellenfarben sind das
+ * echte Overlays und den leisen Schwebeschatten der Hauptfläche auf dem
+ * Desktop, kleine Radien, gedeckte Farben. Quellenfarben sind das
  * einzige kräftige Element – sie tragen die Information.
  */
 
@@ -24,6 +25,8 @@
   --danger: #b4472e;
   --overlay: rgb(0 0 0 / 0.28);
   --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 32px rgb(0 0 0 / 0.10);
+  /* Die Hauptfläche liegt einen Hauch über dem Rahmen – viel leiser als ein Overlay. */
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.04), 0 2px 10px rgb(0 0 0 / 0.05);
   /* Milchglas – nur für das, was frei über der Karte schwebt (siehe unten). */
   --glass: rgb(255 255 255 / 0.62);
   --glass-line: rgb(0 0 0 / 0.10);
@@ -52,6 +55,7 @@
     --danger: #e0785e;
     --overlay: rgb(0 0 0 / 0.55);
     --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 12px rgb(0 0 0 / 0.35);
     --glass: rgb(30 30 34 / 0.58);
     --glass-line: rgb(255 255 255 / 0.12);
     --glass-sheen: rgb(255 255 255 / 0.12);
@@ -73,6 +77,7 @@
   --danger: #e0785e;
   --overlay: rgb(0 0 0 / 0.55);
   --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
+  --shadow-float: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 12px rgb(0 0 0 / 0.35);
   --glass: rgb(30 30 34 / 0.58);
   --glass-line: rgb(255 255 255 / 0.12);
   --glass-sheen: rgb(255 255 255 / 0.12);

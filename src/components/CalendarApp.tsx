@@ -627,13 +627,14 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           onOpenShortcuts={() => setShortcutsOpen(true)}
         />
 
-        <div className="flex min-h-0 flex-1">
+        {/* Ab lg ist die Zeile ein Rahmen im Chrome-Ton, auf dem die
+            Hauptfläche mit etwas Abstand schwebt. */}
+        <div className="flex min-h-0 flex-1 lg:bg-[var(--chrome)]">
           {/* Filter – links, ab lg dauerhaft sichtbar und in der Breite verstellbar.
               Zum Einklappen läuft die Breite auf null; der Inhalt behält seine
               eigene und wird beschnitten, statt sich dabei zu stauchen. */}
           <aside
             className={`hidden min-h-0 shrink-0 overflow-hidden bg-[var(--chrome)] lg:block
-                        ${layout.sidebarCollapsed ? '' : 'hairline-r'}
                         ${resizing ? '' : `transition-[width] ${motion}`}`}
             style={{ width: layout.sidebarCollapsed ? 0 : layout.sidebarWidth }}
             inert={layout.sidebarCollapsed}
@@ -655,7 +656,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           {/* Kalender */}
           {/* Ohne Fussleiste hält die Hauptfläche selbst Abstand zum Home-Indikator. */}
           <main
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--canvas)]
+                       lg:m-2 lg:rounded-[var(--radius-lg)] lg:border lg:border-line
+                       lg:shadow-[var(--shadow-float)]"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             {/* Mobile: die Suche steht über dem Kalender statt in den Filtern.
@@ -783,7 +786,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           )}
           <aside
             className={`hidden min-h-0 shrink-0 overflow-hidden lg:block
-                        ${detailOpen ? 'hairline-l' : ''}
                         ${resizing ? '' : `transition-[width] ${motion}`}`}
             style={{ width: detailOpen ? layout.detailWidth : 0 }}
             inert={!detailOpen}

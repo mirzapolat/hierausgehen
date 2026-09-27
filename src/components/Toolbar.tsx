@@ -102,7 +102,7 @@ export function Toolbar({
 
   return (
     <header
-      className="flex h-14 shrink-0 items-center gap-1 bg-[var(--chrome)] px-2 hairline-b
+      className="flex h-14 shrink-0 items-center gap-1 bg-[var(--chrome)] px-2 hairline-b lg:border-b-0
                  lg:h-12 lg:gap-1.5 lg:px-3"
     >
       <button

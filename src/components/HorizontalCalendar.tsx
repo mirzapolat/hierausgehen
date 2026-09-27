@@ -135,7 +135,7 @@ function WeekLists({
               // Kein eingefärbter Tag mehr: die Spalte zeigt ihre Termine
               // selbst, und die Detailspalte hängt hier nicht mehr an der
               // Auswahl. Heute bleibt am blauen Punkt in der Kopfzeile kenntlich.
-              <section key={day} className="flex min-w-0 flex-col hairline-r">
+              <section key={day} className="flex min-w-0 flex-col hairline-r last:border-r-0">
                 {/* Nur eine Beschriftung, kein Knopf: einen Tag auszuwählen
                     bewirkt in dieser Ansicht nichts mehr, seit die Spalte
                     daneben nur noch einzelne Termine zeigt. */}
