@@ -1,20 +1,17 @@
 'use client';
 
-import Link from 'next/link';
 import { addDays, type ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
 import { AppMenu } from './AppMenu';
 import { CityPicker } from './CityPicker';
-import { ShareButton } from './ShareButton';
+import { Dropdown } from './Dropdown';
 import {
   ChevronLeft,
   ChevronRight,
   Filter,
-  Keyboard,
   PanelLeft,
   PanelRight,
-  Settings,
 } from './icons';
 
 interface Props {
@@ -82,6 +79,7 @@ export function Toolbar({
     { offset: 1, label: t('tomorrow') },
     { offset: 2, label: t('dayAfterTomorrow') },
   ].map((jump) => ({ ...jump, day: addDays(format.today(), jump.offset) }));
+  const currentJump = jumps.find((jump) => jump.day === selectedDay);
 
   const views: { id: ViewMode; label: string; short: string; wide?: boolean }[] = [
     { id: 'day', label: t('day'), short: t('dayShort') },
@@ -91,6 +89,7 @@ export function Toolbar({
     // auf schmalen Geräten steht sie deshalb (noch) nicht zur Wahl.
     { id: 'map', label: t('map'), short: t('mapShort'), wide: true },
   ];
+  const currentView = views.find((item) => item.id === view) ?? views[0];
 
   // Auf schmalen Geräten sind die Knöpfe fingergerecht (36 px); ab `lg`
   // zeigt ein Zeiger auf sie und sie dürfen wieder klein sein.
@@ -180,47 +179,36 @@ export function Toolbar({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 lg:gap-1.5">
-        <div className="hidden h-9 items-center rounded-[var(--radius-sm)] border border-line md:flex lg:h-7">
-          {jumps.map((jump, index) => (
-            <button
-              key={jump.offset}
-              type="button"
-              onClick={() => onJumpDay(jump.offset)}
-              title={jump.offset === 0 ? `${jump.label} (T)` : jump.label}
-              className={`h-full px-2.5 text-[13px] transition-colors lg:text-[12px] ${index > 0 ? 'hairline-l' : ''} ${
-                selectedDay === jump.day ? 'text-text' : 'text-muted hover:text-text'
-              }`}
-            >
-              {jump.label}
-            </button>
-          ))}
-        </div>
+        <Dropdown
+          className="hidden md:block"
+          label={t('jumpToDay')}
+          value={currentJump?.offset}
+          buttonLabel={currentJump?.label ?? t('jumpToDay')}
+          options={jumps.map((jump) => ({
+            value: jump.offset,
+            label: jump.label,
+            title: jump.offset === 0 ? `${jump.label} (T)` : jump.label,
+          }))}
+          onChange={onJumpDay}
+        />
 
-        <div
-          role="tablist"
-          aria-label={t('view')}
-          className="flex h-9 items-center rounded-[var(--radius-sm)] border border-line p-[2px] lg:h-7"
-        >
-          {views.map((item) => (
-            <button
-              key={item.id}
-              role="tab"
-              aria-selected={view === item.id}
-              type="button"
-              onClick={() => onViewChange(item.id)}
-              title={`${item.label} (${item.short})`}
-              className={`h-full min-w-7 rounded-[3px] px-1.5 text-[13px] transition-colors
-                          lg:h-[22px] lg:min-w-0 lg:px-2 lg:text-[12px] ${item.wide ? 'hidden lg:block' : ''} ${
-                view === item.id
-                  ? 'bg-[var(--canvas)] text-text shadow-[0_0_0_1px_var(--line)]'
-                  : 'text-muted hover:text-text'
-              }`}
-            >
-              <span className="hidden lg:inline">{item.label}</span>
-              <span className="lg:hidden">{item.short}</span>
-            </button>
-          ))}
-        </div>
+        <Dropdown
+          label={t('view')}
+          value={view}
+          buttonLabel={
+            <>
+              <span className="lg:hidden">{currentView.short}</span>
+              <span className="hidden lg:inline">{currentView.label}</span>
+            </>
+          }
+          options={views.map((item) => ({
+            value: item.id,
+            label: item.label,
+            title: `${item.label} (${item.short})`,
+            wide: item.wide,
+          }))}
+          onChange={onViewChange}
+        />
 
         <button
           type="button"
@@ -234,39 +222,7 @@ export function Toolbar({
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
         </button>
 
-        <button
-          type="button"
-          onClick={onOpenShortcuts}
-          title={`${t('shortcuts')} (?)`}
-          aria-label={t('shortcuts')}
-          className={`hidden ${iconButton} lg:grid`}
-        >
-          <Keyboard />
-        </button>
-
-        {/* Auf schmalen Geräten wandert die Einstellung in die Fussleiste der
-            Filter – die Kopfzeile braucht den Platz für den Titel. */}
-        <Link
-          href="/settings"
-          aria-label={t('settings')}
-          title={t('settings')}
-          className={`hidden ${iconButton} lg:grid`}
-        >
-          <Settings />
-        </Link>
-
-        <ShareButton
-          url={shareUrl}
-          title={t('appName')}
-          label={t('shareWebsite')}
-          visibleLabel={t('share')}
-          copiedLabel={t('menuLinkCopied')}
-          umamiEvent="share-website"
-          className="hidden h-7 items-center gap-1.5 rounded-[var(--radius-sm)] px-2
-                     text-[12px] text-muted hover:bg-[var(--canvas)] hover:text-text lg:flex"
-        />
-
-        <AppMenu cityId={cityId} shareUrl={shareUrl} className={iconButton} />
+        <AppMenu cityId={cityId} shareUrl={shareUrl} onOpenShortcuts={onOpenShortcuts} className={iconButton} />
       </div>
     </header>
   );

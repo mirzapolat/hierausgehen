@@ -139,12 +139,14 @@ function WeekLists({
                 {/* Nur eine Beschriftung, kein Knopf: einen Tag auszuwählen
                     bewirkt in dieser Ansicht nichts mehr, seit die Spalte
                     daneben nur noch einzelne Termine zeigt. */}
+                {/* Leicht abgesetzt – Chrome-Ton und kräftigere Linie –, damit
+                    die Köpfe über den durchlaufenden Listen stehen bleiben. */}
                 <div
-                  className="sticky top-0 z-10 flex items-center gap-1 bg-[var(--canvas)] px-1.5 py-2
-                             text-left hairline-b"
+                  className="sticky top-0 z-10 flex items-center gap-1 border-b border-line-strong
+                             bg-[var(--chrome)] px-1.5 py-2 text-left"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] uppercase tracking-[0.05em] text-faint">
+                    <span className="block truncate text-[11px] font-medium uppercase tracking-[0.05em] text-muted">
                       {format.weekdayShort(day)}
                     </span>
                     <span className="block truncate text-[10px] text-muted">

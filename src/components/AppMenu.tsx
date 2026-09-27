@@ -5,20 +5,29 @@ import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
 import { cities } from '@/lib/cities';
 import { useSettings } from '@/lib/settings/context';
-import { programmePath } from '@/lib/site';
 import { Checkbox } from './Checkbox';
 import { ContextMenu, type MenuItem } from './ContextMenu';
-import { MoreHorizontal, Share } from './icons';
+import { Keyboard, MoreHorizontal, Settings, Share } from './icons';
 import { shareLink } from './ShareButton';
 
 const DONATE_URL = 'https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03';
 
 /**
  * Das Drei-Punkte-Menü ganz rechts in der Kopfzeile. Es sammelt alles, was
- * nicht zum Kalender selbst gehört: Impressum, Status, Export, die lesbaren
- * Programmübersichten, Teilen und Unterstützen.
+ * nicht zum Kalender selbst gehört: Teilen, Einstellungen, Tastenkürzel,
+ * Unterstützen, Export, Status und Impressum.
  */
-export function AppMenu({ cityId, shareUrl, className }: { cityId: string; shareUrl: string; className: string }) {
+export function AppMenu({
+  cityId,
+  shareUrl,
+  onOpenShortcuts,
+  className,
+}: {
+  cityId: string;
+  shareUrl: string;
+  onOpenShortcuts: () => void;
+  className: string;
+}) {
   const { t } = useSettings();
   const router = useRouter();
   const button = useRef<HTMLButtonElement>(null);
@@ -45,29 +54,41 @@ export function AppMenu({ cityId, shareUrl, className }: { cityId: string; share
     setAnchor({
       x: rect.right,
       y: rect.bottom + 4,
-      // Ab `lg` steht „Teilen“ schon in der Kopfzeile.
+      // Tastenkürzel gibt es erst ab `lg`, darunter fehlt die Tastatur.
       narrow: !window.matchMedia('(min-width: 64rem)').matches,
     });
   };
 
   const items: MenuItem[] = [
+    {
+      key: 'share',
+      label: copied ? t('menuLinkCopied') : t('shareWebsite'),
+      icon: <Share className="h-3.5 w-3.5" />,
+      keepOpen: true,
+      onSelect: () => {
+        track('share-website');
+        void shareLink(shareUrl, t('appName')).then((result) => {
+          if (result === 'copied') setCopied(true);
+          else if (result === 'shared') close();
+        });
+      },
+    },
+    {
+      key: 'settings',
+      label: t('settings'),
+      icon: <Settings className="h-3.5 w-3.5" />,
+      onSelect: () => router.push('/settings'),
+    },
     ...(anchor?.narrow
-      ? [
+      ? []
+      : [
           {
-            key: 'share',
-            label: copied ? t('menuLinkCopied') : t('shareWebsite'),
-            icon: <Share className="h-3.5 w-3.5" />,
-            keepOpen: true,
-            onSelect: () => {
-              track('share-website');
-              void shareLink(shareUrl, t('appName')).then((result) => {
-                if (result === 'copied') setCopied(true);
-                else if (result === 'shared') close();
-              });
-            },
+            key: 'shortcuts',
+            label: `${t('shortcuts')} (?)`,
+            icon: <Keyboard className="h-3.5 w-3.5" />,
+            onSelect: onOpenShortcuts,
           },
-        ]
-      : []),
+        ]),
     {
       key: 'donate',
       label: t('donate'),
@@ -86,11 +107,6 @@ export function AppMenu({ cityId, shareUrl, className }: { cityId: string; share
         }
       },
     },
-    ...cities.map((city) => ({
-      key: `programme-${city.id}`,
-      label: t('cityProgramme', { city: city.name }),
-      onSelect: () => router.push(programmePath(city.id)),
-    })),
     {
       key: 'status',
       label: t('status'),
