@@ -62,23 +62,15 @@ interface Props {
  * Ansicht wird bewusst nicht gemerkt. Wer die Seite öffnet, will zuerst
  * wissen, was läuft, nicht wo er zuletzt war. Ein Link mit `?view=` sticht das.
  *
- * Am Schreibtisch ist das die Woche: dort ist Platz für sieben Spalten mit
- * Titeln. Auf dem Telefon der Monat, weil eine Woche dort auf sieben schmale
- * Streifen zusammenfällt. Die Breite kennt erst der Browser, deshalb steht
- * beim Rendern auf dem Server der Monat und die Woche kommt nach der
- * Hydration – wie Stadt, Datum und Filter auch.
+ * Auf jedem Gerät ist das der Monat: er zeigt auf einen Blick, wann überhaupt
+ * etwas los ist, und rechts steht, was am gewählten Tag läuft.
  */
-const SSR_VIEW: ViewMode = 'month';
-const DESKTOP_QUERY = '(min-width: 1024px)';
-
-function defaultView(): ViewMode {
-  return window.matchMedia(DESKTOP_QUERY).matches ? 'week' : 'month';
-}
+const DEFAULT_VIEW: ViewMode = 'month';
 
 export function CalendarApp({ initialData, initialRange, initialCityId, initialAnchor }: Props) {
   const { settings, cityStatus, chooseCity, format, t, term } = useSettings();
 
-  const [view, setView] = useState<ViewMode>(SSR_VIEW);
+  const [view, setView] = useState<ViewMode>(DEFAULT_VIEW);
   const [anchor, setAnchor] = useState<string>(initialAnchor);
   const [selectedDay, setSelectedDay] = useState<string>(anchor);
   const [selectedEventId, setSelectedEventId] = useState<string>();
@@ -150,7 +142,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
     // Ein Deeplink ist eine Ansage; ohne ihn entscheidet die Breite des Geräts.
     const urlView = params.get('view');
-    const startupView = isViewMode(urlView) ? urlView : defaultView();
+    const startupView = isViewMode(urlView) ? urlView : DEFAULT_VIEW;
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setView(startupView);
@@ -264,19 +256,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     [anchor, view, coverage, canStep, steppedAnchor],
   );
 
-  /** Sprung auf heute, morgen oder übermorgen. */
+  /** Sprung auf einen Tag aus der Tagesauswahl oder auf heute. */
   const goToDay = useCallback(
-    (offset: number) => {
-      const target = clampDay(addDays(format.today(), offset), coverage);
+    (day: string) => {
+      const target = clampDay(day, coverage);
       setAnchor(target);
       setSelectedDay(target);
       setSelectedEventId(undefined);
       setCalendarFocusKey((current) => current + 1);
     },
-    [format, coverage],
+    [coverage],
   );
 
-  const goToday = useCallback(() => goToDay(0), [goToDay]);
+  const goToday = useCallback(() => goToDay(format.today()), [goToDay, format]);
 
   const selectDay = useCallback(
     (day: string) => {
@@ -613,8 +605,14 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           canStepBack={!restored || canStep(-1)}
           canStepForward={!restored || canStep(1)}
           onToday={goToday}
-          onJumpDay={goToDay}
+          onPickDay={goToDay}
           selectedDay={selectedDay}
+          coverage={coverage}
+          // Der Zieh-Griff steht 1 px breit zwischen Spalte und Fläche; der
+          // Rand der Fläche ist auf beiden Seiten gleich und hebt sich auf.
+          leftInset={layout.sidebarCollapsed ? 0 : layout.sidebarWidth + 1}
+          rightInset={detailOpen ? layout.detailWidth + 1 : 0}
+          animateInsets={!resizing}
           onOpenFilters={() => setFiltersOpen(true)}
           activeFilterCount={filters.activeFilterCount}
           sidebarCollapsed={layout.sidebarCollapsed}

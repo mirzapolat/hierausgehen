@@ -25,6 +25,8 @@ export interface Formatter extends FormatOptions {
   dayLong: (day: string) => string;
   dayMedium: (day: string) => string;
   dayNoWeekday: (day: string) => string;
+  /** Knapp mit Wochentag – "Sa., 3. Okt." – für Knöpfe. */
+  dayShort: (day: string) => string;
   monthYear: (day: string) => string;
   monthYearShort: (day: string) => string;
   /** Nur der Monatsname – für enge Stellen wie den Monatswechsel im Raster. */
@@ -112,6 +114,7 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
     dayLong: (day) => dayLong.format(noon(day)),
     dayMedium: (day) => dayMedium.format(noon(day)),
     dayNoWeekday: (day) => dayNoWeekday.format(noon(day)),
+    dayShort: (day) => dayShort.format(noon(day)),
     monthYear: (day) => monthYear.format(noon(day)),
     monthYearShort: (day) => monthYearShort.format(noon(day)).replace(/\./g, ''),
     monthName: (day) => monthName.format(noon(day)),

@@ -1,10 +1,11 @@
 'use client';
 
-import { addDays, type ViewMode } from '@/lib/calendar';
+import type { ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
 import { AppMenu } from './AppMenu';
 import { CityPicker } from './CityPicker';
+import { DayPicker } from './DayPicker';
 import { Dropdown } from './Dropdown';
 import {
   ChevronLeft,
@@ -26,10 +27,19 @@ interface Props {
   canStepBack: boolean;
   canStepForward: boolean;
   onToday: () => void;
-  /** Sprung auf heute (0), morgen (1) oder übermorgen (2). */
-  onJumpDay: (offset: number) => void;
-  /** Nur zur Anzeige: welcher der drei Tage gerade gewählt ist. */
+  /** Sprung auf einen bestimmten Tag. */
+  onPickDay: (day: string) => void;
   selectedDay: string;
+  /** Wählbarer Zeitraum der Tagesauswahl. */
+  coverage: { from: string; to: string };
+  /**
+   * Ab `lg` steht die Datumsnavigation mittig über der Kalenderfläche, nicht
+   * mittig im Fenster: dafür die Breiten der Spalten links und rechts.
+   */
+  leftInset: number;
+  rightInset: number;
+  /** Beim Ziehen einer Spalte folgt die Mitte sofort statt animiert. */
+  animateInsets: boolean;
   onOpenFilters: () => void;
   activeFilterCount: number;
   sidebarCollapsed: boolean;
@@ -52,8 +62,12 @@ export function Toolbar({
   canStepBack,
   canStepForward,
   onToday,
-  onJumpDay,
+  onPickDay,
   selectedDay,
+  coverage,
+  leftInset,
+  rightInset,
+  animateInsets,
   onOpenFilters,
   activeFilterCount,
   sidebarCollapsed,
@@ -72,15 +86,6 @@ export function Toolbar({
   // Fassung ("Mo., 7. Sept." statt "Montag, 7. September 2026").
   const mobileTitle = format.rangeLabelShort(view, anchor);
 
-  // Die drei Tage, nach denen am häufigsten gefragt wird. Auf schmalen
-  // Geräten führt stattdessen der Titel nach heute – dort ist kein Platz.
-  const jumps = [
-    { offset: 0, label: t('today') },
-    { offset: 1, label: t('tomorrow') },
-    { offset: 2, label: t('dayAfterTomorrow') },
-  ].map((jump) => ({ ...jump, day: addDays(format.today(), jump.offset) }));
-  const currentJump = jumps.find((jump) => jump.day === selectedDay);
-
   const views: { id: ViewMode; label: string; short: string; wide?: boolean }[] = [
     { id: 'day', label: t('day'), short: t('dayShort') },
     { id: 'week', label: t('week'), short: t('weekShort') },
@@ -90,6 +95,16 @@ export function Toolbar({
     { id: 'map', label: t('map'), short: t('mapShort'), wide: true },
   ];
   const currentView = views.find((item) => item.id === view) ?? views[0];
+
+  // Ab lg stehen die Pfeile links und rechts vom Titel. Damit sie beim
+  // Blättern nicht unter dem Zeiger wegrutschen, hat der Titel je Ansicht eine
+  // feste Breite, die das längste Datum fasst.
+  const titleWidth: Record<ViewMode, string> = {
+    day: 'lg:w-[224px]',
+    week: 'lg:w-[224px]',
+    month: 'lg:w-[132px]',
+    map: 'lg:w-[224px]',
+  };
 
   // Auf schmalen Geräten sind die Knöpfe fingergerecht (36 px); ab `lg`
   // zeigt ein Zeiger auf sie und sie dürfen wieder klein sein.
@@ -102,7 +117,7 @@ export function Toolbar({
 
   return (
     <header
-      className="flex h-14 shrink-0 items-center gap-1 bg-[var(--chrome)] px-2 hairline-b lg:border-b-0
+      className="relative flex h-14 shrink-0 items-center gap-1 bg-[var(--chrome)] px-2 hairline-b lg:border-b-0
                  lg:h-12 lg:gap-1.5 lg:px-3"
     >
       <button
@@ -142,7 +157,14 @@ export function Toolbar({
       </a>
       <CityPicker cityId={cityId} onChange={onCityChange} />
 
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 lg:flex-none lg:ml-3">
+      {/* Ab lg mittig über der Kalenderfläche: die Mitte zwischen den Spalten,
+          nicht die des Fensters. Auf schmalen Geräten ist `left` wirkungslos. */}
+      <div
+        className={`flex min-w-0 flex-1 items-center gap-0.5 lg:absolute lg:top-1/2 lg:-translate-x-1/2
+                    lg:-translate-y-1/2 lg:flex-none
+                    ${animateInsets ? 'lg:transition-[left] lg:duration-200 lg:ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
+        style={{ left: `calc(50% + ${(leftInset - rightInset) / 2}px)` }}
+      >
         <button
           type="button"
           onClick={() => onStep(-1)}
@@ -157,20 +179,23 @@ export function Toolbar({
           type="button"
           onClick={() => onStep(1)}
           disabled={!canStepForward}
-          className={arrowButton}
+          className={`${arrowButton} lg:order-last`}
           title={`${t('next')} (→)`}
           aria-label={t('next')}
         >
           <ChevronRight />
         </button>
         {/* Auf schmalen Geräten ersetzt der Titel den "Heute"-Knopf. */}
-        <h1 className="ml-0.5 min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em] lg:ml-1.5 lg:text-[14px]">
+        <h1
+          className={`ml-0.5 min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em]
+                      lg:mx-1 lg:text-center lg:text-[14px] ${titleWidth[view]}`}
+        >
           <button
             type="button"
             onClick={onToday}
             title={`${t('today')} (T)`}
             className="block max-w-full truncate rounded-[var(--radius-sm)] px-1 py-1
-                       hover:bg-[var(--canvas)] lg:py-0.5"
+                       hover:bg-[var(--canvas)] lg:mx-auto lg:py-0.5"
           >
             <span className="lg:hidden">{mobileTitle}</span>
             <span className="hidden lg:inline">{title}</span>
@@ -179,17 +204,12 @@ export function Toolbar({
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 lg:gap-1.5">
-        <Dropdown
+        {/* Auf schmalen Geräten führt stattdessen der Titel nach heute. */}
+        <DayPicker
           className="hidden md:block"
-          label={t('jumpToDay')}
-          value={currentJump?.offset}
-          buttonLabel={currentJump?.label ?? t('jumpToDay')}
-          options={jumps.map((jump) => ({
-            value: jump.offset,
-            label: jump.label,
-            title: jump.offset === 0 ? `${jump.label} (T)` : jump.label,
-          }))}
-          onChange={onJumpDay}
+          selectedDay={selectedDay}
+          coverage={coverage}
+          onPick={onPickDay}
         />
 
         <Dropdown

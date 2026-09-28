@@ -1,7 +1,7 @@
 import type { CalendarEvent, EventFetchOptions, EventSource, FetchRange } from '../../types.ts';
 import { fetchText } from '../../http.ts';
-import { enrichEventDescriptions } from '../detail.ts';
-import { parseDetailDescription, parseProgramme } from './parse.ts';
+import { enrichEventDetails } from '../detail.ts';
+import { parseDetailPage, parseProgramme } from './parse.ts';
 import { assertRecognised } from '../page.ts';
 import { today, withinRange } from '../collect.ts';
 
@@ -17,9 +17,11 @@ import { today, withinRange } from '../collect.ts';
  * Vergangenes kennt die Seite nicht. Liegt der gefragte Zeitraum vollständig
  * hinter uns, wird sie deshalb gar nicht erst angefasst.
  *
- * Programmtexte stehen nur auf den Veranstaltungsseiten. Da jeder Termin genau
- * eine eigene Seite hat, deckt der gemeinsame Detail-Helfer das ab: er cacht je
- * Adresse einen Tag lang und hat ein eigenes Zeitbudget.
+ * Programmtexte und Kartenlinks stehen nur auf den Veranstaltungsseiten. Da
+ * jeder Termin genau eine eigene Seite hat, deckt der gemeinsame Detail-Helfer
+ * das ab: er cacht je Adresse einen Tag lang und hat ein eigenes Zeitbudget.
+ * Die Karten selbst liegen bei Reservix; deren Übersicht ist per `robots.txt`
+ * gesperrt und wird nicht abgefragt (siehe `parseDetailPage`).
  */
 
 const BASE = 'https://www.literaturhaus-muenchen.de';
@@ -57,12 +59,12 @@ export const literaturhaus: EventSource = {
     if (skipped > 0) console.warn(`[literaturhaus] ${skipped} Block/Blöcke übersprungen`);
 
     const filtered = events.filter((event) => withinRange(event.start, range));
-    return enrichEventDescriptions({
+    return enrichEventDetails({
       sourceId: 'literaturhaus',
       events: filtered,
       signal,
       fetchOptions: options,
-      parseDescription: parseDetailDescription,
+      parse: parseDetailPage,
     });
   },
 };

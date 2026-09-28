@@ -3,6 +3,7 @@ import type { Availability, CalendarEvent } from '../../types.ts';
 import { berlinIso } from '../../time.ts';
 import { clean } from '../../text.ts';
 import type { PageResult } from '../page.ts';
+import type { EventDetail } from '../detail.ts';
 
 /**
  * Parser für das Programm des Literaturhauses München (`/programm/`).
@@ -79,6 +80,33 @@ export function parseProgramme(html: string): ParseResult {
   return { events, skipped, empty: events.length === 0 };
 }
 
+/**
+ * Programmtext und Kartenlink der Veranstaltungsseite.
+ *
+ * Karten verkauft das Haus über Reservix. Die Übersicht dort
+ * (`literaturhaus-muenchen.reservix.de/events`) sperrt Reservix in der
+ * `robots.txt` – sie bleibt deshalb unberührt. Die Veranstaltungsseite hier
+ * verlinkt aber je Termin direkt auf dessen Karten (`a.ticket-link`), und
+ * die holt der Adapter ohnehin. Ein solcher Link ist der Kaufen-Knopf und
+ * heisst `available`; das Ausverkauft-Zeichen der Liste geht vor, weil
+ * `mergeDetail` die Ticketlage nur ergänzt, wo die Liste keine kannte.
+ *
+ * Freie Veranstaltungen (Musik im Café) haben keinen `a.ticket-link` – dann
+ * bleibt es bei `unknown`. Der allgemeine Kartenknopf im Seitenkopf zeigt auf
+ * die Reservix-Übersicht und zählt nicht.
+ */
+export function parseDetailPage(html: string): EventDetail | undefined {
+  const description = parseDetailDescription(html);
+  const ticketUrl = readTicketLink(html);
+  if (!description && !ticketUrl) return undefined;
+
+  return {
+    description,
+    ticketUrl,
+    availability: ticketUrl ? 'available' : undefined,
+  };
+}
+
 /** Programmtext der Veranstaltungsseite. */
 export function parseDetailDescription(html: string): string | undefined {
   const $ = cheerio.load(withLineBreaks(html));
@@ -98,6 +126,18 @@ export function parseDetailDescription(html: string): string | undefined {
 }
 
 /* ------------------------------------------------------------------ */
+
+/** Nur Links, die auf einen bestimmten Termin im Kartenshop zeigen. */
+function readTicketLink(html: string): string | undefined {
+  const $ = cheerio.load(html);
+  for (const element of $('a.ticket-link').toArray()) {
+    const href = $(element).attr('href')?.trim();
+    if (href && /^https:\/\/[^/]*reservix\.de\/.*\d/.test(href) && !/\/events\/?$/.test(href)) {
+      return href;
+    }
+  }
+  return undefined;
+}
 
 type Item = cheerio.Cheerio<never>;
 

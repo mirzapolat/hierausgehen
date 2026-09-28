@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { parseDetailDescription, parseProgramme } from './parse.ts';
+import { parseDetailDescription, parseDetailPage, parseProgramme } from './parse.ts';
 
 const fixture = (name: string) =>
   readFileSync(path.join(import.meta.dirname, `__fixtures__/${name}`), 'utf8');
@@ -121,6 +121,26 @@ test('liest den Programmtext von der Veranstaltungsseite', () => {
   const mehrteilig = parseDetailDescription(fixture('detail-musik-im-cafe.html'));
   assert.match(mehrteilig!, /Internationale Musikwettbewerb der ARD/);
   assert.ok(mehrteilig!.includes('\n\n'), 'mehrere Absätze bleiben getrennt');
+});
+
+test('liest den Kartenlink der Veranstaltungsseite', () => {
+  const lesung = parseDetailPage(fixture('detail-alleinruhelage.html'));
+  assert.equal(lesung!.ticketUrl, 'https://www.reservix.de/p/reservix/event/2592047');
+  assert.equal(lesung!.availability, 'available');
+  assert.match(lesung!.description!, /^Nach dem Ende einer Ehe bleibt ein Haus/);
+
+  // Freier Eintritt: kein Kartenlink, und der allgemeine Kartenknopf im
+  // Seitenkopf (Reservix-Übersicht) wird nicht zum Termin-Link.
+  const cafe = parseDetailPage(fixture('detail-musik-im-cafe.html'));
+  assert.equal(cafe!.ticketUrl, undefined);
+  assert.equal(cafe!.availability, undefined);
+  assert.ok(cafe!.description);
+
+  assert.equal(
+    parseDetailPage('<a class="ticket-link" href="https://literaturhaus-muenchen.reservix.de/events">x</a>'),
+    undefined,
+  );
+  assert.equal(parseDetailPage('<html></html>'), undefined);
 });
 
 test('erkennt eine gerenderte, aber leere Liste und meldet sie nicht als Fehler', () => {
