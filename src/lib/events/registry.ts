@@ -1,5 +1,7 @@
 import type { EventSource } from './types.ts';
 import { atgGlasgow } from './sources/atg-glasgow/index.ts';
+import { casablanca } from './sources/casablanca/index.ts';
+import { cineK } from './sources/cine-k/index.ts';
 import { citizens } from './sources/citizens/index.ts';
 import { bahnwaerterthiel } from './sources/bahnwaerterthiel/index.ts';
 import { deutschesTheater } from './sources/deutsches-theater/index.ts';
@@ -67,6 +69,8 @@ export const sources: EventSource[] = [
   theaterUnikum,
   kulturetage,
   wilhelm13,
+  casablanca,
+  cineK,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));

@@ -34,7 +34,7 @@ export const defaultSpacePrefs: CitySpacePrefs = {
 };
 
 export const defaultLayout: LayoutPrefs = {
-  sidebarWidth: 228,
+  sidebarWidth: 256,
   detailWidth: 336,
   sidebarCollapsed: false,
   detailCollapsed: false,

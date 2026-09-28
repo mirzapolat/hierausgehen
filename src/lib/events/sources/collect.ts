@@ -65,7 +65,7 @@ export function dedupeById(events: CalendarEvent[]): CalendarEvent[] {
   return [...byId.values()];
 }
 
-/** Heute in der Zeitzone der Münchner Quellen, als ISO-Tag. */
+/** Heute in der Zeitzone der Quellen (Europe/Berlin), als ISO-Tag. */
 export function today(): string {
   return todayInZone(TZ);
 }
