@@ -9,6 +9,8 @@ import {
   addMonths,
   clampDay,
   coverageRange,
+  navigationFloor,
+  navigationRange,
   isDayView,
   isSameMonth,
   loadRange,
@@ -116,6 +118,18 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    */
   const coverageDay = restored ? format.today() : initialAnchor;
   const coverage = useMemo(() => coverageRange(coverageDay), [coverageDay]);
+  /**
+   * Wohin die gewählte Ansicht blättern darf: nie zurück hinter heute (Tag,
+   * Karte), diese Woche (Woche) oder diesen Monat (Monat). Die Erhebung
+   * beginnt am Monatsersten – was davor im Monat liegt, bleibt geladen, ist
+   * aber kein Ziel mehr.
+   */
+  const navRange = useMemo(() => navigationRange(view, coverageDay, coverage), [view, coverageDay, coverage]);
+  /**
+   * Ab heute: der Tagesauswahl bietet keine vergangenen Tage an, und der
+   * scrollende Monat am Schreibtisch beginnt mit dieser Woche.
+   */
+  const fromToday = useMemo(() => navigationRange('day', coverageDay, coverage), [coverageDay, coverage]);
   const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
 
   const data = useEventData({ initialCityId, initialRange, initialData, cityId, range });
@@ -154,7 +168,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     const urlDate = params.get('date');
     const wanted = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : format.today();
     // Auch ein alter Link führt nur in den Zeitraum, den der Server vorhält.
-    const startDay = clampDay(wanted, coverageRange(format.today()));
+    const startDay = clampDay(
+      wanted,
+      navigationRange(startupView, format.today(), coverageRange(format.today())),
+    );
     setAnchor(startDay);
     setSelectedDay(startDay);
 
@@ -233,9 +250,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         : view === 'week'
           ? addDays(current, direction * 7)
           : addMonths(current, direction);
-      return clampDay(raw, coverage);
+      return clampDay(raw, navRange);
     },
-    [view, coverage],
+    [view, navRange],
   );
 
   const canStep = useCallback(
@@ -251,28 +268,28 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       if (!canStep(direction)) return;
       setAnchor(steppedAnchor(anchor, direction));
       const amount = isDayView(view) ? direction : view === 'week' ? direction * 7 : 0;
-      if (amount) setSelectedDay((current) => clampDay(addDays(current, amount), coverage));
+      if (amount) setSelectedDay((current) => clampDay(addDays(current, amount), navRange));
     },
-    [anchor, view, coverage, canStep, steppedAnchor],
+    [anchor, view, navRange, canStep, steppedAnchor],
   );
 
   /** Sprung auf einen Tag aus der Tagesauswahl oder auf heute. */
   const goToDay = useCallback(
     (day: string) => {
-      const target = clampDay(day, coverage);
+      const target = clampDay(day, navRange);
       setAnchor(target);
       setSelectedDay(target);
       setSelectedEventId(undefined);
       setCalendarFocusKey((current) => current + 1);
     },
-    [coverage],
+    [navRange],
   );
 
   const goToday = useCallback(() => goToDay(format.today()), [goToDay, format]);
 
   const selectDay = useCallback(
     (day: string) => {
-      const target = clampDay(day, coverage);
+      const target = clampDay(day, navRange);
       setAnchor(target);
       setSelectedDay(target);
       setSelectedEventId(undefined);
@@ -281,7 +298,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       // bleibt das ohne Wirkung (siehe `detailAvailable`).
       setLayout((current) => ({ ...current, detailCollapsed: false }));
     },
-    [coverage],
+    [navRange],
   );
 
   /**
@@ -290,11 +307,21 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    * Die Karte zeigt einen Tag als Orte und beantwortet damit nur die halbe
    * Frage – was dort läuft, steht in der Spalte daneben. Wer sie öffnet, soll
    * beides sehen, auch wenn die Spalte zuletzt zugeklappt war.
+   *
+   * Jede Ansicht hat ihren eigenen frühesten Tag: wer im Monat den Ersten
+   * gewählt hat und in den Tag wechselt, landet heute statt in der
+   * Vergangenheit.
    */
-  const changeView = useCallback((next: ViewMode) => {
-    setView(next);
-    if (next === 'map') setLayout((current) => ({ ...current, detailCollapsed: false }));
-  }, []);
+  const changeView = useCallback(
+    (next: ViewMode) => {
+      const floor = navigationFloor(next, coverageDay);
+      setView(next);
+      setAnchor((current) => (current < floor ? floor : current));
+      setSelectedDay((current) => (current < floor ? floor : current));
+      if (next === 'map') setLayout((current) => ({ ...current, detailCollapsed: false }));
+    },
+    [coverageDay],
+  );
 
   const openEvent = useCallback(
     (event: CalendarEvent) => {
@@ -374,11 +401,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       } else {
         const next = index + direction;
         if (next < 0 || next >= ordered.length) return;
+        // Auch mit der Tastatur nicht zurück hinter den frühesten Tag der Ansicht.
+        if (format.localDay(ordered[next].start) < navRange.from) return;
         openEvent(ordered[next]);
       }
       setRevealSelection((current) => current + 1);
     },
-    [ordered, selectedEventId, selectedDay, openEvent, format],
+    [ordered, selectedEventId, selectedDay, openEvent, format, navRange],
   );
 
   // Eine mit der Tastatur gewählte Veranstaltung muss auch zu sehen sein.
@@ -583,6 +612,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       onShowAllCategories={filters.showAllCategories}
       availableOnly={filters.availableOnly}
       onAvailableOnlyChange={filters.setAvailableOnly}
+      freeOnly={filters.freeOnly}
+      onFreeOnlyChange={filters.setFreeOnly}
       query={filters.query}
       onQueryChange={setQuery}
     />
@@ -607,7 +638,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           onToday={goToday}
           onPickDay={goToDay}
           selectedDay={selectedDay}
-          coverage={coverage}
+          coverage={fromToday}
           // Der Zieh-Griff steht 1 px breit zwischen Spalte und Fläche; der
           // Rand der Fläche ist auf beiden Seiten gleich und hebt sich auf.
           leftInset={layout.sidebarCollapsed ? 0 : layout.sidebarWidth + 1}
@@ -726,7 +757,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   onSelectDay={selectDay}
                   onSelectEvent={selectEvent}
                   onAnchorChange={setAnchor}
-                  coverage={coverage}
+                  coverage={fromToday}
                   focusKey={calendarFocusKey}
                 />
               </div>

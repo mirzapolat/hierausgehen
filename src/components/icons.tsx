@@ -109,6 +109,13 @@ export const MoreHorizontal = (p: Props) => (
     <circle cx="12.5" cy="8" r="1" fill="currentColor" stroke="none" />
   </Svg>
 );
+/** Preisschild – freier Eintritt. */
+export const Tag = (p: Props) => (
+  <Svg {...p}>
+    <path d="M2.5 3.5v4l6 6 5-5-6-6h-4a1 1 0 0 0-1 1z" />
+    <circle cx="5.25" cy="5.25" r="0.9" fill="currentColor" stroke="none" />
+  </Svg>
+);
 export const Ticket = (p: Props) => (
   <Svg {...p}>
     <path d="M2 5.5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1a1.5 1.5 0 0 0 0 3v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1a1.5 1.5 0 0 0 0-3z" />

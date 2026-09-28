@@ -7,7 +7,7 @@ import { useSettings } from '@/lib/settings/context';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
-import { ChevronDown, Close, MoreHorizontal, Ticket, Warning } from './icons';
+import { ChevronDown, Close, MoreHorizontal, Tag, Ticket, Warning } from './icons';
 import { SearchField } from './SearchField';
 
 interface Props {
@@ -30,6 +30,8 @@ interface Props {
   onShowAllCategories: () => void;
   availableOnly: boolean;
   onAvailableOnlyChange: (next: boolean) => void;
+  freeOnly: boolean;
+  onFreeOnlyChange: (next: boolean) => void;
   query: string;
   onQueryChange: (next: string) => void;
 }
@@ -54,6 +56,8 @@ export function Sidebar({
   onShowAllCategories,
   availableOnly,
   onAvailableOnlyChange,
+  freeOnly,
+  onFreeOnlyChange,
   query,
   onQueryChange,
 }: Props) {
@@ -71,20 +75,21 @@ export function Sidebar({
       {/* Auf schmalen Geräten steht die Suche über dem Kalender, nicht hier. */}
       <SearchField query={query} onQueryChange={onQueryChange} className="hidden lg:block" />
 
-      <button
-        type="button"
-        aria-pressed={availableOnly}
-        onClick={() => onAvailableOnlyChange(!availableOnly)}
-        className={`chip-hover flex items-center gap-1.5 self-start lg:-mt-2 rounded-full border
-                    py-1.5 pl-2.5 pr-3 text-[13px] lg:py-[3px] lg:pl-2 lg:pr-2.5 lg:text-[12px] ${
-                      availableOnly
-                        ? 'border-transparent bg-[var(--accent-soft)] text-accent'
-                        : 'border-line text-faint hover:border-line-strong hover:text-muted'
-                    }`}
-      >
-        <Ticket className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate">{t('onlyAvailable')}</span>
-      </button>
+      {/* Schnellfilter direkt unter der Suche – sie wirken zusammen: „Eintritt
+          frei“ und „Karten buchbar“ heisst kostenlos, aber mit Platzkarte. */}
+      <div className="flex flex-wrap gap-1.5 lg:-mt-2">
+        <FilterChip pressed={availableOnly} onChange={onAvailableOnlyChange} icon={<Ticket className="h-3.5 w-3.5 shrink-0" />}>
+          {t('onlyAvailable')}
+        </FilterChip>
+        <FilterChip
+          pressed={freeOnly}
+          onChange={onFreeOnlyChange}
+          icon={<Tag className="h-3.5 w-3.5 shrink-0" />}
+          title={t('onlyFreeTitle')}
+        >
+          {t('onlyFree')}
+        </FilterChip>
+      </div>
 
       <section>
         <div className="mb-2 flex items-center gap-2 px-0.5">
@@ -431,4 +436,37 @@ function groupSources(
       sources: sources.sort((a, b) => a.name.localeCompare(b.name, locale)),
     }))
     .sort((a, b) => term(a.name).localeCompare(term(b.name), locale));
+}
+
+/** Ein-/Aus-Schalter als Pille, wie „Karten buchbar“. */
+function FilterChip({
+  pressed,
+  onChange,
+  icon,
+  title,
+  children,
+}: {
+  pressed: boolean;
+  onChange: (next: boolean) => void;
+  icon: React.ReactNode;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      title={title}
+      onClick={() => onChange(!pressed)}
+      className={`chip-hover flex min-w-0 items-center gap-1.5 rounded-full border
+                  py-1.5 pl-2.5 pr-3 text-[13px] lg:py-[3px] lg:pl-2 lg:pr-2.5 lg:text-[12px] ${
+                    pressed
+                      ? 'border-transparent bg-[var(--accent-soft)] text-accent'
+                      : 'border-line text-faint hover:border-line-strong hover:text-muted'
+                  }`}
+    >
+      {icon}
+      <span className="truncate">{children}</span>
+    </button>
+  );
 }

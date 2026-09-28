@@ -138,7 +138,12 @@ export function mergeDetail(
   return next;
 }
 
-async function enrichEvents<T>({
+/**
+ * Die allgemeine Form: eigenes Detailformat, eigenes Zusammenführen. Für
+ * Detailseiten, die mehr tragen als ein `EventDetail` fasst – etwa eine
+ * Produktionsseite mit der Uhrzeit jedes einzelnen Termins (Kulturetage).
+ */
+export async function enrichEvents<T>({
   sourceId,
   events,
   signal,

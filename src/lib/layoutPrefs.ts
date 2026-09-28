@@ -12,6 +12,8 @@ export const LAYOUT_STORAGE_KEY = 'hierausgehen.layout.v1';
 export interface CitySpacePrefs {
   disabledSources: string[];
   availableOnly: boolean;
+  /** Nur Termine mit ausdrücklich freiem Eintritt (siehe `events/price.ts`). */
+  freeOnly: boolean;
   disabledCategories: string[];
 }
 
@@ -27,6 +29,7 @@ export interface LayoutPrefs {
 export const defaultSpacePrefs: CitySpacePrefs = {
   disabledSources: [],
   availableOnly: false,
+  freeOnly: false,
   disabledCategories: [],
 };
 
@@ -121,6 +124,7 @@ function normalizeSpacePrefs(prefs: Partial<CitySpacePrefs> | undefined): CitySp
     disabledSources: stringList(prefs?.disabledSources),
     availableOnly:
       typeof prefs?.availableOnly === 'boolean' ? prefs.availableOnly : defaultSpacePrefs.availableOnly,
+    freeOnly: typeof prefs?.freeOnly === 'boolean' ? prefs.freeOnly : defaultSpacePrefs.freeOnly,
     disabledCategories: stringList(prefs?.disabledCategories),
   };
 }

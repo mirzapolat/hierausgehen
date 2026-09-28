@@ -84,9 +84,13 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Niederdeutsches Schauspiel',
     // Benennt die Form, nicht die Gattung – an einem Theater meist Theater.
     'Gastspiel',
+    // Theater Unikum: Komödie und Solostück sind dort Sprechtheater.
+    'Komödie',
+    'One-Woman-Show',
+    'Spielzeiteröffnung',
   ],
   Performance: ['Performances'],
-  Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus'],
+  Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus', 'Bunter Abend', 'Lip Sync Battle'],
   Comedy: [
     'Kabarett',
     'Kabarett & Comedy',
@@ -94,6 +98,9 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Stand-up-Comedy',
     'Improtheater',
     'Impro Theater',
+    // Kulturetage: „Caveman“ und Horst Evers.
+    'Theater-Comedy',
+    'Comedy-Lesung',
   ],
   Konzert: [
     'Musik',
@@ -101,6 +108,7 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Livemusik',
     'Live-Musik',
     'Konzert-Show',
+    'Mitsingkonzert',
     'Tribute-Konzert',
     'Sinfoniekonzert',
     'Kammerkonzert',
@@ -138,6 +146,7 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Open Decks',
     'Live DJ',
     'Soundsystem',
+    'Karaoke',
   ],
   Festival: ['PHRE Festival'],
   Kino: ['Film', 'Filmvorführung', 'Filmvorstellung', 'Open-Air-Kino', 'Kurzfilm'],
@@ -174,6 +183,7 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Other Talks',
     'Podium',
     'Panel',
+    'Infotainment',
     // Theaterpädagogik: Workshops, Jugendclubs, Gespräche.
     'Theatervermittlung',
   ],

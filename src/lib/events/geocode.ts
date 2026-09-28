@@ -139,6 +139,8 @@ const OVERRIDES: Record<string, string> = {
   // Die Theaterakademie ist als Einrichtung nicht kartiert; ihr Haus ist das
   // Prinzregententheater, und dort liegt auch das Akademietheater.
   'theaterakademie august everding': 'Prinzregententheater',
+  // In OpenStreetMap heisst das Haus am Uhlhornsweg schlicht „unikum“.
+  'theater unikum': 'Unikum',
 };
 
 export interface LocateOptions {

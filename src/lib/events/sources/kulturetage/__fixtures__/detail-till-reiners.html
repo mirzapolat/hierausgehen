@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		<title>Veranstaltungen</title>
+		<meta name="description" content="Die Oldenburger Kulturetage bietet ihrer ‘Halle’ u. a. Konzerte und Kabarett, spielt im ‘Theater k’ starke Stücke, zeigt im ‘Cine k’ ausgezeichnete Filme und veranstaltet jährlich den Oldenburger ‘Kultursommer’.">
+		<meta name="keywords" content="kultur, etage, oldenburg, veranstaltung, weser, ems, nord, west, musik, konzert, party, film, kino, kabarett, show, theater, soziokultur">
+		<meta lang="de" name="CLASSIFICATION" content="">
+		<meta name="author" content="www.cp-h.de, Wiefelstede, Germany">
+		<meta name="copyright" content="www.cp-h.de, Wiefelstede, Germany">
+		<meta name="LANGUAGE" content="de">
+		<meta name="AUDIENCE" content="Alle">
+		<meta name="DISTRIBUTION" content="Alle">
+		<meta name="robots" content="all">
+		<meta name="robots" content="index">
+		<meta name="robots" content="follow">
+		<link title="Veranstaltungen" href="http://www.kulturetage.de" rel="START">
+		<link title="Veranstaltungen" href="http://www.kulturetage.de" rel="BOOKMARK">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+		<link href="cpjs/lightslider/lightslider.min.css" type="text/css" rel="stylesheet" /> 
+		<link href="cpcss/style59.css" type="text/css" rel="stylesheet">
+		<!-- Including jQuery (required) -->
+		<script type="text/javascript" src="cpjs/jquery/jquery.min.js"></script>
+		<link rel="stylesheet" href="cpjs/fancybox/jquery.fancybox.css" type="text/css" media="screen" />
+		<script type="text/javascript" src="cpjs/fancybox/jquery.fancybox.pack.js"></script>
+		<script src="cpjs/lightslider/lightslider.min.js"></script>
+		<script src="cpjs/jquery_ext/jquery.waypoints.min.js"></script>
+		<script type='text/javascript'><!--
+			$(document).ready(function() {
+				$(".fancybox").fancybox();
+				$('a[href^="#"]').on('click',function(e) {
+					e.preventDefault();
+					var target = this.hash;
+					var $target = $(target);
+					$('html, body').stop().animate({
+						'scrollTop': $target.offset().top
+						}, 900, 'swing', function () {
+						window.location.hash = target;
+					});
+				});
+				var url = $(location).attr('href');
+				if (url.indexOf("#hm") >= 0) {
+					var tag = url.indexOf("#") + 2;
+					var mark = url.substring(tag);
+					show_id(mark);
+				}
+			});
+			function show_more(id) {
+				$('.more_id' + id).toggleClass('akt');
+			}
+			function show_id(id) {
+				$('.more_id' + id).addClass('akt');
+			}
+		//-->
+		</script>
+	</head>
+	<body>
+		<header>
+			<div class='cont'>
+				<a id='top' class='logo' title='Startseite' href='home_1.html'><img src='images/logo.svg' alt='Startseite'></a>
+				<span class='nav_icon' onClick='flow_men()'>
+					<span></span>
+					<span></span>
+					<span></span>
+				</span>
+				<div class='tools'>
+					<form id='topsuche' class='topsuche' action='suche_34.html' method='post' enctype='multipart/form-data' accept-charset='utf-8'>
+						<div class='filtersuche spalte'>
+							<input type='text' name='data[freitext]' size='30'>
+							<button type='submit'><img src='images/lupe.svg'></button>
+						</div>
+					</form>
+					<img class='mensuche' src='images/lupe.svg' onclick='flow_suche()'>
+					<a href='view_12--c.html' title='Barrierefrei'><img src='images/barrierefrei.svg'></a>
+				</div>
+				<nav>
+					<div class='navsuche' id='navsuche'>
+						<form action='suche_34.html' method='post' enctype='multipart/form-data' accept-charset='utf-8'>
+							<div>
+								<input type='text' name='data[freitext]' placeholder='suche' size='30'>
+								<button type='submit'><img src='images/lupe.svg'></button>
+							</div>
+						</form>
+					</div>
+					<ul id='menue'>
+						<li class='aktuell akt' id='submen6'>
+							<a class='desktopmen' href='/programm_6.html'>Pгogramm</a>
+							<div class='mobilmen' onmousedown='flow_submen(6)'>Pгogramm<span class='plus'></span></div>
+							<ul>
+								<li class='aktuell akt'><a href='/programm_6.html'>Übersicht</a>
+								<li class='aktuell'><a href='/veranstaltungen_12.html'>Veranstaltungen</a>
+								<li><a href='/kultur_kalender_13.html'>Kultur Kalender</a>
+								<li><a href='/festivals_reihen_14.html'>Festivals & Reihen</a>
+							</ul>
+						</li>
+						<li id='submen7'>
+							<a class='desktopmen' href='/service_7.html'>Seяvice</a>
+							<div class='mobilmen' onmousedown='flow_submen(7)'>Seяvice<span class='plus'></span></div>
+							<ul>
+								<li><a href='/service_7.html'>Übersicht</a>
+								<li><a href='tickets_50.html'>Tickets</a>
+								<li><a href='/service_7.html#hm16'>Aktuelles</a>
+								<li><a href='/service_7.html#hm17'>Anfahrt & Parken</a>
+								<li><a href='/service_7.html#hm46'>Barrierefreiheit</a>
+								<li><a href='/service_7.html#hm47'>Essen & Trinken</a>
+							</ul>
+						</li>
+						<li id='submen8'>
+							<a class='desktopmen' href='/haus_8.html'>Haus</a>
+							<div class='mobilmen' onmousedown='flow_submen(8)'>Haus<span class='plus'></span></div>
+							<ul>
+								<li><a href='/haus_8.html'>Übersicht</a>
+								<li><a href='/kulturetage_18.html'>Kulturetage</a>
+								<li><a href='/stiftung_52.html'>Stiftung</a>
+								<li><a href='/vorstand_56.html'>Vorstand</a>
+								<li><a href='/team_21.html'>Team</a>
+								<li><a href='/jobs_22.html'>Jobs</a>
+								<li><a href='/partner_23.html'>Partner</a>
+							</ul>
+						</li>
+						<li id='submen9'>
+							<a class='desktopmen' href='/akteure_9.html'>Aktəure</a>
+							<div class='mobilmen' onmousedown='flow_submen(9)'>Aktəure<span class='plus'></span></div>
+							<ul>
+								<li><a href='/akteure_9.html'>Übersicht</a>
+								<li><a href='/akteure_9.html#hm25'>Theater k</a>
+								<li><a href='/akteure_9.html#hm26'>Kreativ:Labor</a>
+								<li><a href='/akteure_9.html#hm28'>Cine k</a>
+								<li><a href='/akteure_9.html#hm27'>Villon_Räume mieten</a>
+								<li><a href='/akteure_9.html#hm29'>Loft k</a>
+								<li><a href='/akteure_9.html#hm62'>Tanzschule Salsa</a>
+								<li><a href='/akteure_9.html#hm30'>Patio</a>
+								<li><a href='/akteure_9.html#hm31'>Kultur Nord</a>
+								<li><a href='/akteure_9.html#hm32'>Calesita</a>
+							</ul>
+						</li>
+						<li id='submen10'>
+							<a class='desktopmen' href='/kontakt_10.html'>Koпtakt</a>
+							<div class='mobilmen' onmousedown='flow_submen(10)'>Koпtakt<span class='plus'></span></div>
+							<ul>
+								<li><a href='/kontakt_10.html'>Übersicht</a>
+								<li><a href='/newsletter_45.html'>Newsletter</a>
+							</ul>
+						</li>
+					</ul>
+					<div class='content navfuss'><div class='fuss_newsl' id='143'><form action='newsletter_58.html' method="post" enctype="multipart/form-data" accept-charset="utf-8"><p><p>Möchtest du uпseren </p>
+<p>Newsℓetter abonnieren?</p></p><input type='text' name='data[email]' placeholder='deine E-Mail-Adresse*' required><br><input class='button' type='submit' name='action[registrieren]' value='Anmelden'></form><div class='fuss_sm'><p><a href="http://www.facebook.com/kulturetage" target="_blank" rel="noopener"><img src="images/facebook.svg" alt="Facebook" /></a> <a href="https://www.instagram.com/kulturetageoldenburg" target="_blank" rel="noopener"><img src="images/instagram.svg" alt="Facebook" /></a></p></div></div><div class='spalte23 fusskontakt' id='141'><div class='spalte'><p><strong>Kulturetage gGmbH</strong></p>
+<p>Bahnhofstraße 11, 26122 Oldenburg</p>
+<table class="cms_table">
+<tbody>
+<tr>
+<td><a href="tel:+49441924800">+49 441 92 480 0</a></td>
+</tr>
+<tr>
+<td><a href="mailto:info@kulturetage.de">info@kulturetage.de</a></td>
+</tr>
+</tbody>
+</table></div><div class='spalte'></div></div>
+					</div>
+				</nav>
+
+				<script type='text/javascript'>
+				<!--
+					function flow_men()
+					{
+						$('nav').toggleClass('akt');
+						$('#nav_bg').toggleClass('akt');
+						$('.nav_icon').toggleClass('akt');
+					}
+					function flow_submen(id)
+					{
+						$('#submen' + id).toggleClass('akt');
+					}
+					function flow_suche()
+					{
+						$('#topsuche').toggleClass('akt');
+					}
+					function bildaction(id)
+					{
+						$('#' + id).toggleClass('akt');
+					}
+					function totop()
+					{
+						$('body,html').animate({
+							scrollTop: 0
+						}, 800);
+					}
+					$(function () {
+						var waypoints = $('#totop').waypoint(function(direction) {
+							if(direction == 'down') {
+								$('#totop').addClass('akt');
+							} else {
+								$('#totop').removeClass('akt');
+							}
+						}, { 
+							offset: 'bottom-in-view'
+						})
+					});
+				// -->
+				</script>
+			</div>
+		</header>
+		<main>
+			<div id='totop' onclick='totop()'></div>
+			<section class='veranstaltungen'>
+				<a class='anker' id='hm12'></a>
+			<div class='veranstaltung' id='veranstaltung'>
+				<div class='v_jump'>
+					<div class='content'><a class='v_prev' href='kulturetage_--b.html#hm826891'>zurück</a><a href='#'></a></div>
+				</div>
+				<div class='veranstaltung'>
+					<div class='veranst bgc2'>
+						<div class='content'>
+							<div class='startbild'><img src='cpmedia/veranstaltungen/2510011211-till_reiners-385717-u.jpg'></div>
+							<div class='titel'>
+								<h1 class='lenclass2'>Till Reiners</h1>
+								<h2 class='lenclass2'>Das ist alles Teil der Show</h2>
+							</div>
+							<div class='termine'>
+								<div class='rubrik'>Kabarett<span>Halle</span></div>
+								<div class='termin'>
+									<div class='datum'>01.10.<span></span></div>
+									<div class='zeit'>
+										Donnerstag<span>20:00 Uhr</span><br>Einlass <span>19:00 Uhr</span>
+									</div><div class='hinweis'>ausverkauft</div>
+								</div>
+								<div class='info'>
+									ort<span>Halle</span><br>
+									Eintritt <span>ab 39,80 €</span>
+								</div>
+								<div class='info teilen'>
+									<p>Teilen
+									<a href='mailto:?subject=Empfehlung von kulturetage.de&body=http://www.kulturetage.de/till_reiners_12---385717.html'><img src='/images/t_mail.svg' alt=''></a>
+									<a href='https://api.whatsapp.com/send?text=Veranstaltungstipp%20Till+Reiners%20http://www.kulturetage.de/till_reiners_12---385717.html'><img src='/images/t_whatsapp.svg' alt=''></a>
+									<a href='http://de.facebook.com/sharer.php?u=http://www.kulturetage.de/till_reiners_12---385717.html&t=Veranstaltungstipp%20Till+Reiners'><img src='/images/t_fb.svg' alt=''></a>
+									<a href='vcal.php?id=385717'><img src='/images/t_cal.svg' alt=''></a></p>
+								</div>
+							</div>
+							<div class='infos'>
+								<div class='infotext'>Eigene Fernsehshows und Preise sind schön und gut, aber jetzt macht Till Reiners wieder, was er am besten kann und am meisten liebt: Live-Stand-Up.<br><br><p>Der Comedian zeigt sein bestes, brandneues Comedy-Material, das er akribisch in Clubs getestet hat. Peng, es geht los! </p>
+<p>Dieses Mal weiß man vorher nicht, was einen erwartet. Und währenddessen weiß man es auch nicht. Sicher ist nur: Das ist alles Teil der Show. Wer seine letzten fünf Programme gesehen hat, weiß: Es wird sehr witzig. </p>
+<p> </p>
+<p>Die Veranstaltung dauert mindestens 2 Stunden, inklusive Pause und Opening-Act. Es geht pünktlich los, bitte früh da sein.</p></div>
+								<div class='bilder'>
+				<div class='veranst_bilder'>
+					<script>
+						function start_youtube(id, yt_id) {
+							$('#youtube_player' + id).attr('src', 'https://www.youtube-nocookie.com/embed/' + yt_id + '?autoplay=1')
+							$('#youtube_player' + id).show();
+						}
+					</script>
+					<img src='cpmedia/veranstaltungen/2510011210-1208425.jpg' alt=''>
+						<div class='bild clearfix'>
+							<a class='button' href='links/pressebild.php?id=1208425' target='_blank'>pressebild</a><p>
+							
+							
+							<b>Bildnachweis:</b> Daniel Dittus</p>
+						</div>
+					<img src='cpmedia/veranstaltungen/2510011211-1208426.jpg' alt=''>
+						<div class='bild clearfix'>
+							<a class='button' href='links/pressebild.php?id=1208426' target='_blank'>pressebild</a><p>
+							
+							
+							</p>
+						</div>
+					<img src='cpmedia/veranstaltungen/2510011211-1208427.jpg' alt=''>
+						<div class='bild clearfix'>
+							<a class='button' href='links/pressebild.php?id=1208427' target='_blank'>pressebild</a><p>
+							
+							
+							<b>Bildnachweis:</b> Daniel Dittus</p>
+						</div>
+				</div></div>
+							</div>
+						</div>
+					</div>
+					<div class='content'>
+						
+						<div class='sponsoren'>
+							<h6>Veranstalter</h6>
+							<p>Kulturkombinat Kamp e.V. </p>
+						</div>
+						<div class='sponsoren'>&nbsp;</div>
+						<div class='sponsoren'>&nbsp;</div>
+						<div class='sponsoren'>&nbsp;</div>
+					</div>
+				</div>
+				<script type='text/javascript'><!--
+					function extlink_show(id) {
+						$('#exttext' + id).show();
+					}
+					function extlink_hide(id) {
+						$('#exttext' + id).hide();
+					}
+				//-->
+				</script>
+			</div>
+			</section>
+		</main>
+		<footer>
+			<div class='content'>
+				<div class='ganz'><img class='fusslogo' src='images/logo.svg' alt='Startseite'></a></div><div class='spalte23 fusskontakt' id='4'><div class='spalte'><p>Bahnhofstraße 11</p>
+<p>26122 Oldenburg</p>
+<p><a href="tel:+49441924800">+49 441 - 92 480 - 0</a></p>
+<p><a href="mailto:info@kulturetage.de">info@kulturetage.de</a></p></div><div class='spalte'><p><a href="impressum_2.html">Impressum</a>, <a href="agb_4.html">AGB</a></p>
+<p><a href="datenschutz_3.html">Datenschutz</a></p>
+<p><a href="jugendschutz_70.html">Jugendschutz</a></p>
+<p><a href="hausordnung_71.html">Hausordnung</a></p></div></div><div class='spalte23 fusscopy' id='132'><div class='spalte'><p>© 2023 Kulturetage</p></div><div class='spalte'><p>Design by <a href="https://www.realog.de" target="_blank" rel="noopener">realog</a></p></div></div><div class='fuss_newsl' id='135'><form action='newsletter_58.html' method="post" enctype="multipart/form-data" accept-charset="utf-8"><p><p>Möchtest du uпseren </p>
+<p>Newsℓetter abonnieren?</p></p><input type='text' name='data[email]' placeholder='deine E-Mail-Adresse*' required><br><input class='button' type='submit' name='action[registrieren]' value='Anmelden'></form><div class='fuss_sm'><p><a href="http://www.facebook.com/kulturetage" target="_blank" rel="noopener"><img src="images/facebook.svg" alt="Facebook" /></a> <a href="https://www.instagram.com/kulturetageoldenburg" target="_blank" rel="noopener"><img src="images/instagram.svg" alt="Facebook" /></a></p></div></div>
+			</div>
+		</footer>
+	</body>

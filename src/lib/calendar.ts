@@ -96,6 +96,28 @@ export function coverageRange(today: string): { from: string; to: string } {
   return { from: first, to: endOfMonth(addMonths(first, COVERAGE_MONTHS - 1)) };
 }
 
+/**
+ * Frühester Tag, bis zu dem eine Ansicht zurückblättern darf – Vergangenes
+ * zeigt der Kalender nicht. Tag und Karte beginnen heute, die Woche mit
+ * dieser Woche, der Monat mit diesem Monat. (Der scrollende Monat am
+ * Schreibtisch beginnt wochenweise mit dieser Woche; das regelt die Ansicht.)
+ */
+export function navigationFloor(view: ViewMode, today: string): string {
+  if (isDayView(view)) return today;
+  if (view === 'week') return startOfWeek(today);
+  return startOfMonth(today);
+}
+
+/** Der Zeitraum, in dem eine Ansicht blättern darf: ab heute, bis zum Ende der Erhebung. */
+export function navigationRange(
+  view: ViewMode,
+  today: string,
+  coverage: { from: string; to: string },
+): { from: string; to: string } {
+  const floor = navigationFloor(view, today);
+  return { from: floor > coverage.from ? floor : coverage.from, to: coverage.to };
+}
+
 /** Hält einen Tag innerhalb des abgedeckten Zeitraums. */
 export function clampDay(day: string, range: { from: string; to: string }): string {
   if (day < range.from) return range.from;

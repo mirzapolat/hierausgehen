@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+		<title>Veranstaltungen</title>
+		<meta name="description" content="Die Oldenburger Kulturetage bietet ihrer ‘Halle’ u. a. Konzerte und Kabarett, spielt im ‘Theater k’ starke Stücke, zeigt im ‘Cine k’ ausgezeichnete Filme und veranstaltet jährlich den Oldenburger ‘Kultursommer’.">
+		<meta name="keywords" content="kultur, etage, oldenburg, veranstaltung, weser, ems, nord, west, musik, konzert, party, film, kino, kabarett, show, theater, soziokultur">
+		<meta lang="de" name="CLASSIFICATION" content="">
+		<meta name="author" content="www.cp-h.de, Wiefelstede, Germany">
+		<meta name="copyright" content="www.cp-h.de, Wiefelstede, Germany">
+		<meta name="LANGUAGE" content="de">
+		<meta name="AUDIENCE" content="Alle">
+		<meta name="DISTRIBUTION" content="Alle">
+		<meta name="robots" content="all">
+		<meta name="robots" content="index">
+		<meta name="robots" content="follow">
+		<link title="Veranstaltungen" href="http://www.kulturetage.de" rel="START">
+		<link title="Veranstaltungen" href="http://www.kulturetage.de" rel="BOOKMARK">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+		<link href="cpjs/lightslider/lightslider.min.css" type="text/css" rel="stylesheet" /> 
+		<link href="cpcss/style59.css" type="text/css" rel="stylesheet">
+		<!-- Including jQuery (required) -->
+		<script type="text/javascript" src="cpjs/jquery/jquery.min.js"></script>
+		<link rel="stylesheet" href="cpjs/fancybox/jquery.fancybox.css" type="text/css" media="screen" />
+		<script type="text/javascript" src="cpjs/fancybox/jquery.fancybox.pack.js"></script>
+		<script src="cpjs/lightslider/lightslider.min.js"></script>
+		<script src="cpjs/jquery_ext/jquery.waypoints.min.js"></script>
+		<script type='text/javascript'><!--
+			$(document).ready(function() {
+				$(".fancybox").fancybox();
+				$('a[href^="#"]').on('click',function(e) {
+					e.preventDefault();
+					var target = this.hash;
+					var $target = $(target);
+					$('html, body').stop().animate({
+						'scrollTop': $target.offset().top
+						}, 900, 'swing', function () {
+						window.location.hash = target;
+					});
+				});
+				var url = $(location).attr('href');
+				if (url.indexOf("#hm") >= 0) {
+					var tag = url.indexOf("#") + 2;
+					var mark = url.substring(tag);
+					show_id(mark);
+				}
+			});
+			function show_more(id) {
+				$('.more_id' + id).toggleClass('akt');
+			}
+			function show_id(id) {
+				$('.more_id' + id).addClass('akt');
+			}
+		//-->
+		</script>
+	</head>
+	<body>
+		<header>
+			<div class='cont'>
+				<a id='top' class='logo' title='Startseite' href='home_1.html'><img src='images/logo.svg' alt='Startseite'></a>
+				<span class='nav_icon' onClick='flow_men()'>
+					<span></span>
+					<span></span>
+					<span></span>
+				</span>
+				<div class='tools'>
+					<form id='topsuche' class='topsuche' action='suche_34.html' method='post' enctype='multipart/form-data' accept-charset='utf-8'>
+						<div class='filtersuche spalte'>
+							<input type='text' name='data[freitext]' size='30'>
+							<button type='submit'><img src='images/lupe.svg'></button>
+						</div>
+					</form>
+					<img class='mensuche' src='images/lupe.svg' onclick='flow_suche()'>
+					<a href='view_12--c.html' title='Barrierefrei'><img src='images/barrierefrei.svg'></a>
+				</div>
+				<nav>
+					<div class='navsuche' id='navsuche'>
+						<form action='suche_34.html' method='post' enctype='multipart/form-data' accept-charset='utf-8'>
+							<div>
+								<input type='text' name='data[freitext]' placeholder='suche' size='30'>
+								<button type='submit'><img src='images/lupe.svg'></button>
+							</div>
+						</form>
+					</div>
+					<ul id='menue'>
+						<li class='aktuell akt' id='submen6'>
+							<a class='desktopmen' href='/programm_6.html'>Pгogramm</a>
+							<div class='mobilmen' onmousedown='flow_submen(6)'>Pгogramm<span class='plus'></span></div>
+							<ul>
+								<li class='aktuell akt'><a href='/programm_6.html'>Übersicht</a>
+								<li class='aktuell'><a href='/veranstaltungen_12.html'>Veranstaltungen</a>
+								<li><a href='/kultur_kalender_13.html'>Kultur Kalender</a>
+								<li><a href='/festivals_reihen_14.html'>Festivals & Reihen</a>
+							</ul>
+						</li>
+						<li id='submen7'>
+							<a class='desktopmen' href='/service_7.html'>Seяvice</a>
+							<div class='mobilmen' onmousedown='flow_submen(7)'>Seяvice<span class='plus'></span></div>
+							<ul>
+								<li><a href='/service_7.html'>Übersicht</a>
+								<li><a href='tickets_50.html'>Tickets</a>
+								<li><a href='/service_7.html#hm16'>Aktuelles</a>
+								<li><a href='/service_7.html#hm17'>Anfahrt & Parken</a>
+								<li><a href='/service_7.html#hm46'>Barrierefreiheit</a>
+								<li><a href='/service_7.html#hm47'>Essen & Trinken</a>
+							</ul>
+						</li>
+						<li id='submen8'>
+							<a class='desktopmen' href='/haus_8.html'>Haus</a>
+							<div class='mobilmen' onmousedown='flow_submen(8)'>Haus<span class='plus'></span></div>
+							<ul>
+								<li><a href='/haus_8.html'>Übersicht</a>
+								<li><a href='/kulturetage_18.html'>Kulturetage</a>
+								<li><a href='/stiftung_52.html'>Stiftung</a>
+								<li><a href='/vorstand_56.html'>Vorstand</a>
+								<li><a href='/team_21.html'>Team</a>
+								<li><a href='/jobs_22.html'>Jobs</a>
+								<li><a href='/partner_23.html'>Partner</a>
+							</ul>
+						</li>
+						<li id='submen9'>
+							<a class='desktopmen' href='/akteure_9.html'>Aktəure</a>
+							<div class='mobilmen' onmousedown='flow_submen(9)'>Aktəure<span class='plus'></span></div>
+							<ul>
+								<li><a href='/akteure_9.html'>Übersicht</a>
+								<li><a href='/akteure_9.html#hm25'>Theater k</a>
+								<li><a href='/akteure_9.html#hm26'>Kreativ:Labor</a>
+								<li><a href='/akteure_9.html#hm28'>Cine k</a>
+								<li><a href='/akteure_9.html#hm27'>Villon_Räume mieten</a>
+								<li><a href='/akteure_9.html#hm29'>Loft k</a>
+								<li><a href='/akteure_9.html#hm62'>Tanzschule Salsa</a>
+								<li><a href='/akteure_9.html#hm30'>Patio</a>
+								<li><a href='/akteure_9.html#hm31'>Kultur Nord</a>
+								<li><a href='/akteure_9.html#hm32'>Calesita</a>
+							</ul>
+						</li>
+						<li id='submen10'>
+							<a class='desktopmen' href='/kontakt_10.html'>Koпtakt</a>
+							<div class='mobilmen' onmousedown='flow_submen(10)'>Koпtakt<span class='plus'></span></div>
+							<ul>
+								<li><a href='/kontakt_10.html'>Übersicht</a>
+								<li><a href='/newsletter_45.html'>Newsletter</a>
+							</ul>
+						</li>
+					</ul>
+					<div class='content navfuss'><div class='fuss_newsl' id='143'><form action='newsletter_58.html' method="post" enctype="multipart/form-data" accept-charset="utf-8"><p><p>Möchtest du uпseren </p>
+<p>Newsℓetter abonnieren?</p></p><input type='text' name='data[email]' placeholder='deine E-Mail-Adresse*' required><br><input class='button' type='submit' name='action[registrieren]' value='Anmelden'></form><div class='fuss_sm'><p><a href="http://www.facebook.com/kulturetage" target="_blank" rel="noopener"><img src="images/facebook.svg" alt="Facebook" /></a> <a href="https://www.instagram.com/kulturetageoldenburg" target="_blank" rel="noopener"><img src="images/instagram.svg" alt="Facebook" /></a></p></div></div><div class='spalte23 fusskontakt' id='141'><div class='spalte'><p><strong>Kulturetage gGmbH</strong></p>
+<p>Bahnhofstraße 11, 26122 Oldenburg</p>
+<table class="cms_table">
+<tbody>
+<tr>
+<td><a href="tel:+49441924800">+49 441 92 480 0</a></td>
+</tr>
+<tr>
+<td><a href="mailto:info@kulturetage.de">info@kulturetage.de</a></td>
+</tr>
+</tbody>
+</table></div><div class='spalte'></div></div>
+					</div>
+				</nav>
+
+				<script type='text/javascript'>
+				<!--
+					function flow_men()
+					{
+						$('nav').toggleClass('akt');
+						$('#nav_bg').toggleClass('akt');
+						$('.nav_icon').toggleClass('akt');
+					}
+					function flow_submen(id)
+					{
+						$('#submen' + id).toggleClass('akt');
+					}
+					function flow_suche()
+					{
+						$('#topsuche').toggleClass('akt');
+					}
+					function bildaction(id)
+					{
+						$('#' + id).toggleClass('akt');
+					}
+					function totop()
+					{
+						$('body,html').animate({
+							scrollTop: 0
+						}, 800);
+					}
+					$(function () {
+						var waypoints = $('#totop').waypoint(function(direction) {
+							if(direction == 'down') {
+								$('#totop').addClass('akt');
+							} else {
+								$('#totop').removeClass('akt');
+							}
+						}, { 
+							offset: 'bottom-in-view'
+						})
+					});
+				// -->
+				</script>
+			</div>
+		</header>
+		<main>
+			<div id='totop' onclick='totop()'></div>
+			<section class='veranstaltungen'>
+				<a class='anker' id='hm12'></a>
+			<div class='veranstaltung' id='veranstaltung'>
+				<div class='v_jump'>
+					<div class='content'><a class='v_prev' href='kulturetage_--b---1790978400.html#f_start'>zurück</a><a href='#'></a></div>
+				</div>
+				<div class='veranstaltung'>
+					<div class='veranst bgc4'>
+						<div class='content'>
+							<div class='startbild'><img src='cpmedia/veranstaltungen/2604211232-nightwash-1193-u.jpg'></div>
+							<div class='titel'>
+								<h1 class='lenclass2'>NightWash</h1>
+								<h2 class='lenclass2'>Comedy ist LIVE am lustigsten!</h2>
+							</div>
+							<div class='termine'>
+								<div class='rubrik'>Comedy<span>Halle</span></div>
+								<div class='termin'>
+									<div class='datum'>03.10.<span></span></div>
+									<div class='zeit'>
+										Samstag<span>20:00 Uhr</span><br>Einlass <span>19:00 Uhr</span>
+									</div><div class='hinweis'>ausverkauft</div>
+								</div>
+								<div class='termin'>
+									<div class='datum'>04.10.<span></span></div>
+									<div class='zeit'>
+										Sonntag<span>20:00 Uhr</span><br>Einlass <span>19:00 Uhr</span>
+									</div><div class='hinweis'>ausverkauft</div>
+								</div>
+								<div class='termin'>
+									<div class='datum'>08.01.27<div class='marker'><p>neu</p></div><span>
+					<div class='ext_block'>
+						<div class='ext_text' id='exttext835197' onmouseleave='extlink_hide(835197)'>
+							<p class='kl'>Du verlässt jetzt unsere Seite und wirst zur Ticketseite weitergeleitet.<br><a class='button' href='https://kulturetage.reservix.de/p/reservix/event/2613975' target='_blank'>weiter</a></p>
+						</div>
+						<div class='ext_link' id='extlink835197'>
+							<span class='button' onclick='extlink_show(835197)'>tickets</span>
+						</div>
+					</div></span></div>
+									<div class='zeit'>
+										Freitag<span>20:00 Uhr</span><br>Einlass <span>19:00 Uhr</span>
+									</div>
+								</div>
+								<div class='termin'>
+									<div class='datum'>09.01.27<div class='marker'><p>neu</p></div><span>
+					<div class='ext_block'>
+						<div class='ext_text' id='exttext835198' onmouseleave='extlink_hide(835198)'>
+							<p class='kl'>Du verlässt jetzt unsere Seite und wirst zur Ticketseite weitergeleitet.<br><a class='button' href='https://kulturetage.reservix.de/p/reservix/event/2614025' target='_blank'>weiter</a></p>
+						</div>
+						<div class='ext_link' id='extlink835198'>
+							<span class='button' onclick='extlink_show(835198)'>tickets</span>
+						</div>
+					</div></span></div>
+									<div class='zeit'>
+										Samstag<span>20:00 Uhr</span><br>Einlass <span>19:00 Uhr</span>
+									</div>
+								</div>
+								<div class='termin'>
+									<div class='datum'>10.01.27<div class='marker'><p>neu</p></div><span>
+					<div class='ext_block'>
+						<div class='ext_text' id='exttext835199' onmouseleave='extlink_hide(835199)'>
+							<p class='kl'>Du verlässt jetzt unsere Seite und wirst zur Ticketseite weitergeleitet.<br><a class='button' href='https://kulturetage.reservix.de/p/reservix/event/2614026' target='_blank'>weiter</a></p>
+						</div>
+						<div class='ext_link' id='extlink835199'>
+							<span class='button' onclick='extlink_show(835199)'>tickets</span>
+						</div>
+					</div></span></div>
+									<div class='zeit'>
+										Sonntag<span>20:00 Uhr</span><br>Einlass <span>19:00 Uhr</span>
+									</div>
+								</div>
+								<div class='info'>
+									ort<span>Halle</span><br>
+									Eintritt <span>ab 30,90 €</span>
+								</div>
+								<div class='info teilen'>
+									<p>Teilen
+									<a href='mailto:?subject=Empfehlung von kulturetage.de&body=http://www.kulturetage.de/nightwash_12---1193.html'><img src='/images/t_mail.svg' alt=''></a>
+									<a href='https://api.whatsapp.com/send?text=Veranstaltungstipp%20NightWash%20http://www.kulturetage.de/nightwash_12---1193.html'><img src='/images/t_whatsapp.svg' alt=''></a>
+									<a href='http://de.facebook.com/sharer.php?u=http://www.kulturetage.de/nightwash_12---1193.html&t=Veranstaltungstipp%20NightWash'><img src='/images/t_fb.svg' alt=''></a>
+									<a href='vcal.php?id=1193'><img src='/images/t_cal.svg' alt=''></a></p>
+								</div>
+							</div>
+							<div class='infos'>
+								<div class='infotext'><p>Das mit dem Deutschen Comedypreis ausgezeichnete Stand-Up Comedy Format präsentiert seit einem Vierteljahrhundert namhafte Comedians und Comediennes sowie die neuesten Talente der Comedyszene aus dem Waschsalon und bundesweit mit über 150 Live-Terminen.<br />Heutige Stars und Sternchen wie Felix Lobrecht, Özcan Cosar, Chris Tall, Tahnee, Bastian Bielendorfer, Enissa Amani, Olaf Schubert, Bülent Ceylan, Torsten Sträter, Markus Krebs, Simon Stäblein, Maria Clara Groppler, Osan Yaran, Tutty Tran, Nico Stank, Negah Amiri, Carl Josef und viele mehr hatten im legendären Kult-Comedy-Waschsalon ihre ersten Bühnenauftritte.<br />NightWash bringt die frischeste Comedy angesagter Comedians und Newcomer, überraschende Showeinlagen gepaart mit dem allerbesten Publikum auf die Bühne.<br />Jede Show ein Unikat auf höchstem Niveau. Hier bleibt garantiert kein Auge trocken! Comedy der Extraklasse!<br />NightWash Live - Comedy at its best!</p></div>
+								<div class='bilder'>
+				<div class='veranst_bilder'>
+					<script>
+						function start_youtube(id, yt_id) {
+							$('#youtube_player' + id).attr('src', 'https://www.youtube-nocookie.com/embed/' + yt_id + '?autoplay=1')
+							$('#youtube_player' + id).show();
+						}
+					</script>
+				</div></div>
+							</div>
+						</div>
+					</div>
+					<div class='content'>
+						
+						<div class='sponsoren'>
+							<h6>Veranstalter</h6>
+							<p><img class='veranst_logo' src='/cpmedia/veranstaltungen/2304250322-kulturetage_ggmbh-1000-va.svg'></p>
+						</div>
+						<div class='sponsoren'>
+							<h6>Partner</h6>
+							<div>
+								<span><img src='cpmedia/sponsoren/2501140249-oldenburgische_landesbank_stiftung_logo_neu_2025-10364-sp.png' alt='Oldenburgische Landesbank Stiftung Logo NEU 2025'></span>
+							</div>
+						</div>
+						<div class='sponsoren'>
+							<h6>Medienpartner</h6>
+							<div>
+							<span><a href='http://www.diabolo-mox.de/' target='_blank'><img src='cpmedia/sponsoren/000010191.jpg' alt='Mox ab September 2016'></a></span>
+							</div>
+						</div>
+						<div class='sponsoren'>&nbsp;</div>
+					</div>
+				</div>
+				<script type='text/javascript'><!--
+					function extlink_show(id) {
+						$('#exttext' + id).show();
+					}
+					function extlink_hide(id) {
+						$('#exttext' + id).hide();
+					}
+				//-->
+				</script>
+			</div>
+			</section>
+		</main>
+		<footer>
+			<div class='content'>
+				<div class='ganz'><img class='fusslogo' src='images/logo.svg' alt='Startseite'></a></div><div class='spalte23 fusskontakt' id='4'><div class='spalte'><p>Bahnhofstraße 11</p>
+<p>26122 Oldenburg</p>
+<p><a href="tel:+49441924800">+49 441 - 92 480 - 0</a></p>
+<p><a href="mailto:info@kulturetage.de">info@kulturetage.de</a></p></div><div class='spalte'><p><a href="impressum_2.html">Impressum</a>, <a href="agb_4.html">AGB</a></p>
+<p><a href="datenschutz_3.html">Datenschutz</a></p>
+<p><a href="jugendschutz_70.html">Jugendschutz</a></p>
+<p><a href="hausordnung_71.html">Hausordnung</a></p></div></div><div class='spalte23 fusscopy' id='132'><div class='spalte'><p>© 2023 Kulturetage</p></div><div class='spalte'><p>Design by <a href="https://www.realog.de" target="_blank" rel="noopener">realog</a></p></div></div><div class='fuss_newsl' id='135'><form action='newsletter_58.html' method="post" enctype="multipart/form-data" accept-charset="utf-8"><p><p>Möchtest du uпseren </p>
+<p>Newsℓetter abonnieren?</p></p><input type='text' name='data[email]' placeholder='deine E-Mail-Adresse*' required><br><input class='button' type='submit' name='action[registrieren]' value='Anmelden'></form><div class='fuss_sm'><p><a href="http://www.facebook.com/kulturetage" target="_blank" rel="noopener"><img src="images/facebook.svg" alt="Facebook" /></a> <a href="https://www.instagram.com/kulturetageoldenburg" target="_blank" rel="noopener"><img src="images/instagram.svg" alt="Facebook" /></a></p></div></div>
+			</div>
+		</footer>
+	</body>

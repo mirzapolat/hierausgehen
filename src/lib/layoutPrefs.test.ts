@@ -27,6 +27,7 @@ test('übernimmt gültige Werte und verwirft kaputte', () => {
   assert.deepEqual(prefs.spaces.glasgow, {
     disabledSources: ['tron'],
     availableOnly: false,
+    freeOnly: false,
     disabledCategories: [],
   });
 });
@@ -39,6 +40,7 @@ test('ordnet Filter aus einem alten Stand ohne Städte der gelesenen Stadt zu', 
   assert.deepEqual(spacePrefs(prefs, 'muenchen'), {
     disabledSources: ['milla'],
     availableOnly: true,
+    freeOnly: false,
     disabledCategories: [],
   });
   assert.deepEqual(spacePrefs(prefs, 'glasgow').disabledSources, ['tron']);
@@ -48,6 +50,16 @@ test('eine Stadt ohne gemerkte Filter hat keine', () => {
   assert.deepEqual(spacePrefs(defaultLayout, 'glasgow'), {
     disabledSources: [],
     availableOnly: false,
+    freeOnly: false,
     disabledCategories: [],
   });
+});
+
+test('merkt den Filter für freien Eintritt je Stadt', () => {
+  const prefs = normalizeLayoutPrefs(
+    { spaces: { oldenburg: { freeOnly: true }, glasgow: { freeOnly: 'ja' as unknown as boolean } } },
+    'muenchen',
+  );
+  assert.equal(spacePrefs(prefs, 'oldenburg').freeOnly, true);
+  assert.equal(spacePrefs(prefs, 'glasgow').freeOnly, false);
 });

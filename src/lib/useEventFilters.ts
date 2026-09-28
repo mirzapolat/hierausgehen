@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { track } from '@/lib/analytics';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import type { CitySpacePrefs } from '@/lib/layoutPrefs';
+import { isFreeEntry } from '@/lib/events/price';
 
 /**
  * Alle Filter des Kalenders und was aus ihnen folgt.
@@ -22,6 +23,7 @@ export function useEventFilters(options: {
 
   const [disabled, setDisabled] = useState<Set<string>>(new Set());
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [freeOnly, setFreeOnly] = useState(false);
   const [solo, setSolo] = useState<Set<string>>(new Set());
   const [disabledCategories, setDisabledCategories] = useState<Set<string>>(new Set());
   const [categorySolo, setCategorySolo] = useState<Set<string>>(new Set());
@@ -63,6 +65,7 @@ export function useEventFilters(options: {
       if (categorySolo.size > 0 ? !categorySolo.has(category) : disabledCategories.has(category))
         return false;
       if (availableOnly && !['available', 'limited'].includes(event.availability)) return false;
+      if (freeOnly && !isFreeEntry(event)) return false;
       if (!needle) return true;
       // Auch der Wortlaut der Quelle ist durchsuchbar: wer "Live Music" tippt,
       // soll das Konzert finden, das im Kalender "Konzert" heisst.
@@ -80,22 +83,24 @@ export function useEventFilters(options: {
         .filter(Boolean)
         .some((field) => field!.toLocaleLowerCase(locale).includes(needle));
     });
-  }, [options.events, visibleSources, disabledCategories, categorySolo, availableOnly, query, locale, term]);
+  }, [options.events, visibleSources, disabledCategories, categorySolo, availableOnly, freeOnly, query, locale, term]);
 
   /** Was je Stadt gemerkt wird. */
   const space = useMemo<CitySpacePrefs>(
     () => ({
       disabledSources: [...disabled],
       availableOnly,
+      freeOnly,
       disabledCategories: [...disabledCategories],
     }),
-    [disabled, availableOnly, disabledCategories],
+    [disabled, availableOnly, freeOnly, disabledCategories],
   );
 
   /** Gemerkte Auswahl einer Stadt übernehmen; ein Fokus gehört zur alten. */
   const restore = useCallback((stored: CitySpacePrefs) => {
     setDisabled(new Set(stored.disabledSources));
     setAvailableOnly(stored.availableOnly);
+    setFreeOnly(stored.freeOnly);
     setDisabledCategories(new Set(stored.disabledCategories));
     setSolo(new Set());
     setCategorySolo(new Set());
@@ -178,6 +183,7 @@ export function useEventFilters(options: {
     categorySolo.size +
     disabledCategories.size +
     (availableOnly ? 1 : 0) +
+    (freeOnly ? 1 : 0) +
     (query ? 1 : 0);
 
   const reset = useCallback(() => {
@@ -186,6 +192,7 @@ export function useEventFilters(options: {
     setCategorySolo(new Set());
     setDisabledCategories(new Set());
     setAvailableOnly(false);
+    setFreeOnly(false);
     setQuery('');
   }, []);
 
@@ -198,6 +205,8 @@ export function useEventFilters(options: {
     categorySolo,
     availableOnly,
     setAvailableOnly,
+    freeOnly,
+    setFreeOnly,
     query,
     setQuery,
     space,
