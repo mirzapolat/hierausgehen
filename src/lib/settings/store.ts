@@ -15,7 +15,11 @@ export interface Settings {
   hour12: boolean;
   /** 'auto' folgt der Zeitzone der Stadt, sonst eine IANA-Zone. */
   timeZone: 'auto' | string;
+  /** Was in der Tagesvorschau zuerst steht. */
+  dayOrder: DayOrder;
 }
+
+export type DayOrder = 'exhibitions' | 'events';
 
 export const defaultSettings: Settings = {
   cityId: null,
@@ -23,6 +27,7 @@ export const defaultSettings: Settings = {
   locale: 'de',
   hour12: false,
   timeZone: 'auto',
+  dayOrder: 'exhibitions',
 };
 
 export const SETTINGS_STORAGE_KEY = 'hierausgehen.settings.v1';
@@ -105,5 +110,6 @@ function normalizeSettings(value: Partial<Settings>): Settings {
     locale: merged.locale,
     hour12: merged.hour12,
     timeZone: merged.timeZone,
+    dayOrder: merged.dayOrder === 'events' ? 'events' : 'exhibitions',
   };
 }

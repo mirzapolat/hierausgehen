@@ -61,9 +61,8 @@ test('macht aus einem Lauf einen ganztägigen Termin mit Ende', () => {
   assert.equal(event.allDay, true);
   assert.equal(event.start, '2026-09-12T00:00:00+01:00');
   assert.equal(event.end, '2026-10-04T23:59:00+01:00');
-  // Der Wortlaut bleibt stehen, sonst wäre die Laufzeit am Termin nicht mehr
-  // zu sehen.
-  assert.deepEqual(event.notes, ['Saturday 12th Sept - Sunday 4th Oct 2026', 'Tramway']);
+  // Die Laufzeit steckt in Beginn und Ende; als Zusatzinfo stünde sie doppelt.
+  assert.deepEqual(event.notes, ['Tramway']);
 });
 
 test('erbt Monat und Jahr vom rechten Rand eines Laufs', () => {

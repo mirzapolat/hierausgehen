@@ -1,12 +1,12 @@
 import type { Metadata } from 'next';
 import { CalendarApp } from '@/components/CalendarApp';
 import { StructuredData } from '@/components/StructuredData';
-import { eventsInRange } from '@/lib/events/snapshot';
+import { eventsInRange, getSnapshot } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { coverageRange, loadRange } from '@/lib/calendar';
 import { DEFAULT_CITY_ID, cityById, isKnownCityId } from '@/lib/cities';
 import { SITE_NAME, cityPath } from '@/lib/site';
-import { cityMetadata } from '@/lib/site-metadata';
+import { cityMetadata, eventMetadata } from '@/lib/site-metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +25,33 @@ function requestedCityId(params: Record<string, string | string[] | undefined>):
  * sie zu ergänzen – deshalb stehen hier auch die Felder, die sich nicht ändern.
  */
 export async function generateMetadata({ searchParams }: PageProps<'/'>): Promise<Metadata> {
-  const cityId = requestedCityId(await searchParams);
-  const { title, description } = cityMetadata(cityId);
+  const params = await searchParams;
+  const cityId = requestedCityId(params);
   const canonical = cityPath(cityId);
+
+  // Ein geteilter Termin bringt seine eigene Vorschau mit. Die kanonische
+  // Adresse bleibt die der Stadt – der Termin ist ein Ausschnitt, keine Seite.
+  const event = await sharedEvent(cityId, params.event);
+  if (event) {
+    const { title, description } = eventMetadata(event, cityId);
+    const shareTitle = `${title} — ${SITE_NAME}`;
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        type: 'website',
+        locale: 'de_DE',
+        siteName: SITE_NAME,
+        title: shareTitle,
+        description,
+        url: `/?${new URLSearchParams({ city: cityId, event: event.id })}`,
+      },
+      twitter: { card: 'summary_large_image', title: shareTitle, description },
+    };
+  }
+
+  const { title, description } = cityMetadata(cityId);
 
   return {
     title,
@@ -43,6 +67,13 @@ export async function generateMetadata({ searchParams }: PageProps<'/'>): Promis
     },
     twitter: { card: 'summary_large_image', title, description },
   };
+}
+
+/** Der Termin aus `?event=` – nur aus dem Datenstand der Stadt, sonst keiner. */
+async function sharedEvent(cityId: string, id: string | string[] | undefined) {
+  if (typeof id !== 'string' || !id) return undefined;
+  const snapshot = await getSnapshot(cityId);
+  return snapshot.events.find((event) => event.id === id);
 }
 
 /**

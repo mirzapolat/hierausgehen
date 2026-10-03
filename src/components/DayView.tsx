@@ -2,12 +2,20 @@
 
 import { useMemo, type CSSProperties } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
-import { availabilityKeys, displayAvailability, sourceColor, sourceName } from '@/lib/events/display';
+import {
+  availabilityKeys,
+  displayAvailability,
+  runningUntil,
+  sourceColor,
+  sourceName,
+} from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { AvailabilityDot } from './AvailabilityDot';
 import { SourceIcon } from './SourceIcon';
 
 interface Props {
+  /** Der gezeigte Tag – Mehrtägiges, das schon läuft, trägt „bis …". */
+  day: string;
   events: CalendarEvent[];
   definitions: SourceDefinition[];
   selectedEventId?: string;
@@ -18,12 +26,19 @@ interface Props {
  * Tagesansicht als Liste. Ein einzelner Tag hat zu wenige Termine, als dass
  * ein Zeitraster etwas hinzufügen würde – die Liste zeigt dafür mehr je Termin.
  */
-export function DayView({ events, definitions, selectedEventId, onSelectEvent }: Props) {
+export function DayView({ day, events, definitions, selectedEventId, onSelectEvent }: Props) {
   const { format, t, term } = useSettings();
 
+  // Was schon vorher begonnen hat, kommt nach den Terminen des Tages.
   const sorted = useMemo(
-    () => [...events].sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title)),
-    [events],
+    () =>
+      [...events].sort(
+        (a, b) =>
+          Number(Boolean(runningUntil(a, day, format))) - Number(Boolean(runningUntil(b, day, format))) ||
+          a.start.localeCompare(b.start) ||
+          a.title.localeCompare(b.title),
+      ),
+    [events, day, format],
   );
 
   return (
@@ -49,6 +64,7 @@ export function DayView({ events, definitions, selectedEventId, onSelectEvent }:
               const definition = definitions.find((d) => d.id === event.sourceId);
               const selected = selectedEventId === event.id;
               const availability = displayAvailability(event);
+              const until = runningUntil(event, day, format);
               return (
                 <li key={event.id}>
                   <button
@@ -63,7 +79,11 @@ export function DayView({ events, definitions, selectedEventId, onSelectEvent }:
                                 ${selected ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--chrome)]'}`}
                   >
                     <span className="w-[64px] shrink-0 truncate pt-[2px] text-[13px] tabular-nums text-text">
-                      {event.allDay ? t('allDay') : format.time(event.start)}
+                      {until
+                        ? t('until', { day: format.dayNumeric(until) })
+                        : event.allDay
+                          ? t('allDay')
+                          : format.time(event.start)}
                     </span>
                     <span
                       aria-hidden="true"

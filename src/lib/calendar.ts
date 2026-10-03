@@ -140,3 +140,71 @@ export function loadRange(anchor: string, coverage: { from: string; to: string }
     to: clampDay(endOfMonth(addMonths(month, 1)), coverage),
   };
 }
+
+/** Ein Zeitraum über mehrere Tage, als ISO-Tage (beide inklusive). */
+export interface DaySpan {
+  id: string;
+  from: string;
+  to: string;
+}
+
+/** Ein Abschnitt eines mehrtägigen Zeitraums innerhalb einer Reihe von Tagen. */
+export interface SpanSegment<T extends DaySpan = DaySpan> {
+  span: T;
+  /** Spur von oben, ab 0. */
+  lane: number;
+  /** Erste und letzte Spalte in der Reihe, ab 0 (beide inklusive). */
+  startColumn: number;
+  endColumn: number;
+  /** Begann schon vor der Reihe bzw. läuft über sie hinaus. */
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+}
+
+/**
+ * Legt mehrtägige Zeiträume als Balken in eine Reihe von Tagen (eine Woche).
+ *
+ * Früher Beginnendes liegt oben, bei gleichem Beginn das Längere – so bleiben
+ * Balken über Wochengrenzen hinweg möglichst in derselben Spur. Ein Balken
+ * nimmt die erste Spur, in der er niemanden überdeckt. Was über `maxLanes`
+ * hinausginge, landet in `hidden`; die Ansicht zählt es dann pro Tag mit.
+ */
+export function layoutSpans<T extends DaySpan>(
+  spans: T[],
+  days: string[],
+  maxLanes = Infinity,
+): { segments: SpanSegment<T>[]; hidden: T[]; lanes: number } {
+  const first = days[0];
+  const last = days.at(-1);
+  if (!first || !last) return { segments: [], hidden: [], lanes: 0 };
+
+  const visible = spans
+    .filter((span) => span.from <= last && span.to >= first)
+    .sort((a, b) => a.from.localeCompare(b.from) || b.to.localeCompare(a.to) || a.id.localeCompare(b.id));
+
+  const laneEnds: number[] = [];
+  const segments: SpanSegment<T>[] = [];
+  const hidden: T[] = [];
+
+  for (const span of visible) {
+    const startColumn = span.from < first ? 0 : days.indexOf(span.from);
+    const endColumn = span.to > last ? days.length - 1 : days.indexOf(span.to);
+    let lane = laneEnds.findIndex((end) => end < startColumn);
+    if (lane === -1) lane = laneEnds.length;
+    if (lane >= maxLanes) {
+      hidden.push(span);
+      continue;
+    }
+    laneEnds[lane] = endColumn;
+    segments.push({
+      span,
+      lane,
+      startColumn,
+      endColumn,
+      continuesBefore: span.from < first,
+      continuesAfter: span.to > last,
+    });
+  }
+
+  return { segments, hidden, lanes: laneEnds.length };
+}

@@ -104,6 +104,27 @@ Die Veranstaltungsart wird **im Wortlaut der Quelle** übernommen — „Live Mu
 danach; der Originalwortlaut bleibt am Termin erhalten. Schritt 7 entscheidet,
 ob eine Formulierung ein Synonym oder eine neue Art ist.
 
+**Angaben für die Tabelle — bei jeder Quelle gezielt suchen.** Die
+Detailansicht eines Termins zeigt kurze Einzelangaben als eigene Zeile in der
+Tabelle statt als Text darunter. Deshalb jede Quelle (Liste *und* Detailseite)
+daraufhin durchsehen, was sie je Termin an solchen Angaben macht: Preis, Dauer,
+Einlass/Doors, Sprache, Untertitel/Übertitel, Altersempfehlung, Regie,
+Treffpunkt, Pause … Was es gibt, als `notes`-Zeile in der Form
+**„Beschriftung: Wert"** übergeben — dann erkennt `src/lib/events/notes.ts` sie
+ohne weiteres Zutun:
+
+- Beschriftung im Wortlaut der Quelle davorsetzen („Doors: 19:00",
+  „Einlass: 30 Minuten vor Beginn") statt den Wert lose anzuhängen. Die
+  Beschriftung ist kurz und besteht nur aus Buchstaben, der Wert passt in eine
+  Zeile (bis 120 Zeichen).
+- Preise mit Währung und „Duration:/Dauer:" landen von selbst in den Zeilen
+  „Preis" und „Dauer"; eine Beschriftung wie „Tickets:" oder „Preise:" fällt
+  dort weg.
+- Nichts doppeln, was schon in einem Feld steht — die Laufzeit eines
+  mehrtägigen Termins steckt in `start`/`end` und erscheint als „Läuft bis",
+  also nicht zusätzlich als Notiz.
+- Längerer Fliesstext gehört nach `description`, nicht in eine Notiz.
+
 Alles Weitere — Ticketlage-Tabelle, Untertitel gegen Hinweise, IDs, Zeitzone,
 Detailseiten-Texte und die Fallen, die schon einmal zugeschlagen haben — steht
 in **`referenzen/felder-und-fallen.md`**. Vor dem Schreiben des Parsers lesen.
@@ -175,6 +196,8 @@ normalisierter Termin mit allen Feldern, die Verteilung der
 Verfügbarkeitszustände, Eindeutigkeit der IDs, den ausdrücklich leeren Monat
 sowie leeres und kaputtes HTML. Liefert die Liste Programmtext, muss ein Test
 `description` abdecken; gibt es Detailseiten, einer `parseDetailDescription`.
+Liefert die Quelle Angaben für die Tabelle (Schritt 4), prüft ein Test die
+`notes` eines Termins im Wortlaut („Doors: 19:00", nicht nur „19:00").
 
 `npm run check` ruft den Adapter live auf — über Vergangenheit, laufenden
 Monat, die nächsten Monate und die Spielzeitpause, mit abgeschaltetem
@@ -213,7 +236,9 @@ Fixture-Daten in den Cache, die danach wieder raus müssen.
 Kurz und konkret: welcher Endpunkt, wie die Ticketlage erkannt wird, welche
 Veranstaltungsart-Felder direkt aus der Quelle kommen, welcher `defaultCategory`
 greift, welche Arten dabei neu in den Wortschatz kamen und welche als Synonym
-eingeordnet wurden, was der Adapter **nicht** liefert (z. B. keine
+eingeordnet wurden, welche Angaben in der Tabelle der Detailansicht landen
+(Preis, Dauer, Einlass …) und welche die Quelle nicht kennt, was der Adapter
+**nicht** liefert (z. B. keine
 Endzeiten, kein langer Programmtext), wie viele Termine je Monat im Vergleich
 zur Website, ob Dopplungen auffallen, und woran auffällt, dass die Quelle sich
 geändert hat.

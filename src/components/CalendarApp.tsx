@@ -18,14 +18,14 @@ import {
 
 import { track } from '@/lib/analytics';
 import { cityById, isKnownCityId } from '@/lib/cities';
-import { sourceColor, sourceName } from '@/lib/events/display';
+import { eventsOnDay, sourceColor, sourceName } from '@/lib/events/display';
 import { defaultLayout, readLayoutPrefs, saveLayoutPrefs, spacePrefs } from '@/lib/layoutPrefs';
 import { useSettings } from '@/lib/settings/context';
 import { useCalendarShortcuts } from '@/lib/useCalendarShortcuts';
 import { useEventData } from '@/lib/useEventData';
 import { useEventFilters } from '@/lib/useEventFilters';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
-import { AgendaList } from './AgendaList';
+import { DayAgenda } from './AgendaList';
 import { CityIntroScreen } from './CityIntroScreen';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { DetailPanel } from './DetailPanel';
@@ -219,13 +219,26 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     saveLayoutPrefs(cityId, layout, filterSpace);
   }, [restored, restoredSpaceCityId, cityId, layout, filterSpace]);
 
+  // Was an diesem Tag beginnt, dahinter Mehrtägiges, das an ihm noch läuft.
   const dayEvents = useMemo(
-    () => events.filter((event) => format.localDay(event.start) === selectedDay),
+    () => eventsOnDay(events, selectedDay, format),
     [events, selectedDay, format],
   );
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId),
     [events, selectedEventId],
+  );
+  /**
+   * Die übrigen Termine derselben Produktion, solange ein Termin offen ist –
+   * Monat und Woche heben sie hervor. Ähnlich heisst hier: die Quelle selbst
+   * führt sie als weitere Aufführungen, nicht bloss ein gleicher Titel.
+   */
+  const relatedIds = useMemo<ReadonlySet<string> | undefined>(
+    () =>
+      selectedEvent?.relatedPerformances?.length
+        ? new Set(selectedEvent.relatedPerformances.map((performance) => performance.id))
+        : undefined,
+    [selectedEvent],
   );
 
   /**
@@ -710,6 +723,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 onSelectEvent={selectEvent}
                 onStep={step}
                 canStep={canStep}
+                relatedIds={relatedIds}
               />
             )}
 
@@ -759,6 +773,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                   onAnchorChange={setAnchor}
                   coverage={fromToday}
                   focusKey={calendarFocusKey}
+                  relatedIds={relatedIds}
                 />
               </div>
             )}
@@ -785,16 +800,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                       selectedEventId={selectedEventId}
                       onSelectDay={selectDay}
                       onSelectEvent={selectEvent}
+                      relatedIds={relatedIds}
                     />
                   )}
                 </SwipePager>
                 <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
-                  <AgendaList
+                  <DayAgenda
                     events={dayEvents}
                     definitions={data.definitions}
                     selectedId={selectedEventId}
                     onSelect={selectEvent}
                     emptyLabel={t('noEventsDay')}
+                    day={selectedDay}
+                    relatedIds={relatedIds}
                   />
                 </div>
               </div>

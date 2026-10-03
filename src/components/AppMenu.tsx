@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
 import { cities } from '@/lib/cities';
+import { rememberReturn } from '@/lib/return-path';
 import { useSettings } from '@/lib/settings/context';
 import { Checkbox } from './Checkbox';
 import { ContextMenu, type MenuItem } from './ContextMenu';
@@ -77,7 +78,11 @@ export function AppMenu({
       key: 'settings',
       label: t('settings'),
       icon: <Settings className="h-3.5 w-3.5" />,
-      onSelect: () => router.push('/settings'),
+      onSelect: () => {
+        // Damit „Zurück" wieder genau hier landet – Ansicht, Tag, offener Termin.
+        rememberReturn();
+        router.push('/settings');
+      },
     },
     ...(anchor?.narrow
       ? []

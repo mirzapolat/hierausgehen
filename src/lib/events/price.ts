@@ -22,14 +22,15 @@ const LEAD = /^(?:(?:preise?|tickets?|eintritt|admission|entry)\s*:?\s*)+/i;
 // Danach nur Satzzeichen oder das Zeilenende – „Frei.Wild“ ist eine Band.
 const FREE = /^(?:frei|freier eintritt|kostenlos|kostenfrei|gratis|umsonst|free|teilnahme kostenlos)(?=$|[\s,;:!()–-]|\.$)/iu;
 const FREE_ANYWHERE = /(?:^|\s)kostenlos anmelden(?![\p{L}])/iu;
-const PRICE = /\d+(?:[.,]\d{1,2})?\s*(?:€|eur\b|£|chf\b)|[€£]\s*\d/i;
+/** Ein Betrag mit Währung – „15 €“, „30 EUR“, „£27.08“. */
+export const PRICE = /\d+(?:[.,]\d{1,2})?\s*(?:€|eur\b|£|chf\b)|[€£]\s*\d/i;
 
 export function isFreeEntry(event: Pick<CalendarEvent, 'notes' | 'availabilityLabel'>): boolean {
   const lines = [...(event.notes ?? []), event.availabilityLabel ?? ''];
   return lines.some(isFreeLine);
 }
 
-function isFreeLine(line: string): boolean {
+export function isFreeLine(line: string): boolean {
   const text = line.trim();
   if (!text || PRICE.test(text)) return false;
   return FREE.test(text.replace(LEAD, '')) || FREE_ANYWHERE.test(text);

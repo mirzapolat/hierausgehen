@@ -34,6 +34,10 @@ export interface Formatter extends FormatOptions {
   weekdayShort: (day: string) => string;
   weekdayLong: (day: string) => string;
   dayNumber: (day: string) => string;
+  /** Tag und Monat in Ziffern – "17.10." bzw. "17/10" – für enge Spalten. */
+  dayNumeric: (day: string) => string;
+  /** Tag und Monat ausgeschrieben, ohne Jahr – "13. Oktober" bzw. "13 October". */
+  dayMonth: (day: string) => string;
   time: (iso: string) => string;
   /** Stundenmarke im Zeitraster, z. B. "19:00" oder "7 PM". */
   hourLabel: (hour: number) => string;
@@ -64,6 +68,8 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
   const dayShortNoWeekday = dateFmt({ day: 'numeric', month: 'short' });
   const weekdayShort = dateFmt({ weekday: 'short' });
   const weekdayLong = dateFmt({ weekday: 'long' });
+  const dayNumeric = dateFmt({ day: 'numeric', month: 'numeric' });
+  const dayMonth = dateFmt({ day: 'numeric', month: 'long' });
 
   // Zeitpunkte dagegen in der gewählten Zeitzone.
   const timeFmt = new Intl.DateTimeFormat(tag, {
@@ -121,6 +127,8 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
     weekdayShort: (day) => weekdayShort.format(noon(day)).replace('.', ''),
     weekdayLong: (day) => weekdayLong.format(noon(day)),
     dayNumber: (day) => String(Number(day.slice(8, 10))),
+    dayNumeric: (day) => dayNumeric.format(noon(day)),
+    dayMonth: (day) => dayMonth.format(noon(day)),
     time: (iso) => timeFmt.format(new Date(iso)),
     hourLabel: (hour) => hourFmt.format(new Date(Date.UTC(2000, 0, 1, hour % 24))),
     stamp: (iso) => stampFmt.format(new Date(iso)),

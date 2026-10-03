@@ -155,8 +155,10 @@ export function parseListPage(html: string): ParsedList {
 
       const notes: string[] = [];
       // Der Wortlaut der Quelle bleibt stehen, wo der einzelne Termin die
-      // Laufzeit oder die Serie nicht mehr erkennen lässt.
-      if (endDay || /^Every/i.test(when)) notes.push(when);
+      // Serie nicht mehr erkennen lässt. Eine Laufzeit („Tuesday 6th -
+      // Saturday 17th Oct 2026") steckt dagegen vollständig in Beginn und
+      // Ende – als Zusatzinfo stünde sie nur doppelt da.
+      if (/^Every/i.test(when)) notes.push(when);
       if (label) notes.push(label);
 
       events.push({

@@ -3,9 +3,10 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { addDays, startOfWeek } from '@/lib/calendar';
-import { byDay } from '@/lib/events/display';
+import { byDay, splitSpans } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { MonthDayCell } from './MonthDayCell';
+import { WeekSpans } from './MonthView';
 
 interface Props {
   anchor: string;
@@ -21,6 +22,8 @@ interface Props {
   coverage: { from: string; to: string };
   /** Erzwingt einen Sprung zum Anker, auch wenn der Monat gleich bleibt. */
   focusKey?: number;
+  /** Weitere Termine derselben Produktion wie der gewählte. */
+  relatedIds?: ReadonlySet<string>;
 }
 
 /** Feste Zeilenhöhe: nur damit lässt sich exakt an eine Woche scrollen. */
@@ -53,9 +56,11 @@ export function MonthScrollView({
   onAnchorChange,
   coverage,
   focusKey = 0,
+  relatedIds,
 }: Props) {
   const { format } = useSettings();
-  const grouped = useMemo(() => byDay(events, format), [events, format]);
+  const { single, spans } = useMemo(() => splitSpans(events, format), [events, format]);
+  const grouped = useMemo(() => byDay(single, format), [single, format]);
   const currentDay = format.today();
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -138,15 +143,21 @@ export function MonthScrollView({
           // Zeilen, in denen ein Monat beginnt, bekommen eine kräftigere Linie.
           const startsMonth = days.some((day) => day.endsWith('-01'));
           return (
-            <div
+            <WeekSpans
               key={weekStart}
+              days={days}
+              spans={spans}
+              definitions={definitions}
+              selectedEventId={selectedEventId}
+              relatedIds={relatedIds}
+              onSelectEvent={onSelectEvent}
               className="grid grid-cols-7"
               style={{
                 height: ROW_HEIGHT,
                 borderTop: startsMonth ? '1px solid var(--line-strong)' : undefined,
               }}
             >
-              {days.map((day) => (
+              {(day, { spanSpace, hiddenSpans, lanes }) => (
                 <MonthDayCell
                   key={day}
                   day={day}
@@ -158,9 +169,13 @@ export function MonthScrollView({
                   onSelectDay={onSelectDay}
                   onSelectEvent={onSelectEvent}
                   showMonth={day.endsWith('-01')}
+                  spanSpace={spanSpace}
+                  hiddenSpans={hiddenSpans}
+                  maxEvents={4 - lanes}
+                  relatedIds={relatedIds}
                 />
-              ))}
-            </div>
+              )}
+            </WeekSpans>
           );
         })}
       </div>

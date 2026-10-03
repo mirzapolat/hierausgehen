@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { returnPath } from '@/lib/return-path';
 import { cityById, cities } from '@/lib/cities';
 import { locales } from '@/lib/i18n';
 import { useSettings, type ThemePreference } from '@/lib/settings/context';
@@ -13,6 +15,7 @@ import { ChevronLeft, MapPin } from './icons';
  */
 export function SettingsScreen() {
   const { settings, update, cityId, chooseCity, locateCity, timeZone, t } = useSettings();
+  const router = useRouter();
   const city = cityById(cityId);
   const [locating, setLocating] = useState(false);
   const [locateFailed, setLocateFailed] = useState(false);
@@ -34,8 +37,14 @@ export function SettingsScreen() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2 bg-[var(--chrome)] px-3 hairline-b">
+        {/* Zurück an die Stelle, von der aus die Einstellungen geöffnet
+            wurden – Ansicht, Tag und offener Termin bleiben erhalten. */}
         <Link
           href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            router.push(returnPath(cityId));
+          }}
           className="-ml-1 flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-1 text-[12px]
                      text-muted hover:text-text"
         >
@@ -53,6 +62,16 @@ export function SettingsScreen() {
                 value={settings.theme}
                 options={themeOptions}
                 onChange={(value) => update({ theme: value })}
+              />
+            </Field>
+            <Field label={t('dayOrder')}>
+              <Segmented
+                value={settings.dayOrder}
+                options={[
+                  { value: 'exhibitions' as const, label: t('sectionExhibitions') },
+                  { value: 'events' as const, label: t('sectionEvents') },
+                ]}
+                onChange={(value) => update({ dayOrder: value })}
               />
             </Field>
             <Field label={t('language')}>

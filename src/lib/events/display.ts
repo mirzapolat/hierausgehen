@@ -2,6 +2,7 @@ import type { Availability, CalendarEvent, SourceDefinition } from './types';
 import type { MessageKey } from '../i18n';
 import type { Formatter } from '../format';
 import { groupColor } from './groups.ts';
+import { addDays, type DaySpan } from '../calendar.ts';
 
 /**
  * Für die Anzeige kommt ein Zustand dazu, den keine Quelle liefert: ein
@@ -62,6 +63,95 @@ export function sourceColor(definitions: SourceDefinition[], sourceId: string): 
 
 export function sourceName(definitions: SourceDefinition[], sourceId: string): string {
   return definitions.find((d) => d.id === sourceId)?.name ?? sourceId;
+}
+
+type DayClock = Pick<Formatter, 'localDay' | 'minutesOfDay'>;
+
+/** Ein mehrtägiger Termin samt der Tage, über die er läuft. */
+export interface EventSpan extends DaySpan {
+  event: CalendarEvent;
+}
+
+/**
+ * Läuft ein Termin über mehrere Tage? Dann die Tage, über die er reicht.
+ *
+ * Eine Clubnacht von 22 bis 6 Uhr endet zwar am Folgetag, gehört aber zu
+ * dem Abend, an dem sie beginnt – mehrtägig ist erst, was einen ganzen Tag
+ * oder länger dauert, oder ein ganztägiger Termin mit späterem Endtag. Ein
+ * Ende genau um Mitternacht zählt zum Vortag.
+ */
+export function eventSpan(event: CalendarEvent, format: DayClock): EventSpan | undefined {
+  if (!event.end) return undefined;
+  const from = format.localDay(event.start);
+  let to = format.localDay(event.end);
+  if (to > from && format.minutesOfDay(event.end) === 0) to = addDays(to, -1);
+  if (to <= from) return undefined;
+  if (!event.allDay && Date.parse(event.end) - Date.parse(event.start) < 86_400_000) return undefined;
+  return { id: event.id, from, to, event };
+}
+
+/** Einzelne Termine und mehrtägige getrennt – die einen in Zellen, die anderen als Balken. */
+export function splitSpans(
+  events: CalendarEvent[],
+  format: DayClock,
+): { single: CalendarEvent[]; spans: EventSpan[] } {
+  const single: CalendarEvent[] = [];
+  const spans: EventSpan[] = [];
+  for (const event of events) {
+    const span = eventSpan(event, format);
+    if (span) spans.push(span);
+    else single.push(event);
+  }
+  return { single, spans };
+}
+
+/**
+ * Alles, was an einem Tag stattfindet: was an ihm beginnt, und danach, was
+ * schon früher begonnen hat und an diesem Tag noch läuft.
+ */
+export function eventsOnDay(events: CalendarEvent[], day: string, format: DayClock): CalendarEvent[] {
+  const starting: CalendarEvent[] = [];
+  const running: CalendarEvent[] = [];
+  for (const event of events) {
+    if (format.localDay(event.start) === day) {
+      starting.push(event);
+      continue;
+    }
+    const span = eventSpan(event, format);
+    if (span && span.from < day && span.to >= day) running.push(event);
+  }
+  return [...starting, ...running];
+}
+
+/**
+ * Der letzte Tag eines Termins, der am angezeigten Tag schon läuft – sonst
+ * nichts. Listen zeigen dann „bis …" statt einer Uhrzeit, die nicht mehr gilt.
+ */
+export function runningUntil(event: CalendarEvent, day: string, format: DayClock): string | undefined {
+  const span = eventSpan(event, format);
+  return span && span.from < day && span.to >= day ? span.to : undefined;
+}
+
+/** Die Art, unter der `categories.ts` Ausstellungen führt ("Exhibition", "Installation" …). */
+const EXHIBITION = 'Ausstellung';
+
+export function isExhibition(event: Pick<CalendarEvent, 'category'>): boolean {
+  return event.category === EXHIBITION;
+}
+
+/**
+ * Ausstellungen getrennt von allem anderen – eine Ausstellung besucht man
+ * irgendwann während der Öffnungszeit, eine Veranstaltung zu ihrem Beginn.
+ * Die Reihenfolge innerhalb beider Teile bleibt erhalten.
+ */
+export function splitExhibitions(events: CalendarEvent[]): {
+  events: CalendarEvent[];
+  exhibitions: CalendarEvent[];
+} {
+  const rest: CalendarEvent[] = [];
+  const exhibitions: CalendarEvent[] = [];
+  for (const event of events) (isExhibition(event) ? exhibitions : rest).push(event);
+  return { events: rest, exhibitions };
 }
 
 /** Events nach lokalem Tag der eingestellten Zeitzone gruppieren. */

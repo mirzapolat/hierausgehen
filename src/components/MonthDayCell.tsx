@@ -24,6 +24,15 @@ interface Props {
   /** Monatsnamen neben der Ziffer zeigen (Monatsanfang im Endlos-Scroll). */
   showMonth?: boolean;
   maxEvents?: number;
+  /**
+   * Platz über den Terminen, den die Balken mehrtägiger Termine einnehmen
+   * (in px). Die Balken selbst liegen in einer eigenen Ebene über der Zeile.
+   */
+  spanSpace?: number;
+  /** Mehrtägige Termine dieses Tages, für die kein Balken mehr Platz hatte. */
+  hiddenSpans?: number;
+  /** Weitere Termine derselben Produktion wie der gewählte – sie werden hervorgehoben. */
+  relatedIds?: ReadonlySet<string>;
 }
 
 /** Eine Zelle des Monatsrasters – geteilt von fester und scrollender Ansicht. */
@@ -40,8 +49,21 @@ export function MonthDayCell({
   compact = false,
   showMonth = false,
   maxEvents = 4,
+  spanSpace = 0,
+  hiddenSpans = 0,
+  relatedIds,
 }: Props) {
   const { format, t } = useSettings();
+  const more = Math.max(events.length - maxEvents, 0) + hiddenSpans;
+  // Der gewählte Termin und seine weiteren Aufführungen rücken nach vorn,
+  // damit „+ n weitere" sie nicht verschluckt. Sonst bleibt die Reihenfolge.
+  const ordered =
+    selectedEventId || relatedIds
+      ? [
+          ...events.filter((event) => event.id === selectedEventId || relatedIds?.has(event.id)),
+          ...events.filter((event) => event.id !== selectedEventId && !relatedIds?.has(event.id)),
+        ]
+      : events;
 
   return (
     <div
@@ -80,12 +102,18 @@ export function MonthDayCell({
         )}
       </div>
 
+      {spanSpace > 0 && <div aria-hidden="true" className="shrink-0" style={{ height: spanSpace }} />}
+
       {compact ? (
         <div className="flex flex-wrap gap-[3px]">
-          {events.slice(0, 6).map((event) => (
+          {ordered.slice(0, 6).map((event) => (
             <span
               key={event.id}
-              className="h-[5px] w-[5px] rounded-full"
+              className={`h-[5px] w-[5px] rounded-full ${
+                relatedIds?.has(event.id)
+                  ? 'ring-[1.5px] ring-[var(--text)] ring-offset-1 ring-offset-[var(--canvas)]'
+                  : ''
+              }`}
               style={{
                 background: sourceColor(definitions, event.sourceId),
                 opacity: outside ? 0.3 : isPast(event) ? 0.35 : 1,
@@ -95,9 +123,14 @@ export function MonthDayCell({
         </div>
       ) : (
         <div className="flex min-h-0 flex-col gap-[2px] overflow-hidden">
-          {events.slice(0, maxEvents).map((event) => {
+          {ordered.slice(0, maxEvents).map((event) => {
             // Vergangenes und Ausverkauftes tritt zurück, verschwindet aber nicht.
             const dimmed = isPast(event) || event.availability === 'soldout';
+            const color = sourceColor(definitions, event.sourceId);
+            const isSelected = selectedEventId === event.id;
+            // Weitere Termine derselben Produktion: in der Farbe der Quelle
+            // unterlegt, solange der gewählte Termin offen ist.
+            const related = !isSelected && relatedIds?.has(event.id);
             return (
               <button
                 key={event.id}
@@ -110,18 +143,18 @@ export function MonthDayCell({
                 title={`${event.allDay ? '' : format.time(event.start) + ' '}${event.title} · ${event.venue.name}`}
                 className={`flex items-center gap-1.5 rounded-[var(--radius-xs)] px-1 py-[1px] text-left
                             ${
-                              selectedEventId === event.id
+                              isSelected
                                 ? 'bg-[var(--canvas)] shadow-[0_0_0_1px_var(--line-strong)]'
-                                : 'hover:bg-[var(--canvas)]'
+                                : related
+                                  ? ''
+                                  : 'hover:bg-[var(--canvas)]'
                             }`}
+                style={related ? { background: `color-mix(in srgb, ${color} 18%, var(--canvas))` } : undefined}
               >
                 <span
                   aria-hidden="true"
                   className="h-[5px] w-[5px] shrink-0 rounded-full"
-                  style={{
-                    background: sourceColor(definitions, event.sourceId),
-                    opacity: dimmed ? 0.35 : 1,
-                  }}
+                  style={{ background: color, opacity: dimmed ? 0.35 : 1 }}
                 />
                 {!event.allDay && (
                   <span className={`shrink-0 text-[11px] tabular-nums ${dimmed ? 'opacity-60' : ''} text-faint`}>
@@ -129,7 +162,7 @@ export function MonthDayCell({
                   </span>
                 )}
                 <span
-                  className={`truncate text-[12px] ${
+                  className={`truncate text-[12px] ${related ? 'font-medium' : ''} ${
                     dimmed ? 'text-faint' : outside ? 'text-muted' : 'text-text'
                   }`}
                 >
@@ -138,10 +171,8 @@ export function MonthDayCell({
               </button>
             );
           })}
-          {events.length > maxEvents && (
-            <span className="px-1 text-[11px] text-faint">
-              {t('more', { count: events.length - maxEvents })}
-            </span>
+          {more > 0 && (
+            <span className="px-1 text-[11px] text-faint">{t('more', { count: more })}</span>
           )}
         </div>
       )}
