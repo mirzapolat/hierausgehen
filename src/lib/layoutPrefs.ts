@@ -6,6 +6,8 @@
  * schlucken Fehler, weil ein privater Modus den Kalender nicht aufhalten soll.
  */
 
+import { isTimeOfDay, type TimeOfDay } from './events/filter.ts';
+
 export const LAYOUT_STORAGE_KEY = 'hierausgehen.layout.v1';
 
 /** Dauerhafte Filter einer Stadt. */
@@ -15,6 +17,8 @@ export interface CitySpacePrefs {
   /** Nur Termine mit ausdrücklich freiem Eintritt (siehe `events/price.ts`). */
   freeOnly: boolean;
   disabledCategories: string[];
+  /** Gewählte Tageszeiten (siehe `events/filter.ts`); leer = alle. */
+  timesOfDay: TimeOfDay[];
 }
 
 export interface LayoutPrefs {
@@ -31,6 +35,7 @@ export const defaultSpacePrefs: CitySpacePrefs = {
   availableOnly: false,
   freeOnly: false,
   disabledCategories: [],
+  timesOfDay: [],
 };
 
 export const defaultLayout: LayoutPrefs = {
@@ -126,6 +131,7 @@ function normalizeSpacePrefs(prefs: Partial<CitySpacePrefs> | undefined): CitySp
       typeof prefs?.availableOnly === 'boolean' ? prefs.availableOnly : defaultSpacePrefs.availableOnly,
     freeOnly: typeof prefs?.freeOnly === 'boolean' ? prefs.freeOnly : defaultSpacePrefs.freeOnly,
     disabledCategories: stringList(prefs?.disabledCategories),
+    timesOfDay: stringList(prefs?.timesOfDay).filter(isTimeOfDay),
   };
 }
 

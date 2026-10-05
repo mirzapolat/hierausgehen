@@ -3,7 +3,7 @@ import { track } from '@/lib/analytics';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import type { CitySpacePrefs } from '@/lib/layoutPrefs';
 import { isFreeEntry } from '@/lib/events/price';
-import { hasTickets, matchesText } from '@/lib/events/filter';
+import { hasTickets, matchesText, matchesTimeOfDay, type TimeOfDay } from '@/lib/events/filter';
 
 /**
  * Alle Filter des Kalenders und was aus ihnen folgt.
@@ -21,7 +21,10 @@ export function useEventFilters(options: {
   term: (value: string) => string;
   /** IDs der Merkliste (siehe `saved.ts`). */
   saved: ReadonlySet<string>;
+  /** Minuten seit Mitternacht in der eingestellten Zeitzone – für die Tageszeit. */
+  minutesOfDay: (iso: string) => number;
 }) {
+  const { minutesOfDay } = options;
   const { locale, term } = options;
 
   const [disabled, setDisabled] = useState<Set<string>>(new Set());
@@ -29,6 +32,7 @@ export function useEventFilters(options: {
   const [freeOnly, setFreeOnly] = useState(false);
   /** Nur Gemerktes – flüchtig wie ein Fokus, sonst stünde nach dem Neuladen ein leerer Kalender da. */
   const [savedOnly, setSavedOnly] = useState(false);
+  const [timesOfDay, setTimesOfDay] = useState<TimeOfDay[]>([]);
   const [solo, setSolo] = useState<Set<string>>(new Set());
   const [disabledCategories, setDisabledCategories] = useState<Set<string>>(new Set());
   const [categorySolo, setCategorySolo] = useState<Set<string>>(new Set());
@@ -72,9 +76,24 @@ export function useEventFilters(options: {
         if (availableOnly && !hasTickets(event)) return false;
         if (freeOnly && !isFreeEntry(event)) return false;
         if (savedOnly && !options.saved.has(event.id)) return false;
+        if (!matchesTimeOfDay(event, timesOfDay, minutesOfDay)) return false;
         return matchesText(event, query, locale, term);
       }),
-    [options.events, options.saved, visibleSources, disabledCategories, categorySolo, availableOnly, freeOnly, savedOnly, query, locale, term],
+    [
+      options.events,
+      options.saved,
+      visibleSources,
+      disabledCategories,
+      categorySolo,
+      availableOnly,
+      freeOnly,
+      savedOnly,
+      timesOfDay,
+      minutesOfDay,
+      query,
+      locale,
+      term,
+    ],
   );
 
   /** Wie viele gemerkte Termine im geladenen Zeitraum liegen – unabhängig von den übrigen Filtern. */
@@ -90,8 +109,9 @@ export function useEventFilters(options: {
       availableOnly,
       freeOnly,
       disabledCategories: [...disabledCategories],
+      timesOfDay,
     }),
-    [disabled, availableOnly, freeOnly, disabledCategories],
+    [disabled, availableOnly, freeOnly, disabledCategories, timesOfDay],
   );
 
   /** Gemerkte Auswahl einer Stadt übernehmen; ein Fokus gehört zur alten. */
@@ -100,6 +120,7 @@ export function useEventFilters(options: {
     setAvailableOnly(stored.availableOnly);
     setFreeOnly(stored.freeOnly);
     setDisabledCategories(new Set(stored.disabledCategories));
+    setTimesOfDay(stored.timesOfDay);
     setSolo(new Set());
     setCategorySolo(new Set());
     setSavedOnly(false);
@@ -149,6 +170,13 @@ export function useEventFilters(options: {
     });
   }, []);
 
+  /** Eine Tageszeit an- oder abwählen; die Reihenfolge bleibt die des Tages. */
+  const toggleTimeOfDay = useCallback((time: TimeOfDay) => {
+    setTimesOfDay((current) =>
+      current.includes(time) ? current.filter((entry) => entry !== time) : [...current, time],
+    );
+  }, []);
+
   const toggleCategory = useCallback(
     (name: string) => {
       // Bei aktivem Fokus führt ein Klick zunächst dorthin zurück, wo man war.
@@ -184,6 +212,7 @@ export function useEventFilters(options: {
     (availableOnly ? 1 : 0) +
     (freeOnly ? 1 : 0) +
     (savedOnly ? 1 : 0) +
+    (timesOfDay.length > 0 ? 1 : 0) +
     (query ? 1 : 0);
 
   const reset = useCallback(() => {
@@ -194,6 +223,7 @@ export function useEventFilters(options: {
     setAvailableOnly(false);
     setFreeOnly(false);
     setSavedOnly(false);
+    setTimesOfDay([]);
     setQuery('');
   }, []);
 
@@ -211,6 +241,8 @@ export function useEventFilters(options: {
     savedOnly,
     setSavedOnly,
     savedCount,
+    timesOfDay,
+    toggleTimeOfDay,
     query,
     setQuery,
     space,

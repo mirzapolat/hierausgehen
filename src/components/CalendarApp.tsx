@@ -142,6 +142,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     locale: settings.locale,
     term,
     saved: savedEvents.ids,
+    minutesOfDay: format.minutesOfDay,
   });
   const { events, focusSources, setQuery, restore: restoreFilters, space: filterSpace } = filters;
 
@@ -163,6 +164,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       skipCategories: filterSpace.disabledCategories,
       ticketsOnly: filters.availableOnly,
       freeOnly: filters.freeOnly,
+      timesOfDay: filters.timesOfDay,
       query: filters.query,
     };
   }, [
@@ -171,6 +173,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     filters.categorySolo,
     filters.availableOnly,
     filters.freeOnly,
+    filters.timesOfDay,
     filters.query,
     filterSpace.disabledCategories,
     data.definitions.length,
@@ -679,6 +682,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       savedOnly={filters.savedOnly}
       onSavedOnlyChange={filters.setSavedOnly}
       savedCount={filters.savedCount}
+      timesOfDay={filters.timesOfDay}
+      onToggleTimeOfDay={filters.toggleTimeOfDay}
       query={filters.query}
       onQueryChange={setQuery}
     />

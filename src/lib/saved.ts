@@ -110,5 +110,10 @@ export function useSavedEvents() {
   const toggle = useCallback((event: Pick<CalendarEvent, 'id' | 'start' | 'end'>) => {
     write(toggleSaved(read(), event));
   }, []);
-  return { ids, toggle };
+  /** Mehrere auf einmal vergessen – etwa, was nicht mehr im Programm steht. */
+  const remove = useCallback((drop: Iterable<string>) => {
+    const gone = new Set(drop);
+    write(read().filter((entry) => !gone.has(entry.id)));
+  }, []);
+  return { ids, toggle, remove };
 }

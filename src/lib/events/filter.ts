@@ -37,6 +37,43 @@ export function matchesText(
     .some((field) => field!.toLocaleLowerCase(locale).includes(needle));
 }
 
+/**
+ * Tageszeit nach dem Beginn, in der Zeitzone der Stadt. Die Grenzen folgen
+ * dem Ausgehen, nicht der Uhr: wer „Nachts“ wählt, meint auch den Club, der
+ * um 1 Uhr öffnet.
+ */
+export const TIMES_OF_DAY = ['day', 'evening', 'night'] as const;
+export type TimeOfDay = (typeof TIMES_OF_DAY)[number];
+
+/** Beginn jeder Tageszeit in vollen Stunden – zugleich das Ende der vorigen. */
+export const TIME_OF_DAY_START: Record<TimeOfDay, number> = { day: 5, evening: 17, night: 22 };
+
+export function isTimeOfDay(value: unknown): value is TimeOfDay {
+  return TIMES_OF_DAY.includes(value as TimeOfDay);
+}
+
+export function timeOfDay(minutes: number): TimeOfDay {
+  const hour = minutes / 60;
+  if (hour >= TIME_OF_DAY_START.night || hour < TIME_OF_DAY_START.day) return 'night';
+  if (hour >= TIME_OF_DAY_START.evening) return 'evening';
+  return 'day';
+}
+
+/**
+ * Liegt der Beginn in einer der Tageszeiten? Ohne Auswahl immer. Ganztägiges
+ * hat keinen Beginn und fällt bei einer Auswahl heraus – eine Uhrzeit dafür
+ * wäre erfunden.
+ */
+export function matchesTimeOfDay(
+  event: Pick<CalendarEvent, 'start' | 'allDay'>,
+  times: readonly TimeOfDay[],
+  minutesOfDay: (iso: string) => number,
+): boolean {
+  if (times.length === 0 || times.length === TIMES_OF_DAY.length) return true;
+  if (event.allDay) return false;
+  return times.includes(timeOfDay(minutesOfDay(event.start)));
+}
+
 /** Karten sind buchbar – regulär oder als Restkarten. */
 export function hasTickets(event: Pick<CalendarEvent, 'availability'>): boolean {
   return event.availability === 'available' || event.availability === 'limited';
@@ -55,10 +92,20 @@ export interface FeedFilter {
   skipCategories?: string[];
   ticketsOnly?: boolean;
   freeOnly?: boolean;
+  /** Nur mit Beginn in diesen Tageszeiten. */
+  timesOfDay?: TimeOfDay[];
   query?: string;
 }
 
-export function applyFeedFilter(events: CalendarEvent[], filter: FeedFilter): CalendarEvent[] {
+/**
+ * `minutesOfDay` rechnet in der Zeitzone der Stadt (`Formatter.minutesOfDay`);
+ * ohne sie bleibt die Tageszeit unberücksichtigt.
+ */
+export function applyFeedFilter(
+  events: CalendarEvent[],
+  filter: FeedFilter,
+  minutesOfDay?: (iso: string) => number,
+): CalendarEvent[] {
   const sources = filter.sources?.length ? new Set(filter.sources) : undefined;
   const only = filter.categories?.length ? new Set(filter.categories) : undefined;
   const skip = new Set(filter.skipCategories ?? []);
@@ -68,6 +115,7 @@ export function applyFeedFilter(events: CalendarEvent[], filter: FeedFilter): Ca
     if (only ? !only.has(category) : skip.has(category)) return false;
     if (filter.ticketsOnly && !hasTickets(event)) return false;
     if (filter.freeOnly && !isFreeEntry(event)) return false;
+    if (minutesOfDay && !matchesTimeOfDay(event, filter.timesOfDay ?? [], minutesOfDay)) return false;
     // Das Abo kennt keine Sprache; die englischen Namen der Arten zählen mit.
     if (filter.query && !matchesText(event, filter.query, 'de', englishTerm)) return false;
     return true;
@@ -91,6 +139,10 @@ export function feedSearchParams(cityId: string, filter: FeedFilter): URLSearchP
   if (!filter.categories?.length) list('skip', filter.skipCategories);
   if (filter.ticketsOnly) params.set('tickets', '1');
   if (filter.freeOnly) params.set('free', '1');
+  // Alle drei Tageszeiten heissen dasselbe wie keine.
+  if (filter.timesOfDay && filter.timesOfDay.length < TIMES_OF_DAY.length) {
+    list('time', filter.timesOfDay);
+  }
   const query = filter.query?.trim();
   if (query) params.set('q', query);
   return params;
@@ -108,6 +160,7 @@ export function parseFeedFilter(params: URLSearchParams): FeedFilter {
     skipCategories: list('skip'),
     ticketsOnly: params.get('tickets') === '1',
     freeOnly: params.get('free') === '1',
+    timesOfDay: list('time')?.filter(isTimeOfDay),
     query: params.get('q')?.trim() || undefined,
   };
 }

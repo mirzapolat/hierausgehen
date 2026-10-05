@@ -3,6 +3,7 @@ import { toICalendarFeed } from '@/lib/events/ics';
 import { applyFeedFilter, parseFeedFilter } from '@/lib/events/filter';
 import { isPast } from '@/lib/events/display';
 import { cityById, isKnownCityId } from '@/lib/cities';
+import { createFormatter } from '@/lib/format';
 import { SITE_NAME } from '@/lib/site';
 
 /**
@@ -26,9 +27,16 @@ export async function GET(request: Request) {
   const snapshot = await getSnapshot(cityId);
   // Vergangenes gehört nicht ins Abo – die Kalender-App behält, was sie hatte.
   const now = new Date();
+  // Die Tageszeit gilt in der Zeitzone der Stadt, nicht in der des Servers.
+  const { minutesOfDay } = createFormatter({
+    locale: 'de',
+    timeZone: cityById(cityId).timeZone,
+    hour12: false,
+  });
   const events = applyFeedFilter(
     snapshot.events.filter((event) => !isPast(event, now)),
     parseFeedFilter(params),
+    minutesOfDay,
   ).sort((a, b) => a.start.localeCompare(b.start));
 
   const name = params.get('name')?.trim() || `${SITE_NAME} · ${cityById(cityId).name}`;

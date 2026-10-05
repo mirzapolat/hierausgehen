@@ -29,6 +29,7 @@ test('übernimmt gültige Werte und verwirft kaputte', () => {
     availableOnly: false,
     freeOnly: false,
     disabledCategories: [],
+    timesOfDay: [],
   });
 });
 
@@ -42,6 +43,7 @@ test('ordnet Filter aus einem alten Stand ohne Städte der gelesenen Stadt zu', 
     availableOnly: true,
     freeOnly: false,
     disabledCategories: [],
+    timesOfDay: [],
   });
   assert.deepEqual(spacePrefs(prefs, 'glasgow').disabledSources, ['tron']);
 });
@@ -52,6 +54,7 @@ test('eine Stadt ohne gemerkte Filter hat keine', () => {
     availableOnly: false,
     freeOnly: false,
     disabledCategories: [],
+    timesOfDay: [],
   });
 });
 
@@ -62,4 +65,12 @@ test('merkt den Filter für freien Eintritt je Stadt', () => {
   );
   assert.equal(spacePrefs(prefs, 'oldenburg').freeOnly, true);
   assert.equal(spacePrefs(prefs, 'glasgow').freeOnly, false);
+});
+
+test('merkt die Tageszeiten je Stadt und verwirft unbekannte', () => {
+  const prefs = normalizeLayoutPrefs(
+    { spaces: { muenchen: { timesOfDay: ['evening', 'mittags', 'night'] as unknown as [] } } },
+    'muenchen',
+  );
+  assert.deepEqual(spacePrefs(prefs, 'muenchen').timesOfDay, ['evening', 'night']);
 });

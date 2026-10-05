@@ -63,6 +63,7 @@ src/
   app/
     page.tsx               Serverseitige Erstansicht
     settings/page.tsx      Einstellungen
+    merkliste/page.tsx     Merkliste (über das Lesezeichen in der Kopfzeile)
     impressum/page.tsx     Impressum
     offline/page.tsx       Rückfallseite ohne Verbindung
     manifest.ts            Web-App-Manifest (installierbar)
@@ -70,6 +71,7 @@ src/
     opengraph-image.tsx    Vorschaubild für geteilte Links
     api/events/            aggregierte Termine
     api/events/feed/       Kalender-Abo einer Stadt, auf Wunsch gefiltert
+    api/events/saved/      Termine zu den IDs der Merkliste, über alle Städte
     api/source-icon/[id]/  Favicon einer Quelle
 ```
 
@@ -86,6 +88,17 @@ Beginn; was seit einem Tag vorbei ist, fällt von selbst heraus. Der Schalter
 „Gemerkt“ in der Seitenleiste zeigt nur die gemerkten Termine; er erscheint
 erst, wenn es welche gibt, und ist wie ein Fokus flüchtig.
 
+Das Lesezeichen in der Kopfzeile führt auf `/merkliste`: alle gemerkten
+Termine nach Tagen, über alle Städte. Die Seite schickt die IDs an
+`/api/events/saved` und bekommt die Termine aus dem täglichen Datenstand
+zurück; was dort nicht mehr steht, nennt sie und bietet an, es zu entfernen.
+
+**Tageszeit.** Der Filter „Tageszeit“ wählt nach dem Beginn in der
+Zeitzone der Stadt: Tagsüber (5–17 Uhr), Abends (17–22 Uhr), Nachts (22–5
+Uhr). Mehrere lassen sich kombinieren; die Auswahl wird je Stadt gemerkt.
+Ganztägiges hat keinen Beginn und fällt heraus, sobald eine Tageszeit
+gewählt ist – eine Uhrzeit dafür wäre erfunden.
+
 **Kalender-Abo.** `GET /api/events/feed?city=<id>` liefert alle kommenden
 Termine einer Stadt als iCalendar, den Kalender-Apps selbst regelmässig
 abfragen. Dieselben Filter wie auf der Seite gehen als Parameter mit
@@ -98,6 +111,7 @@ abfragen. Dieselben Filter wie auf der Seite gehen als Parameter mit
 | `skip=Kino` | diese Arten nicht (greift nur ohne `category`) |
 | `tickets=1` | nur mit buchbaren Karten |
 | `free=1` | nur mit freiem Eintritt |
+| `time=evening,night` | nur mit Beginn in diesen Tageszeiten (`day`, `evening`, `night`) |
 | `q=jazz` | Freitext wie im Suchfeld |
 
 Im Menü oben rechts baut „Kalender abonnieren“ diese Adresse aus den gerade

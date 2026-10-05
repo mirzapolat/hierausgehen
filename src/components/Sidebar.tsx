@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
+import { TIME_OF_DAY_START, TIMES_OF_DAY, type TimeOfDay } from '@/lib/events/filter';
+import type { MessageKey } from '@/lib/i18n';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
 import { Bookmark, ChevronDown, Close, MoreHorizontal, Tag, Ticket, Warning } from './icons';
@@ -36,6 +38,9 @@ interface Props {
   onSavedOnlyChange: (next: boolean) => void;
   /** Gemerkte Termine im geladenen Zeitraum; ohne sie fehlt der Schalter. */
   savedCount: number;
+  /** Gewählte Tageszeiten; leer = alle. */
+  timesOfDay: TimeOfDay[];
+  onToggleTimeOfDay: (time: TimeOfDay) => void;
   query: string;
   onQueryChange: (next: string) => void;
 }
@@ -65,6 +70,8 @@ export function Sidebar({
   savedOnly,
   onSavedOnlyChange,
   savedCount,
+  timesOfDay,
+  onToggleTimeOfDay,
   query,
   onQueryChange,
 }: Props) {
@@ -108,6 +115,31 @@ export function Sidebar({
           </FilterChip>
         )}
       </div>
+
+      <section>
+        <h2 className="mb-2 px-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
+          {t('timeOfDay')}
+        </h2>
+        {/* Mehrfachauswahl: „Abends“ und „Nachts“ zusammen ist der Ausgehabend. */}
+        <div className="flex flex-wrap gap-1.5 lg:gap-1">
+          {TIMES_OF_DAY.map((time, index) => {
+            const next = TIMES_OF_DAY[(index + 1) % TIMES_OF_DAY.length];
+            return (
+              <FilterChip
+                key={time}
+                pressed={timesOfDay.includes(time)}
+                onChange={() => onToggleTimeOfDay(time)}
+                title={t('timeRange', {
+                  from: format.hourLabel(TIME_OF_DAY_START[time]),
+                  to: format.hourLabel(TIME_OF_DAY_START[next]),
+                })}
+              >
+                {t(TIME_LABELS[time])}
+              </FilterChip>
+            );
+          })}
+        </div>
+      </section>
 
       <section>
         <div className="mb-2 flex items-center gap-2 px-0.5">
@@ -414,6 +446,12 @@ function CategoryPill({
 
 const MENU_WIDTH = 168;
 
+const TIME_LABELS: Record<TimeOfDay, MessageKey> = {
+  day: 'timeDay',
+  evening: 'timeEvening',
+  night: 'timeNight',
+};
+
 function MenuItem({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -466,7 +504,7 @@ function FilterChip({
 }: {
   pressed: boolean;
   onChange: (next: boolean) => void;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   title?: string;
   children: React.ReactNode;
 }) {
@@ -477,7 +515,8 @@ function FilterChip({
       title={title}
       onClick={() => onChange(!pressed)}
       className={`chip-hover flex min-w-0 items-center gap-1.5 rounded-full border
-                  py-1.5 pl-2.5 pr-3 text-[13px] lg:py-[3px] lg:pl-2 lg:pr-2.5 lg:text-[12px] ${
+                  py-1.5 pr-3 text-[13px] lg:py-[3px] lg:pr-2.5 lg:text-[12px]
+                  ${icon ? 'pl-2.5 lg:pl-2' : 'pl-3 lg:pl-2.5'} ${
                     pressed
                       ? 'border-transparent bg-[var(--accent-soft)] text-accent'
                       : 'border-line text-faint hover:border-line-strong hover:text-muted'
