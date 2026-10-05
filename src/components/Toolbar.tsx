@@ -3,11 +3,16 @@
 import type { ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
+import Link from 'next/link';
+import type { FeedFilter } from '@/lib/events/filter';
+import { rememberReturn } from '@/lib/return-path';
+import { useSavedEvents } from '@/lib/saved';
 import { AppMenu } from './AppMenu';
 import { CityPicker } from './CityPicker';
 import { DayPicker } from './DayPicker';
 import { Dropdown } from './Dropdown';
 import {
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -20,6 +25,8 @@ interface Props {
   anchor: string;
   cityId: string;
   shareUrl: string;
+  /** Die aktuellen Filter, fürs Kalender-Abo im Menü. */
+  feedFilter: FeedFilter;
   onCityChange: (id: string) => void;
   onViewChange: (view: ViewMode) => void;
   onStep: (direction: -1 | 1) => void;
@@ -56,6 +63,7 @@ export function Toolbar({
   anchor,
   cityId,
   shareUrl,
+  feedFilter,
   onCityChange,
   onViewChange,
   onStep,
@@ -78,6 +86,7 @@ export function Toolbar({
   onOpenShortcuts,
 }: Props) {
   const { format, t } = useSettings();
+  const savedCount = useSavedEvents().ids.size;
   // Auf QWERTZ heissen die Spaltenkürzel „Ü“ und „+“ statt „[“ und „]“.
   const sidebarKey = useKeyLabel(SIDEBAR_KEY);
   const detailKey = useKeyLabel(DETAIL_KEY);
@@ -242,7 +251,33 @@ export function Toolbar({
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
         </button>
 
-        <AppMenu cityId={cityId} shareUrl={shareUrl} onOpenShortcuts={onOpenShortcuts} className={iconButton} />
+        {/* Die Merkliste – mit Zahl, sobald etwas darauf steht. */}
+        <Link
+          href="/merkliste"
+          onClick={rememberReturn}
+          aria-label={t('savedOpen')}
+          title={t('savedOpen')}
+          className={`relative ${iconButton}`}
+        >
+          <Bookmark filled={savedCount > 0} className={`h-4 w-4 ${savedCount > 0 ? 'text-accent' : ''}`} />
+          {savedCount > 0 && (
+            <span
+              className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full
+                         bg-accent px-1 text-[10px] font-medium tabular-nums leading-none text-white
+                         lg:-right-1 lg:-top-1"
+            >
+              {savedCount}
+            </span>
+          )}
+        </Link>
+
+        <AppMenu
+          cityId={cityId}
+          shareUrl={shareUrl}
+          feedFilter={feedFilter}
+          onOpenShortcuts={onOpenShortcuts}
+          className={iconButton}
+        />
       </div>
     </header>
   );

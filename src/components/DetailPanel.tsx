@@ -10,11 +10,13 @@ import {
   sourceName,
 } from '@/lib/events/display';
 import { noteFacts } from '@/lib/events/notes';
+import { track } from '@/lib/analytics';
+import { useSavedEvents } from '@/lib/saved';
 import { useSettings } from '@/lib/settings/context';
 import { DayAgenda } from './AgendaList';
 import { SectionLabel } from './SectionLabel';
 import { AvailabilityDot } from './AvailabilityDot';
-import { CalendarPlus, ChevronLeft, Close, External, Ticket } from './icons';
+import { Bookmark, CalendarPlus, ChevronLeft, Close, External, Ticket } from './icons';
 import { ShareButton } from './ShareButton';
 
 interface Props {
@@ -148,6 +150,8 @@ function EventDetail({
   // Was schon gelaufen ist, ist kein weiterer Termin mehr.
   const upcoming = (event.relatedPerformances ?? []).filter((performance) => !isPast(performance));
   const performances = useRef<HTMLElement>(null);
+  const savedEvents = useSavedEvents();
+  const saved = savedEvents.ids.has(event.id);
 
   useEffect(() => {
     if (!revealPerformances) return;
@@ -173,6 +177,23 @@ function EventDetail({
         <h3 className="min-w-0 flex-1 text-[19px] font-semibold leading-snug tracking-[-0.015em]">
           {event.title}
         </h3>
+        <button
+          type="button"
+          aria-pressed={saved}
+          aria-label={saved ? t('unsave') : t('save')}
+          title={saved ? t('unsave') : t('save')}
+          onClick={() => {
+            savedEvents.toggle(event);
+            if (!saved) track('event-save', { source: event.sourceId, category: event.category });
+          }}
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
+            saved
+              ? 'border-transparent bg-[var(--accent-soft)] text-accent'
+              : 'border-line bg-[var(--canvas)] text-muted hover:border-line-strong hover:text-text'
+          }`}
+        >
+          <Bookmark filled={saved} className="h-3.5 w-3.5" />
+        </button>
         {shareUrl && (
           <ShareButton
             url={shareUrl}

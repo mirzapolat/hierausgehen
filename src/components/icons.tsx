@@ -122,3 +122,9 @@ export const Ticket = (p: Props) => (
     <path d="M9.5 4.5v1M9.5 7.5v1M9.5 10.5v1" />
   </Svg>
 );
+/** Lesezeichen – die Merkliste. Gefüllt, wenn der Termin gemerkt ist. */
+export const Bookmark = ({ filled, ...p }: Props & { filled?: boolean }) => (
+  <Svg {...p}>
+    <path d="M4.5 2.5h7v11L8 10.8l-3.5 2.7z" fill={filled ? 'currentColor' : 'none'} />
+  </Svg>
+);

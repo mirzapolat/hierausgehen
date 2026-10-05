@@ -34,6 +34,7 @@ src/
     layoutPrefs.ts         gemerkte Spalten und Filter je Stadt (localStorage)
     useEventData.ts        Datenstand zu Stadt und Zeitraum, mit Zwischenspeicher
     useEventFilters.ts     Quellen-, Arten-, Ticket- und Textfilter des Kalenders
+    saved.ts               Merkliste: gemerkte Termine dieses Geräts (localStorage)
     useCalendarShortcuts.ts Tastaturkürzel
     settings/context.tsx   Erscheinungsbild, Sprache, Zeitformat, Zeitzone, Stadt
     events/
@@ -43,7 +44,8 @@ src/
       snapshot.ts          täglicher Datenstand einer Stadt (zwölf Monate)
       schedule.ts          Zeitrechnung der Erhebung (5 Uhr Ortszeit)
       cache.ts             TTL-Cache mit Rückfall auf veraltete Daten
-      ics.ts               ein Termin als .ics-Datei (RFC 5545)
+      ics.ts               Termine als .ics (RFC 5545) – einzeln oder als Abo
+      filter.ts            Filter, die Oberfläche und Kalender-Abo teilen
       http.ts              Timeout, Retry, Browser-Header
       favicon.ts           Favicon einer Quelle finden und zwischenspeichern
       geocode.ts           Ortsnamen zu Koordinaten (OpenStreetMap, mit Cache)
@@ -61,18 +63,59 @@ src/
   app/
     page.tsx               Serverseitige Erstansicht
     settings/page.tsx      Einstellungen
+    merkliste/page.tsx     Merkliste (über das Lesezeichen in der Kopfzeile)
     impressum/page.tsx     Impressum
     offline/page.tsx       Rückfallseite ohne Verbindung
     manifest.ts            Web-App-Manifest (installierbar)
     robots.ts, sitemap.ts  Angaben für Suchmaschinen
     opengraph-image.tsx    Vorschaubild für geteilte Links
     api/events/            aggregierte Termine
+    api/events/feed/       Kalender-Abo einer Stadt, auf Wunsch gefiltert
+    api/events/saved/      Termine zu den IDs der Merkliste, über alle Städte
     api/source-icon/[id]/  Favicon einer Quelle
 ```
 
 Die Trennung ist die eigentliche Idee: **Quelle → normalisiertes Modell → UI.**
 Kalender und Oberfläche kennen ausschliesslich `CalendarEvent` und nie das
 Format einer fremden Website.
+
+## Merkliste und Kalender-Abo
+
+**Merkliste.** Jeder Termin lässt sich merken – über das Lesezeichen in der
+Detailansicht, das Kontextmenü oder die Taste `S`. Gemerkt wird nur auf dem
+Gerät (`lib/saved.ts`, `localStorage`), ohne Konto. Gespeichert sind ID und
+Beginn; was seit einem Tag vorbei ist, fällt von selbst heraus. Der Schalter
+„Gemerkt“ in der Seitenleiste zeigt nur die gemerkten Termine; er erscheint
+erst, wenn es welche gibt, und ist wie ein Fokus flüchtig.
+
+Das Lesezeichen in der Kopfzeile führt auf `/merkliste`: alle gemerkten
+Termine nach Tagen, über alle Städte. Die Seite schickt die IDs an
+`/api/events/saved` und bekommt die Termine aus dem täglichen Datenstand
+zurück; was dort nicht mehr steht, nennt sie und bietet an, es zu entfernen.
+
+**Tageszeit.** Der Filter „Tageszeit“ wählt nach dem Beginn in der
+Zeitzone der Stadt: Tagsüber (5–17 Uhr), Abends (17–22 Uhr), Nachts (22–5
+Uhr). Mehrere lassen sich kombinieren; die Auswahl wird je Stadt gemerkt.
+Ganztägiges hat keinen Beginn und fällt heraus, sobald eine Tageszeit
+gewählt ist – eine Uhrzeit dafür wäre erfunden.
+
+**Kalender-Abo.** `GET /api/events/feed?city=<id>` liefert alle kommenden
+Termine einer Stadt als iCalendar, den Kalender-Apps selbst regelmässig
+abfragen. Dieselben Filter wie auf der Seite gehen als Parameter mit
+(`events/filter.ts`):
+
+| Parameter | Bedeutung |
+| --- | --- |
+| `source=a,b` | nur diese Quellen |
+| `category=Oper,Konzert` | nur diese Arten (leerer Eintrag = ohne Angabe) |
+| `skip=Kino` | diese Arten nicht (greift nur ohne `category`) |
+| `tickets=1` | nur mit buchbaren Karten |
+| `free=1` | nur mit freiem Eintritt |
+| `time=evening,night` | nur mit Beginn in diesen Tageszeiten (`day`, `evening`, `night`) |
+| `q=jazz` | Freitext wie im Suchfeld |
+
+Im Menü oben rechts baut „Kalender abonnieren“ diese Adresse aus den gerade
+gesetzten Filtern – als `webcal:`-Link, für Google Kalender oder zum Kopieren.
 
 ## Welche Stadt gilt
 

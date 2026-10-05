@@ -15,16 +15,45 @@ import type { CalendarEvent } from './types.ts';
 const CRLF = '\r\n';
 
 export function toICalendar(event: CalendarEvent, options: { now?: Date; host?: string } = {}): string {
+  return toICalendarFeed([event], options);
+}
+
+/**
+ * Mehrere Termine als ein Kalender – die Grundlage für ein Abo. Mit `name`
+ * zeigen Kalender-Apps den Kalender unter diesem Namen; `refreshHours` ist
+ * die Bitte, wie oft sie nachsehen sollen (die meisten halten sich daran).
+ */
+export function toICalendarFeed(
+  events: CalendarEvent[],
+  options: { now?: Date; host?: string; name?: string; refreshHours?: number } = {},
+): string {
   const host = options.host ?? 'hierausgehen.de';
+  const stamp = utcStamp(options.now ?? new Date());
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     `PRODID:-//${host}//Kalender//DE`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
+  ];
+  if (options.name) lines.push(`X-WR-CALNAME:${escape(options.name)}`, `NAME:${escape(options.name)}`);
+  if (options.refreshHours) {
+    lines.push(
+      `REFRESH-INTERVAL;VALUE=DURATION:PT${options.refreshHours}H`,
+      `X-PUBLISHED-TTL:PT${options.refreshHours}H`,
+    );
+  }
+  for (const event of events) lines.push(...vevent(event, host, stamp));
+  lines.push('END:VCALENDAR');
+
+  return lines.map(fold).join(CRLF) + CRLF;
+}
+
+function vevent(event: CalendarEvent, host: string, stamp: string): string[] {
+  const lines: string[] = [
     'BEGIN:VEVENT',
     `UID:${escape(event.id)}@${host}`,
-    `DTSTAMP:${utcStamp(options.now ?? new Date())}`,
+    `DTSTAMP:${stamp}`,
     ...startAndEnd(event),
     `SUMMARY:${escape(event.title)}`,
   ];
@@ -40,9 +69,8 @@ export function toICalendar(event: CalendarEvent, options: { now?: Date; host?: 
   if (event.url) lines.push(`URL:${escape(event.url)}`);
   if (event.category) lines.push(`CATEGORIES:${escape(event.category)}`);
 
-  lines.push('END:VEVENT', 'END:VCALENDAR');
-
-  return lines.map(fold).join(CRLF) + CRLF;
+  lines.push('END:VEVENT');
+  return lines;
 }
 
 /** Dateiname für den Download – aus dem Titel, notfalls aus der ID. */

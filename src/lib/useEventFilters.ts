@@ -3,6 +3,7 @@ import { track } from '@/lib/analytics';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import type { CitySpacePrefs } from '@/lib/layoutPrefs';
 import { isFreeEntry } from '@/lib/events/price';
+import { hasTickets, matchesText, matchesTimeOfDay, type TimeOfDay } from '@/lib/events/filter';
 
 /**
  * Alle Filter des Kalenders und was aus ihnen folgt.
@@ -18,12 +19,20 @@ export function useEventFilters(options: {
   locale: string;
   /** Veranstaltungsart in der eingestellten Sprache. */
   term: (value: string) => string;
+  /** IDs der Merkliste (siehe `saved.ts`). */
+  saved: ReadonlySet<string>;
+  /** Minuten seit Mitternacht in der eingestellten Zeitzone – für die Tageszeit. */
+  minutesOfDay: (iso: string) => number;
 }) {
+  const { minutesOfDay } = options;
   const { locale, term } = options;
 
   const [disabled, setDisabled] = useState<Set<string>>(new Set());
   const [availableOnly, setAvailableOnly] = useState(false);
   const [freeOnly, setFreeOnly] = useState(false);
+  /** Nur Gemerktes – flüchtig wie ein Fokus, sonst stünde nach dem Neuladen ein leerer Kalender da. */
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [timesOfDay, setTimesOfDay] = useState<TimeOfDay[]>([]);
   const [solo, setSolo] = useState<Set<string>>(new Set());
   const [disabledCategories, setDisabledCategories] = useState<Set<string>>(new Set());
   const [categorySolo, setCategorySolo] = useState<Set<string>>(new Set());
@@ -57,33 +66,41 @@ export function useEventFilters(options: {
     [categories, disabledCategories, categorySolo],
   );
 
-  const events = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase(locale);
-    return options.events.filter((event) => {
-      if (!visibleSources.has(event.sourceId)) return false;
-      const category = event.category ?? '';
-      if (categorySolo.size > 0 ? !categorySolo.has(category) : disabledCategories.has(category))
-        return false;
-      if (availableOnly && !['available', 'limited'].includes(event.availability)) return false;
-      if (freeOnly && !isFreeEntry(event)) return false;
-      if (!needle) return true;
-      // Auch der Wortlaut der Quelle ist durchsuchbar: wer "Live Music" tippt,
-      // soll das Konzert finden, das im Kalender "Konzert" heisst.
-      return [
-        event.title,
-        event.subtitle,
-        event.description,
-        event.venue.name,
-        event.category,
-        // Auch in der eingestellten Sprache: wer "Concert" tippt, sucht nicht
-        // nach dem deutschen Schlüssel, der am Termin steht.
-        event.category ? term(event.category) : undefined,
-        event.categoryLabel,
-      ]
-        .filter(Boolean)
-        .some((field) => field!.toLocaleLowerCase(locale).includes(needle));
-    });
-  }, [options.events, visibleSources, disabledCategories, categorySolo, availableOnly, freeOnly, query, locale, term]);
+  const events = useMemo(
+    () =>
+      options.events.filter((event) => {
+        if (!visibleSources.has(event.sourceId)) return false;
+        const category = event.category ?? '';
+        if (categorySolo.size > 0 ? !categorySolo.has(category) : disabledCategories.has(category))
+          return false;
+        if (availableOnly && !hasTickets(event)) return false;
+        if (freeOnly && !isFreeEntry(event)) return false;
+        if (savedOnly && !options.saved.has(event.id)) return false;
+        if (!matchesTimeOfDay(event, timesOfDay, minutesOfDay)) return false;
+        return matchesText(event, query, locale, term);
+      }),
+    [
+      options.events,
+      options.saved,
+      visibleSources,
+      disabledCategories,
+      categorySolo,
+      availableOnly,
+      freeOnly,
+      savedOnly,
+      timesOfDay,
+      minutesOfDay,
+      query,
+      locale,
+      term,
+    ],
+  );
+
+  /** Wie viele gemerkte Termine im geladenen Zeitraum liegen – unabhängig von den übrigen Filtern. */
+  const savedCount = useMemo(
+    () => options.events.filter((event) => options.saved.has(event.id)).length,
+    [options.events, options.saved],
+  );
 
   /** Was je Stadt gemerkt wird. */
   const space = useMemo<CitySpacePrefs>(
@@ -92,8 +109,9 @@ export function useEventFilters(options: {
       availableOnly,
       freeOnly,
       disabledCategories: [...disabledCategories],
+      timesOfDay,
     }),
-    [disabled, availableOnly, freeOnly, disabledCategories],
+    [disabled, availableOnly, freeOnly, disabledCategories, timesOfDay],
   );
 
   /** Gemerkte Auswahl einer Stadt übernehmen; ein Fokus gehört zur alten. */
@@ -102,8 +120,10 @@ export function useEventFilters(options: {
     setAvailableOnly(stored.availableOnly);
     setFreeOnly(stored.freeOnly);
     setDisabledCategories(new Set(stored.disabledCategories));
+    setTimesOfDay(stored.timesOfDay);
     setSolo(new Set());
     setCategorySolo(new Set());
+    setSavedOnly(false);
   }, []);
 
   const clearFocus = useCallback(() => {
@@ -150,6 +170,13 @@ export function useEventFilters(options: {
     });
   }, []);
 
+  /** Eine Tageszeit an- oder abwählen; die Reihenfolge bleibt die des Tages. */
+  const toggleTimeOfDay = useCallback((time: TimeOfDay) => {
+    setTimesOfDay((current) =>
+      current.includes(time) ? current.filter((entry) => entry !== time) : [...current, time],
+    );
+  }, []);
+
   const toggleCategory = useCallback(
     (name: string) => {
       // Bei aktivem Fokus führt ein Klick zunächst dorthin zurück, wo man war.
@@ -184,6 +211,8 @@ export function useEventFilters(options: {
     disabledCategories.size +
     (availableOnly ? 1 : 0) +
     (freeOnly ? 1 : 0) +
+    (savedOnly ? 1 : 0) +
+    (timesOfDay.length > 0 ? 1 : 0) +
     (query ? 1 : 0);
 
   const reset = useCallback(() => {
@@ -193,6 +222,8 @@ export function useEventFilters(options: {
     setDisabledCategories(new Set());
     setAvailableOnly(false);
     setFreeOnly(false);
+    setSavedOnly(false);
+    setTimesOfDay([]);
     setQuery('');
   }, []);
 
@@ -207,6 +238,11 @@ export function useEventFilters(options: {
     setAvailableOnly,
     freeOnly,
     setFreeOnly,
+    savedOnly,
+    setSavedOnly,
+    savedCount,
+    timesOfDay,
+    toggleTimeOfDay,
     query,
     setQuery,
     space,

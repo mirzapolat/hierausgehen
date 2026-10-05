@@ -9,9 +9,11 @@ import {
   sourceColor,
   splitExhibitions,
 } from '@/lib/events/display';
+import { useSavedEvents } from '@/lib/saved';
 import { useSettings } from '@/lib/settings/context';
 import { AvailabilityDot } from './AvailabilityDot';
 import { SectionLabel } from './SectionLabel';
+import { Bookmark } from './icons';
 
 interface Props {
   events: CalendarEvent[];
@@ -94,6 +96,7 @@ export function AgendaList({
   relatedIds,
 }: Props) {
   const { format, t } = useSettings();
+  const saved = useSavedEvents().ids;
 
   if (events.length === 0) {
     return <p className="px-4 py-6 text-[13px] text-faint">{emptyLabel ?? t('noEvents')}</p>;
@@ -142,7 +145,14 @@ export function AgendaList({
                 style={{ background: color }}
               />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium text-text">{event.title}</span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-[13px] font-medium text-text">{event.title}</span>
+                  {saved.has(event.id) && (
+                    <span title={t('onlySaved')} className="shrink-0 text-accent">
+                      <Bookmark filled className="h-3 w-3" />
+                    </span>
+                  )}
+                </span>
                 <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
                   <AvailabilityDot value={displayAvailability(event)} />
                   <span className="truncate">{event.venue.name}</span>
