@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AggregateResult, CalendarEvent, EventPerformance } from '@/lib/events/types';
 import {
   type ViewMode,
@@ -14,12 +14,15 @@ import {
   isDayView,
   isSameMonth,
   loadRange,
+  startOfWeek,
 } from '@/lib/calendar';
 
 import { track } from '@/lib/analytics';
 import { cityById, isKnownCityId } from '@/lib/cities';
 import { eventsOnDay, sourceColor, sourceName } from '@/lib/events/display';
 import type { FeedFilter } from '@/lib/events/filter';
+import { seriesRuns } from '@/lib/events/series';
+import { SeriesProvider } from '@/lib/series-context';
 import { defaultLayout, readLayoutPrefs, saveLayoutPrefs, spacePrefs } from '@/lib/layoutPrefs';
 import { useSavedEvents } from '@/lib/saved';
 import { useSettings } from '@/lib/settings/context';
@@ -27,6 +30,7 @@ import { useCalendarShortcuts } from '@/lib/useCalendarShortcuts';
 import { useEventData } from '@/lib/useEventData';
 import { useEventFilters } from '@/lib/useEventFilters';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
+import { ActiveFilters } from './ActiveFilters';
 import { DayAgenda } from './AgendaList';
 import { CityIntroScreen } from './CityIntroScreen';
 import { ContextMenu, type MenuItem } from './ContextMenu';
@@ -34,7 +38,7 @@ import { saveChoices } from './SaveButton';
 import { DetailPanel } from './DetailPanel';
 import { HorizontalCalendar } from './HorizontalCalendar';
 import { MonthScrollView } from './MonthScrollView';
-import { MonthView } from './MonthView';
+import { COMPACT_HEAD, COMPACT_ROW, MonthView, monthWeeks } from './MonthView';
 import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
@@ -54,6 +58,9 @@ const MapView = dynamic(() => import('./MapView').then((module) => module.MapVie
 
 /** Dauer der Spalten- und Overlay-Bewegungen; identisch zu den Klassen unten. */
 const MOTION_MS = 200;
+
+/** So weit (px) scrollt die Tagesliste, bevor der Monat auf die Woche einklappt. */
+const COLLAPSE_AFTER = 24;
 
 interface Props {
   initialData: AggregateResult;
@@ -95,6 +102,10 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const [revealPerformances, setRevealPerformances] = useState(0);
   /** Zähler: jede Erhöhung holt die Auswahl in den sichtbaren Bereich. */
   const [revealSelection, setRevealSelection] = useState(0);
+  /** Mobil: die Suche ist aufgeklappt (mit Inhalt bleibt sie es ohnehin). */
+  const [searchOpen, setSearchOpen] = useState(false);
+  /** Mobil: der Monat ist auf die Woche des gewählten Tages eingeklappt. */
+  const [monthCollapsed, setMonthCollapsed] = useState(false);
 
   /**
    * Erst wenn URL und Speicher gelesen sind, darf zurückgeschrieben werden.
@@ -146,42 +157,62 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     minutesOfDay: format.minutesOfDay,
     timeOfDayStarts: settings.timeOfDayStarts,
   });
-  const { events, focusSources, setQuery, restore: restoreFilters, space: filterSpace } = filters;
+  const { events, onlySource, setQuery, restore: restoreFilters, space: filterSpace } = filters;
+
+  /** Reihen im ungefilterten Bestand – wie lange etwas noch läuft, hängt nicht am Filter. */
+  const runs = useMemo(() => seriesRuns(data.events), [data.events]);
 
   /**
-   * Die Filter der Seite als Kalender-Abo (siehe `events/filter.ts`). Der
-   * Fokus zählt mit – wer gerade nur Kino sieht, will vermutlich Kino
-   * abonnieren. Die Merkliste nicht: sie lebt nur auf diesem Gerät.
+   * Was die Filter im angezeigten Zeitraum übrig lassen – für die Zeile der
+   * aktiven Filter. Gezählt wird, was in diesem Zeitraum beginnt.
    */
-  const feedFilter = useMemo<FeedFilter>(() => {
-    const sources =
-      filters.solo.size > 0
-        ? [...filters.solo]
-        : filters.enabled.size < data.definitions.length
-          ? [...filters.enabled]
-          : undefined;
-    return {
-      sources,
-      categories: filters.categorySolo.size > 0 ? [...filters.categorySolo] : undefined,
-      skipCategories: filterSpace.disabledCategories,
+  const filterSummary = useMemo(() => {
+    const [from, to, label] =
+      view === 'month'
+        ? [`${anchor.slice(0, 7)}-01`, `${anchor.slice(0, 7)}-31`, t('inMonth', { month: format.monthName(anchor) })]
+        : view === 'week'
+          ? [
+              startOfWeek(anchor),
+              addDays(startOfWeek(anchor), 6),
+              t('inRange', {
+                from: format.dayNumeric(startOfWeek(anchor)),
+                to: format.dayNumeric(addDays(startOfWeek(anchor), 6)),
+              }),
+            ]
+          : [selectedDay, selectedDay, t('onDay', { day: format.dayNumeric(selectedDay) })];
+    const count = events.filter((event) => {
+      const day = format.localDay(event.start);
+      return day >= from && day <= to;
+    }).length;
+    return `${count === 1 ? t('resultCountOne') : t('resultCount', { count })} ${label}`;
+  }, [view, anchor, selectedDay, events, format, t]);
+
+  /**
+   * Die Filter der Seite als Kalender-Abo (siehe `events/filter.ts`): wer
+   * gerade nur Kino sieht, will vermutlich Kino abonnieren. Die Merkliste
+   * nicht – sie lebt nur auf diesem Gerät.
+   */
+  const feedFilter = useMemo<FeedFilter>(
+    () => ({
+      sources: filters.sourcesFiltered ? [...filters.visible] : undefined,
+      categories: filters.selectedCategories.size > 0 ? [...filters.selectedCategories] : undefined,
       ticketsOnly: filters.availableOnly,
       freeOnly: filters.freeOnly,
       timesOfDay: filters.timesOfDay,
       timeOfDayStarts: settings.timeOfDayStarts,
       query: filters.query,
-    };
-  }, [
-    filters.solo,
-    filters.enabled,
-    filters.categorySolo,
-    filters.availableOnly,
-    filters.freeOnly,
-    filters.timesOfDay,
-    settings.timeOfDayStarts,
-    filters.query,
-    filterSpace.disabledCategories,
-    data.definitions.length,
-  ]);
+    }),
+    [
+      filters.sourcesFiltered,
+      filters.visible,
+      filters.selectedCategories,
+      filters.availableOnly,
+      filters.freeOnly,
+      filters.timesOfDay,
+      settings.timeOfDayStarts,
+      filters.query,
+    ],
+  );
 
   /* --------------------- Einstellungen und Deeplinks --------------------- */
 
@@ -193,7 +224,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
     const urlCity = params.get('city');
     const startupCityId = urlCity && isKnownCityId(urlCity) ? urlCity : (settings.cityId ?? initialCityId);
-    const stored = readLayoutPrefs(startupCityId);
+    const stored = readLayoutPrefs();
     const storedSpace = spacePrefs(stored, startupCityId);
 
     // Ein Deeplink ist eine Ansage; ohne ihn entscheidet die Breite des Geräts.
@@ -248,7 +279,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     if (!restored) return;
     if (restoredSpaceCityId === cityId) return;
 
-    const storedSpace = spacePrefs(readLayoutPrefs(cityId), cityId);
+    const storedSpace = spacePrefs(readLayoutPrefs(), cityId);
     restoreFilters(storedSpace);
     /* eslint-disable react-hooks/set-state-in-effect */
     setSelectedEventId(undefined);
@@ -489,10 +520,12 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     if (focus()) return;
     if (window.matchMedia('(min-width: 1024px)').matches) {
       setLayout((current) => ({ ...current, sidebarCollapsed: false }));
+      setTimeout(focus, MOTION_MS + 20);
     } else {
-      setFiltersOpen(true);
+      // Auf dem Telefon klappt die Suche über dem Kalender auf.
+      setSearchOpen(true);
+      requestAnimationFrame(() => requestAnimationFrame(focus));
     }
-    setTimeout(focus, MOTION_MS + 20);
   }, []);
 
   const eventShareUrl = useCallback(
@@ -551,7 +584,6 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     onEscape: () => {
       dismiss();
       setSelectedEventId(undefined);
-      filters.clearFocus();
     },
     onToggleSidebar: () => setLayout((c) => ({ ...c, sidebarCollapsed: !c.sidebarCollapsed })),
     onToggleDetail: () => {
@@ -628,7 +660,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             style={{ background: sourceColor(data.definitions, event.sourceId) }}
           />
         ),
-        onSelect: () => focusSources([event.sourceId], 'menu'),
+        onSelect: () => onlySource(event.sourceId),
       },
       {
         key: 'title',
@@ -637,7 +669,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         onSelect: () => setQuery(event.title),
       },
     ];
-  }, [menu, linkCopied, copyLink, selectEvent, focusSources, setQuery, data.definitions, savedEvents, cityId, t]);
+  }, [menu, linkCopied, copyLink, selectEvent, onlySource, setQuery, data.definitions, savedEvents, cityId, t]);
 
   /* ------------------------------- Anzeige ------------------------------ */
 
@@ -654,21 +686,44 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   /** Gleiche Kurve für alle Spalten- und Overlay-Bewegungen. */
   const motion = 'duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]';
 
+  /**
+   * Mobil: Scrollt die Tagesliste nach unten, klappt der Monat auf die Woche
+   * ein; ganz oben angekommen, wieder auf. Eingeklappt wird nur, wenn die
+   * Liste danach noch scrollen kann – sonst stünde sie gleich wieder oben,
+   * und der Monat spränge hin und her.
+   */
+  const agendaScroller = useRef<HTMLDivElement>(null);
+  /** Wochen des angezeigten Monats – vier bis sechs, je nachdem wie er fällt. */
+  const monthRows = useMemo(() => monthWeeks(anchor).length, [anchor]);
+  const onAgendaScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const element = e.currentTarget;
+    if (monthCollapsed) {
+      if (element.scrollTop <= 0) setMonthCollapsed(false);
+      return;
+    }
+    const room = element.scrollHeight - element.clientHeight;
+    if (element.scrollTop > COLLAPSE_AFTER && room > (monthRows - 1) * COMPACT_ROW + COLLAPSE_AFTER) setMonthCollapsed(true);
+  };
+
+  // Ein anderer Monat bringt das ganze Raster zurück – seine Woche wäre sonst geraten.
+  const anchorMonth = anchor.slice(0, 7);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMonthCollapsed(false);
+  }, [anchorMonth]);
+
   const sidebar = (
     <Sidebar
       definitions={data.definitions}
       status={data.sources}
-      enabled={filters.enabled}
-      onToggleSource={filters.toggleSource}
-      onToggleGroup={filters.toggleGroup}
-      solo={filters.solo}
-      onSolo={(ids) => focusSources(ids, 'sidebar')}
+      selectedSources={filters.selectedSources}
+      onToggleSourceGroup={filters.toggleSourceGroup}
+      onToggleSource={filters.toggleSourceInGroup}
+      onClearSources={() => filters.clearSources()}
       categories={filters.categories}
-      enabledCategories={filters.enabledCategories}
+      selectedCategories={filters.selectedCategories}
       onToggleCategory={filters.toggleCategory}
-      categorySolo={filters.categorySolo}
-      onCategorySolo={filters.focusCategory}
-      onShowAllCategories={filters.showAllCategories}
+      onClearCategories={() => filters.clearCategories()}
       availableOnly={filters.availableOnly}
       onAvailableOnlyChange={filters.setAvailableOnly}
       freeOnly={filters.freeOnly}
@@ -688,6 +743,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   if (cityStatus === 'ask') return <CityIntroScreen />;
 
   return (
+    <SeriesProvider runs={runs}>
     <div className="flex h-full flex-col overflow-hidden" onContextMenu={openMenu}>
         <Toolbar
           view={view}
@@ -710,6 +766,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           rightInset={detailOpen ? layout.detailWidth + 1 : 0}
           animateInsets={!resizing}
           onOpenFilters={() => setFiltersOpen(true)}
+          onOpenSearch={focusSearch}
           activeFilterCount={filters.activeFilterCount}
           sidebarCollapsed={layout.sidebarCollapsed}
           detailCollapsed={!detailOpen}
@@ -755,12 +812,22 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                        lg:shadow-[var(--shadow-float)]"
             style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
-            {/* Mobile: die Suche steht über dem Kalender statt in den Filtern.
-                Die 12 px ringsum sind Platz für den Schein des Suchfelds –
-                `main` beschneidet, was darüber hinausgeht. */}
-            <div className="shrink-0 px-3 py-3 hairline-b lg:hidden">
-              <SearchField query={filters.query} onQueryChange={setQuery} />
-            </div>
+            {/* Mobile: die Suche steht über dem Kalender statt in den Filtern –
+                aber erst auf Abruf über die Lupe, und solange sie etwas
+                sucht. Die 12 px ringsum sind Platz für den Schein des
+                Suchfelds – `main` beschneidet, was darüber hinausgeht. */}
+            {(searchOpen || filters.query) && (
+              <div className="shrink-0 px-3 py-3 hairline-b lg:hidden">
+                <SearchField
+                  query={filters.query}
+                  onQueryChange={setQuery}
+                  autoFocus={searchOpen && !filters.query}
+                  onBlur={() => setSearchOpen(false)}
+                />
+              </div>
+            )}
+
+            <ActiveFilters filters={filters} definitions={data.definitions} summary={filterSummary} />
 
             {(view === 'day' || view === 'week') && (
               <HorizontalCalendar
@@ -833,30 +900,55 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             {/* Mobile */}
             {view === 'month' && (
               <div className="flex min-h-0 flex-1 flex-col lg:hidden">
-                {/* Wischen blättert den Monat – wie in Tages- und Wochenansicht. */}
-                <SwipePager
-                  anchor={anchor}
-                  pageAnchor={(offset) => addMonths(anchor, offset)}
-                  onStep={step}
-                  canStep={canStep}
-                  label={t('month')}
-                  className="flex h-[288px] shrink-0 scroll-hidden hairline-b"
+                {/* Wischen blättert den Monat – wie in Tages- und Wochenansicht.
+                    Wer die Liste darunter liest, braucht vom Monat nur noch
+                    die Woche: das Raster klappt beim Scrollen auf sie ein. */}
+                <div
+                  className={`shrink-0 overflow-hidden ${motion} transition-[height]`}
+                  style={{ height: COMPACT_HEAD + (monthCollapsed ? 1 : monthRows) * COMPACT_ROW }}
                 >
-                  {(pageAnchor) => (
-                    <MonthView
-                      compact
-                      anchor={pageAnchor}
-                      events={events}
-                      definitions={data.definitions}
-                      selectedDay={selectedDay}
-                      selectedEventId={selectedEventId}
-                      onSelectDay={selectDay}
-                      onSelectEvent={selectEvent}
-                      relatedIds={relatedIds}
-                    />
-                  )}
-                </SwipePager>
-                <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
+                  <SwipePager
+                    anchor={anchor}
+                    pageAnchor={(offset) => addMonths(anchor, offset)}
+                    onStep={step}
+                    // Eingeklappt gehört die Geste der Woche, nicht dem Monat.
+                    canStep={monthCollapsed ? () => false : canStep}
+                    label={t('month')}
+                    className="flex h-full scroll-hidden"
+                  >
+                    {(pageAnchor) => (
+                      <MonthView
+                        compact
+                        collapsed={monthCollapsed}
+                        anchor={pageAnchor}
+                        events={events}
+                        definitions={data.definitions}
+                        selectedDay={selectedDay}
+                        selectedEventId={selectedEventId}
+                        onSelectDay={selectDay}
+                        onSelectEvent={selectEvent}
+                        relatedIds={relatedIds}
+                      />
+                    )}
+                  </SwipePager>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMonthCollapsed((collapsed) => !collapsed);
+                    if (monthCollapsed) agendaScroller.current?.scrollTo({ top: 0 });
+                  }}
+                  aria-label={monthCollapsed ? t('monthExpand') : t('monthCollapse')}
+                  aria-expanded={!monthCollapsed}
+                  className="grid h-3.5 shrink-0 place-items-center hairline-b"
+                >
+                  <span className="h-[3px] w-7 rounded-full bg-[var(--line-strong)]" />
+                </button>
+                <div
+                  ref={agendaScroller}
+                  onScroll={onAgendaScroll}
+                  className="min-h-0 flex-1 overflow-y-auto scroll-quiet"
+                >
                   <DayAgenda
                     events={dayEvents}
                     definitions={data.definitions}
@@ -1017,6 +1109,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
+    </SeriesProvider>
   );
 }
 

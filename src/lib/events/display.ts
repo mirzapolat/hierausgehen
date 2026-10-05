@@ -1,15 +1,20 @@
 import type { Availability, CalendarEvent, SourceDefinition } from './types';
 import type { MessageKey } from '../i18n';
 import type { Formatter } from '../format';
-import { groupColor } from './groups.ts';
+import { GROUP_COLORS, groupColor, type EventGroup } from './groups.ts';
 import { addDays, type DaySpan } from '../calendar.ts';
+import { isFreeEntry } from './price.ts';
 
 /**
- * Für die Anzeige kommt ein Zustand dazu, den keine Quelle liefert: ein
- * Termin, der bereits stattgefunden hat. Was die Quelle zuletzt über Karten
- * gemeldet hat, gilt dann nicht mehr – und darf auch nicht so aussehen.
+ * Für die Anzeige kommen zwei Zustände dazu, die keine Quelle so liefert:
+ *
+ * - `past`: der Termin hat bereits stattgefunden. Was die Quelle zuletzt über
+ *   Karten gemeldet hat, gilt dann nicht mehr – und darf auch nicht so aussehen.
+ * - `free`: die Quelle nennt den Eintritt ausdrücklich frei (`price.ts`) und
+ *   verkauft nichts. „Kein Verkauf“ wäre dort zwar richtig, läse sich aber wie
+ *   „keine Karten zu haben“. Umgekehrt ist „Kein Verkauf“ allein nie frei.
  */
-export type DisplayAvailability = Availability | 'past';
+export type DisplayAvailability = Availability | 'past' | 'free';
 
 /** Anzeigetexte für die Ticketlage – quellenunabhängig und übersetzbar. */
 export const availabilityKeys: Record<DisplayAvailability, MessageKey> = {
@@ -19,6 +24,7 @@ export const availabilityKeys: Record<DisplayAvailability, MessageKey> = {
   not_on_sale: 'availNotOnSale',
   unknown: 'availUnknown',
   past: 'availPast',
+  free: 'availFree',
 };
 
 /**
@@ -35,10 +41,16 @@ export function isPast(event: Pick<CalendarEvent, 'start' | 'end'>, now: Date = 
 }
 
 export function displayAvailability(
-  event: Pick<CalendarEvent, 'start' | 'end' | 'availability'>,
+  event: Pick<CalendarEvent, 'start' | 'end' | 'availability'> &
+    Partial<Pick<CalendarEvent, 'notes' | 'availabilityLabel'>>,
   now?: Date,
 ): DisplayAvailability {
-  return isPast(event, now) ? 'past' : event.availability;
+  if (isPast(event, now)) return 'past';
+  // Buchbare Freikarten bleiben buchbar – „frei“ ersetzt nur das Schweigen.
+  if ((event.availability === 'not_on_sale' || event.availability === 'unknown') && isFreeEntry(event)) {
+    return 'free';
+  }
+  return event.availability;
 }
 
 /**
@@ -164,4 +176,30 @@ export function byDay(events: CalendarEvent[], format: Formatter): Map<string, C
     else map.set(day, [event]);
   }
   return map;
+}
+
+/** Ein Anteil am Tag: wie viele Termine aus den Quellen eines Ordners. */
+export interface GroupShare {
+  group: EventGroup;
+  count: number;
+}
+
+/**
+ * Woraus ein Tag besteht, nach Ordnern – in der festen Reihenfolge der
+ * Farben (`groups.ts`), damit die Töne in jeder Zelle gleich geschichtet
+ * liegen und sich Tage auf einen Blick vergleichen lassen.
+ */
+export function groupMix(
+  events: Pick<CalendarEvent, 'sourceId'>[],
+  definitions: Pick<SourceDefinition, 'id' | 'group'>[],
+): GroupShare[] {
+  const groupOf = new Map(definitions.map((d) => [d.id, d.group]));
+  const counts = new Map<EventGroup, number>();
+  for (const event of events) {
+    const group = groupOf.get(event.sourceId);
+    if (group) counts.set(group, (counts.get(group) ?? 0) + 1);
+  }
+  return (Object.keys(GROUP_COLORS) as EventGroup[])
+    .filter((group) => counts.has(group))
+    .map((group) => ({ group, count: counts.get(group)! }));
 }

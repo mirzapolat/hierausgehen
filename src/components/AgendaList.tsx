@@ -9,7 +9,9 @@ import {
   sourceColor,
   splitExhibitions,
 } from '@/lib/events/display';
+import { groupBySeries } from '@/lib/events/series';
 import { useSavedEvents } from '@/lib/saved';
+import { runOf, useSeriesRuns } from '@/lib/series-context';
 import { useSettings } from '@/lib/settings/context';
 import { AvailabilityDot } from './AvailabilityDot';
 import { SectionLabel } from './SectionLabel';
@@ -97,6 +99,7 @@ export function AgendaList({
 }: Props) {
   const { cityId, format, t } = useSettings();
   const saved = useSavedEvents(cityId);
+  const runs = useSeriesRuns();
 
   if (events.length === 0) {
     return <p className="px-4 py-6 text-[13px] text-faint">{emptyLabel ?? t('noEvents')}</p>;
@@ -108,16 +111,23 @@ export function AgendaList({
     return event.allDay ? t('allDay') : format.time(event.start);
   };
 
+  // Mehrere Vorstellungen derselben Reihe an einem Tag sind eine Zeile mit
+  // mehreren Uhrzeiten. Mehrtägiges ohne gemeinsamen Tag bleibt einzeln.
+  const rows = spanLabels ? events.map((event) => [event]) : groupBySeries(events);
+
   return (
     // Linien nur zwischen den Terminen – nach dem letzten folgt Weissraum
     // oder der nächste Abschnitt, keine zweite Linie.
     <ul className="flex flex-col divide-y divide-[var(--line)]">
-      {events.map((event) => {
+      {rows.map((row) => {
+        // Die Zeile steht für die gewählte Vorstellung, sonst für die erste.
+        const event = row.find((candidate) => candidate.id === selectedId) ?? row[0];
         const color = sourceColor(definitions, event.sourceId);
-        const selected = selectedId === event.id;
-        const related = !selected && relatedIds?.has(event.id);
+        const selected = row.some((candidate) => candidate.id === selectedId);
+        const related = !selected && row.some((candidate) => relatedIds?.has(candidate.id));
+        const run = runOf(runs, event);
         return (
-          <li key={event.id}>
+          <li key={row[0].id}>
             <button
               type="button"
               data-event-id={event.id}
@@ -136,8 +146,12 @@ export function AgendaList({
             >
               {/* Etwas breiter als für „19:30" nötig: in dieselbe Spalte muss
                   auch „Ganztägig" passen, ohne abgeschnitten zu werden. */}
-              <span className="w-[64px] shrink-0 pt-[1px] text-[12px] tabular-nums text-muted">
-                {timeLabel(event)}
+              <span className="flex w-[64px] shrink-0 flex-col pt-[1px] text-[12px] tabular-nums text-muted">
+                {row.map((performance) => (
+                  <span key={performance.id} className={performance === event ? '' : 'text-faint'}>
+                    {timeLabel(performance)}
+                  </span>
+                ))}
               </span>
               <span
                 aria-hidden="true"
@@ -156,6 +170,13 @@ export function AgendaList({
                 <span className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
                   <AvailabilityDot value={displayAvailability(event)} />
                   <span className="truncate">{event.venue.name}</span>
+                  {/* Eine Reihe sagt, wie lange sie noch läuft – wer heute
+                      nicht kann, weiss, dass es nicht eilt. */}
+                  {run && (
+                    <span className="shrink-0 whitespace-nowrap text-faint">
+                      · {t('seriesRun', { count: run.count, day: format.dayNumeric(format.localDay(run.last)) })}
+                    </span>
+                  )}
                 </span>
               </span>
             </button>

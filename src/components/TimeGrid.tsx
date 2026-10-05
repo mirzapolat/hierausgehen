@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { byDay, eventMinutes, isPast, sourceColor } from '@/lib/events/display';
+import { inkOn } from '@/lib/events/groups';
 import { useSettings } from '@/lib/settings/context';
 
 interface Props {
@@ -160,8 +161,8 @@ export function TimeGrid({
                         left: `calc(${(column / columns) * 100}% + 2px)`,
                         width: `calc(${100 / columns}% - 4px)`,
                         background: selected ? color : `color-mix(in srgb, ${color} 10%, var(--canvas))`,
-                        color: selected ? '#fff' : 'var(--text)',
-                        boxShadow: `inset 2px 0 0 ${selected ? 'rgba(255,255,255,0.6)' : color}`,
+                        color: selected ? inkOn(color) : 'var(--text)',
+                        boxShadow: `inset 2px 0 0 ${selected ? inkOn(color) : color}`,
                         opacity: dimmed && !selected ? 0.6 : 1,
                       }}
                     >
@@ -171,7 +172,7 @@ export function TimeGrid({
                       {height > 30 && (
                         <span
                           className="block truncate text-[11px] leading-tight"
-                          style={{ color: selected ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)' }}
+                          style={{ color: selected ? inkOn(color) : 'var(--text-muted)', opacity: selected ? 0.8 : 1 }}
                         >
                           {/* Ein Lauf hat keine Uhrzeit und sitzt im Raster
                               nur mangels besserer Stelle oben – das Wort sagt,

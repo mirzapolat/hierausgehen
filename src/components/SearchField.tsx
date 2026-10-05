@@ -9,6 +9,9 @@ interface Props {
   onQueryChange: (value: string) => void;
   /** Zusätzliche Klassen für die Hülle – etwa um das Feld je Breite zu zeigen. */
   className?: string;
+  /** Mobil: beim Öffnen gleich tippen können, und zuklappen, wenn leer verlassen. */
+  autoFocus?: boolean;
+  onBlur?: () => void;
 }
 
 /**
@@ -24,7 +27,7 @@ interface Props {
  * die Zustände – schweben, Fokus, gefüllt – an einer Stelle beieinander
  * liegen.
  */
-export function SearchField({ query, onQueryChange, className = '' }: Props) {
+export function SearchField({ query, onQueryChange, className = '', autoFocus, onBlur }: Props) {
   const { cityId, settings, t } = useSettings();
   const saved = useSavedEvents(cityId);
   // Gemerkt wird die Suche selbst: was sie künftig findet, steht auch auf der Merkliste.
@@ -41,6 +44,8 @@ export function SearchField({ query, onQueryChange, className = '' }: Props) {
           data-search-input=""
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
+          autoFocus={autoFocus}
+          onBlur={onBlur}
           placeholder={t('search')}
           aria-label={t('searchAria')}
           className="search-input"

@@ -6,7 +6,6 @@ import { addDays, startOfWeek } from '@/lib/calendar';
 import { byDay, splitSpans } from '@/lib/events/display';
 import { useSettings } from '@/lib/settings/context';
 import { MonthDayCell } from './MonthDayCell';
-import { WeekSpans } from './MonthView';
 
 interface Props {
   anchor: string;
@@ -27,7 +26,7 @@ interface Props {
 }
 
 /** Feste Zeilenhöhe: nur damit lässt sich exakt an eine Woche scrollen. */
-const ROW_HEIGHT = 132;
+const ROW_HEIGHT = 140;
 
 /**
  * Durchgehend scrollender Monatskalender.
@@ -59,8 +58,8 @@ export function MonthScrollView({
   relatedIds,
 }: Props) {
   const { format } = useSettings();
-  const { single, spans } = useMemo(() => splitSpans(events, format), [events, format]);
-  const grouped = useMemo(() => byDay(single, format), [single, format]);
+  // Mehrtägiges bleibt draussen – es steht in der Tagesübersicht daneben.
+  const grouped = useMemo(() => byDay(splitSpans(events, format).single, format), [events, format]);
   const currentDay = format.today();
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -143,21 +142,15 @@ export function MonthScrollView({
           // Zeilen, in denen ein Monat beginnt, bekommen eine kräftigere Linie.
           const startsMonth = days.some((day) => day.endsWith('-01'));
           return (
-            <WeekSpans
+            <div
               key={weekStart}
-              days={days}
-              spans={spans}
-              definitions={definitions}
-              selectedEventId={selectedEventId}
-              relatedIds={relatedIds}
-              onSelectEvent={onSelectEvent}
               className="grid grid-cols-7"
               style={{
                 height: ROW_HEIGHT,
                 borderTop: startsMonth ? '1px solid var(--line-strong)' : undefined,
               }}
             >
-              {(day, { spanSpace, hiddenSpans, lanes }) => (
+              {days.map((day) => (
                 <MonthDayCell
                   key={day}
                   day={day}
@@ -169,13 +162,10 @@ export function MonthScrollView({
                   onSelectDay={onSelectDay}
                   onSelectEvent={onSelectEvent}
                   showMonth={day.endsWith('-01')}
-                  spanSpace={spanSpace}
-                  hiddenSpans={hiddenSpans}
-                  maxEvents={4 - lanes}
                   relatedIds={relatedIds}
                 />
-              )}
-            </WeekSpans>
+              ))}
+            </div>
           );
         })}
       </div>

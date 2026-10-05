@@ -3,6 +3,7 @@
 import type { SpanSegment } from '@/lib/calendar';
 import type { EventSpan } from '@/lib/events/display';
 import { isPast, sourceColor } from '@/lib/events/display';
+import { inkOn } from '@/lib/events/groups';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
 
@@ -65,8 +66,8 @@ export function SpanBars({
                 : `color-mix(in srgb, ${color} ${related ? 32 : 13}%, var(--canvas))`,
               boxShadow: continuesBefore
                 ? undefined
-                : `inset 2px 0 0 ${selected ? 'rgba(255,255,255,0.6)' : color}`,
-              color: selected ? '#fff' : 'var(--text)',
+                : `inset 2px 0 0 ${selected ? inkOn(color) : color}`,
+              color: selected ? inkOn(color) : 'var(--text)',
               opacity: dimmed && !selected ? 0.6 : 1,
             }}
           >

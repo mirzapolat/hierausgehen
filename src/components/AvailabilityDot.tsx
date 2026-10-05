@@ -10,6 +10,8 @@ const tone: Record<DisplayAvailability, string> = {
   not_on_sale: 'var(--text-faint)',
   unknown: 'var(--text-faint)',
   past: 'var(--text-faint)',
+  // Hingehen geht – ein Ring im Ton von „buchbar“, ohne zu behaupten, man buche.
+  free: 'var(--accent)',
 };
 
 /** Kleiner Statuspunkt: gefüllt = buchbar, gedeckt = Restkarten, leer = nicht. */

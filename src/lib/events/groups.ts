@@ -6,19 +6,22 @@
  * Volkstheater oder im Residenztheater stattfindet, steht daneben. Alle
  * Quellen eines Ordners tragen deshalb denselben Ton.
  *
- * Gedeckte Töne, im Farbkreis auseinandergezogen, damit sie auch als
- * 5-px-Punkt nebeneinander unterscheidbar bleiben – hell wie dunkel. "Kultur"
- * sitzt bewusst im Türkis zwischen Literatur (Grün) und Konzert (Blau): das
- * war die grösste Lücke im Kreis.
+ * Ruhige Pastelltöne, einmal rund um den Farbkreis verteilt – Lavendel,
+ * Koralle, Himmelblau, Rosé, Butter, Salbei, Mint –, damit kein Ton
+ * überwiegt und jeder auch als 5-px-Punkt vom Nachbarn zu unterscheiden ist.
+ * Hell genug für Flächen, satt genug, um auf Weiss noch zu tragen.
+ *
+ * Auf einer Fläche in Ordnerfarbe steht Schrift deshalb dunkel, nie weiss –
+ * siehe `inkOn`.
  */
 export const GROUP_COLORS = {
-  'Oper & Ballett': '#7A4FA0',
-  Theater: '#B4472E',
-  Konzert: '#3F6E8C',
-  Club: '#A8557A',
-  Kino: '#9C7A22',
-  Literatur: '#4A7C59',
-  Kultur: '#1F7A72',
+  'Oper & Ballett': '#B4A2DE',
+  Theater: '#EFA294',
+  Konzert: '#94BEE4',
+  Club: '#E2A3CB',
+  Kino: '#E8C97A',
+  Literatur: '#A3CD9C',
+  Kultur: '#86CFC2',
 } as const;
 
 /**
@@ -30,4 +33,13 @@ export type EventGroup = keyof typeof GROUP_COLORS;
 
 export function groupColor(group: EventGroup): string {
   return GROUP_COLORS[group];
+}
+
+/**
+ * Schrift auf einer Fläche in Ordnerfarbe: derselbe Ton, tief abgedunkelt.
+ * Auf Pastell wäre Weiss kaum lesbar, und Schwarz wirkte fremd. Gilt in
+ * hellem wie dunklem Schema gleich, denn die Fläche ändert sich nicht.
+ */
+export function inkOn(color: string): string {
+  return `color-mix(in srgb, ${color} 28%, #141416)`;
 }

@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { layoutSpans } from '../calendar.ts';
-import { eventSpan, eventsOnDay, runningUntil, splitExhibitions, splitSpans } from './display.ts';
+import {
+  displayAvailability,
+  eventSpan,
+  eventsOnDay,
+  groupMix,
+  runningUntil,
+  splitExhibitions,
+  splitSpans,
+} from './display.ts';
 import type { CalendarEvent } from './types.ts';
 
 /** Uhr in Mitteleuropa (Sommerzeit) – reicht für die Tagesgrenzen hier. */
@@ -128,4 +136,28 @@ test('die Trennung hängt an der Art, nicht an Stadt oder Quelle', () => {
     category: 'Ausstellung',
   }));
   assert.equal(splitExhibitions(events).exhibitions.length, sources.length);
+});
+
+test('ein Tag setzt sich aus seinen Ordnern zusammen, in fester Reihenfolge', () => {
+  const definitions = [
+    { id: 'kino', group: 'Kino' as const },
+    { id: 'oper', group: 'Oper & Ballett' as const },
+  ];
+  const mix = groupMix([{ sourceId: 'kino' }, { sourceId: 'oper' }, { sourceId: 'kino' }, { sourceId: 'fremd' }], definitions);
+  assert.deepEqual(mix, [
+    { group: 'Oper & Ballett', count: 1 },
+    { group: 'Kino', count: 2 },
+  ]);
+});
+
+test('„Kein Verkauf“ allein ist nie frei – nur ausdrücklich Freies heisst „Eintritt frei“', () => {
+  const now = new Date('2026-10-05T12:00:00Z');
+  const base = { start: '2026-10-10T19:00:00Z', availability: 'not_on_sale' as const };
+  assert.equal(displayAvailability(base, now), 'not_on_sale');
+  assert.equal(displayAvailability({ ...base, availabilityLabel: 'Restkarten an der Abendkasse' }, now), 'not_on_sale');
+  assert.equal(displayAvailability({ ...base, notes: ['Eintritt frei'] }, now), 'free');
+  assert.equal(displayAvailability({ ...base, availability: 'unknown', availabilityLabel: 'Kostenlos' }, now), 'free');
+  // Buchbare Freikarten bleiben buchbar, Vergangenes bleibt vergangen.
+  assert.equal(displayAvailability({ ...base, availability: 'available', notes: ['Free - ticket required'] }, now), 'available');
+  assert.equal(displayAvailability({ ...base, notes: ['Eintritt frei'] }, new Date('2026-11-01T00:00:00Z')), 'past');
 });

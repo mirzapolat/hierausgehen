@@ -18,6 +18,7 @@ import {
   Filter,
   PanelLeft,
   PanelRight,
+  Search,
 } from './icons';
 
 interface Props {
@@ -48,6 +49,8 @@ interface Props {
   /** Beim Ziehen einer Spalte folgt die Mitte sofort statt animiert. */
   animateInsets: boolean;
   onOpenFilters: () => void;
+  /** Mobil: die Suche steht hinter einem Knopf statt dauerhaft über dem Kalender. */
+  onOpenSearch: () => void;
   activeFilterCount: number;
   sidebarCollapsed: boolean;
   detailCollapsed: boolean;
@@ -77,6 +80,7 @@ export function Toolbar({
   rightInset,
   animateInsets,
   onOpenFilters,
+  onOpenSearch,
   activeFilterCount,
   sidebarCollapsed,
   detailCollapsed,
@@ -105,7 +109,7 @@ export function Toolbar({
   ];
   const currentView = views.find((item) => item.id === view) ?? views[0];
 
-  // Ab lg stehen die Pfeile links und rechts vom Titel. Damit sie beim
+  // Die Pfeile stehen links und rechts vom Titel. Ab lg, damit sie beim
   // Blättern nicht unter dem Zeiger wegrutschen, hat der Titel je Ansicht eine
   // feste Breite, die das längste Datum fasst.
   const titleWidth: Record<ViewMode, string> = {
@@ -115,18 +119,19 @@ export function Toolbar({
     map: 'lg:w-[224px]',
   };
 
-  // Auf schmalen Geräten sind die Knöpfe fingergerecht (36 px); ab `lg`
+  // Auf schmalen Geräten sind die Knöpfe fingergerecht (36 px hoch, etwas
+  // schmaler, damit neben der Lupe der Titel Platz behält); ab `lg`
   // zeigt ein Zeiger auf sie und sie dürfen wieder klein sein.
   const iconButton =
-    'grid h-9 w-9 place-items-center rounded-[var(--radius-sm)] text-muted lg:h-7 lg:w-7 ' +
+    'grid h-9 w-8 place-items-center rounded-[var(--radius-sm)] text-muted lg:h-7 lg:w-7 ' +
     'hover:bg-[var(--canvas)] hover:text-text';
   const stepButton = `${iconButton} disabled:pointer-events-none disabled:opacity-30`;
   // Die Pfeile stehen zu zweit nebeneinander und dürfen etwas schmaler sein.
-  const arrowButton = `${stepButton} w-8 lg:w-7`;
+  const arrowButton = `${stepButton} w-7`;
 
   return (
     <header
-      className="relative flex h-14 shrink-0 items-center gap-1 bg-[var(--chrome)] px-2 hairline-b lg:border-b-0
+      className="relative flex h-14 shrink-0 items-center gap-0.5 bg-[var(--chrome)] px-2 hairline-b lg:border-b-0
                  lg:h-12 lg:gap-1.5 lg:px-3"
     >
       <button
@@ -188,7 +193,7 @@ export function Toolbar({
           type="button"
           onClick={() => onStep(1)}
           disabled={!canStepForward}
-          className={`${arrowButton} lg:order-last`}
+          className={`${arrowButton} order-last`}
           title={`${t('next')} (→)`}
           aria-label={t('next')}
         >
@@ -196,7 +201,7 @@ export function Toolbar({
         </button>
         {/* Auf schmalen Geräten ersetzt der Titel den "Heute"-Knopf. */}
         <h1
-          className={`ml-0.5 min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em]
+          className={`min-w-0 truncate text-[15px] font-semibold tracking-[-0.01em]
                       lg:mx-1 lg:text-center lg:text-[14px] ${titleWidth[view]}`}
         >
           <button
@@ -212,7 +217,7 @@ export function Toolbar({
         </h1>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1 lg:gap-1.5">
+      <div className="ml-auto flex shrink-0 items-center gap-0.5 lg:gap-1.5">
         {/* Auf schmalen Geräten führt stattdessen der Titel nach heute. */}
         <DayPicker
           className="hidden md:block"
@@ -249,6 +254,16 @@ export function Toolbar({
           className={`hidden ${stepButton} lg:grid`}
         >
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
+        </button>
+
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          aria-label={t('openSearch')}
+          title={`${t('openSearch')} (/)`}
+          className={`${iconButton} lg:hidden`}
+        >
+          <Search className="h-4 w-4" />
         </button>
 
         {/* Die Merkliste – mit Zahl, sobald etwas darauf steht. */}

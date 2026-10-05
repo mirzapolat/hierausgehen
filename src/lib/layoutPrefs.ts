@@ -10,13 +10,21 @@ import { isTimeOfDay, type TimeOfDay } from './events/filter.ts';
 
 export const LAYOUT_STORAGE_KEY = 'hierausgehen.layout.v1';
 
-/** Dauerhafte Filter einer Stadt. */
+/**
+ * Dauerhafte Filter einer Stadt.
+ *
+ * Quellen und Arten sind eine Auswahl, keine Ausschlussliste: leer heisst
+ * alles. Frühere Stände merkten sich, was ausgeblendet war – das lässt sich
+ * ohne die Quellenliste nicht in eine Auswahl übersetzen und fällt weg.
+ */
 export interface CitySpacePrefs {
-  disabledSources: string[];
+  /** Gewählte Quellen; leer = alle. */
+  sources: string[];
   availableOnly: boolean;
   /** Nur Termine mit ausdrücklich freiem Eintritt (siehe `events/price.ts`). */
   freeOnly: boolean;
-  disabledCategories: string[];
+  /** Gewählte Veranstaltungsarten; leer = alle. */
+  categories: string[];
   /** Gewählte Tageszeiten (siehe `events/filter.ts`); leer = alle. */
   timesOfDay: TimeOfDay[];
 }
@@ -31,10 +39,10 @@ export interface LayoutPrefs {
 }
 
 export const defaultSpacePrefs: CitySpacePrefs = {
-  disabledSources: [],
+  sources: [],
   availableOnly: false,
   freeOnly: false,
-  disabledCategories: [],
+  categories: [],
   timesOfDay: [],
 };
 
@@ -46,20 +54,15 @@ export const defaultLayout: LayoutPrefs = {
   spaces: {},
 };
 
-/**
- * Was im Speicher stehen kann: ältere Stände führten die Filter noch ohne
- * Stadt auf oberster Ebene.
- */
-export type StoredLayoutPrefs = Partial<Omit<LayoutPrefs, 'spaces'>> &
-  Partial<CitySpacePrefs> & {
-    spaces?: Record<string, Partial<CitySpacePrefs>>;
-  };
+/** Was im Speicher stehen kann – auch Unvollständiges oder Kaputtes. */
+export type StoredLayoutPrefs = Partial<Omit<LayoutPrefs, 'spaces'>> & {
+  spaces?: Record<string, Partial<CitySpacePrefs>>;
+};
 
-export function readLayoutPrefs(cityId: string): LayoutPrefs {
+export function readLayoutPrefs(): LayoutPrefs {
   try {
     return normalizeLayoutPrefs(
       JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) ?? '{}') as StoredLayoutPrefs,
-      cityId,
     );
   } catch {
     return defaultLayout;
@@ -73,7 +76,7 @@ export function readLayoutPrefs(cityId: string): LayoutPrefs {
  */
 export function saveLayoutPrefs(cityId: string, layout: LayoutPrefs, space: CitySpacePrefs): void {
   try {
-    const current = readLayoutPrefs(cityId);
+    const current = readLayoutPrefs();
     const prefs: LayoutPrefs = {
       ...current,
       ...layout,
@@ -85,23 +88,11 @@ export function saveLayoutPrefs(cityId: string, layout: LayoutPrefs, space: City
   }
 }
 
-/**
- * Macht aus einem beliebigen gespeicherten Stand einen gültigen. Filter aus
- * einem alten Stand ohne Städte gehören der Stadt, mit der er gelesen wird.
- */
-export function normalizeLayoutPrefs(stored: StoredLayoutPrefs, cityId: string): LayoutPrefs {
+/** Macht aus einem beliebigen gespeicherten Stand einen gültigen. */
+export function normalizeLayoutPrefs(stored: StoredLayoutPrefs): LayoutPrefs {
   const spaces = Object.fromEntries(
     Object.entries(stored.spaces ?? {}).map(([id, prefs]) => [id, normalizeSpacePrefs(prefs)]),
   );
-
-  if (stored.disabledSources || stored.availableOnly !== undefined || stored.disabledCategories) {
-    spaces[cityId] = normalizeSpacePrefs({
-      ...spaces[cityId],
-      disabledSources: stored.disabledSources,
-      availableOnly: stored.availableOnly,
-      disabledCategories: stored.disabledCategories,
-    });
-  }
 
   return {
     ...defaultLayout,
@@ -126,11 +117,11 @@ export function spacePrefs(layout: LayoutPrefs, cityId: string): CitySpacePrefs 
 
 function normalizeSpacePrefs(prefs: Partial<CitySpacePrefs> | undefined): CitySpacePrefs {
   return {
-    disabledSources: stringList(prefs?.disabledSources),
+    sources: stringList(prefs?.sources),
     availableOnly:
       typeof prefs?.availableOnly === 'boolean' ? prefs.availableOnly : defaultSpacePrefs.availableOnly,
     freeOnly: typeof prefs?.freeOnly === 'boolean' ? prefs.freeOnly : defaultSpacePrefs.freeOnly,
-    disabledCategories: stringList(prefs?.disabledCategories),
+    categories: stringList(prefs?.categories),
     timesOfDay: stringList(prefs?.timesOfDay).filter(isTimeOfDay),
   };
 }
