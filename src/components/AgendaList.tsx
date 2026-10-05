@@ -95,8 +95,8 @@ export function AgendaList({
   spanLabels = false,
   relatedIds,
 }: Props) {
-  const { format, t } = useSettings();
-  const saved = useSavedEvents().ids;
+  const { cityId, format, t } = useSettings();
+  const saved = useSavedEvents(cityId);
 
   if (events.length === 0) {
     return <p className="px-4 py-6 text-[13px] text-faint">{emptyLabel ?? t('noEvents')}</p>;
@@ -147,7 +147,7 @@ export function AgendaList({
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate text-[13px] font-medium text-text">{event.title}</span>
-                  {saved.has(event.id) && (
+                  {saved.isSaved(event) && (
                     <span title={t('onlySaved')} className="shrink-0 text-accent">
                       <Bookmark filled className="h-3 w-3" />
                     </span>

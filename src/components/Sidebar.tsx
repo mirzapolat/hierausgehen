@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
-import { TIME_OF_DAY_START, TIMES_OF_DAY, type TimeOfDay } from '@/lib/events/filter';
+import { TIMES_OF_DAY, type TimeOfDay } from '@/lib/events/filter';
 import type { MessageKey } from '@/lib/i18n';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
@@ -130,8 +130,8 @@ export function Sidebar({
                 pressed={timesOfDay.includes(time)}
                 onChange={() => onToggleTimeOfDay(time)}
                 title={t('timeRange', {
-                  from: format.hourLabel(TIME_OF_DAY_START[time]),
-                  to: format.hourLabel(TIME_OF_DAY_START[next]),
+                  from: format.hourLabel(settings.timeOfDayStarts[time]),
+                  to: format.hourLabel(settings.timeOfDayStarts[next]),
                 })}
               >
                 {t(TIME_LABELS[time])}

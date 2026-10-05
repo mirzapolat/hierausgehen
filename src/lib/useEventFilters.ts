@@ -3,7 +3,13 @@ import { track } from '@/lib/analytics';
 import type { CalendarEvent, SourceDefinition } from '@/lib/events/types';
 import type { CitySpacePrefs } from '@/lib/layoutPrefs';
 import { isFreeEntry } from '@/lib/events/price';
-import { hasTickets, matchesText, matchesTimeOfDay, type TimeOfDay } from '@/lib/events/filter';
+import {
+  hasTickets,
+  matchesText,
+  matchesTimeOfDay,
+  type TimeOfDay,
+  type TimeOfDayStarts,
+} from '@/lib/events/filter';
 
 /**
  * Alle Filter des Kalenders und was aus ihnen folgt.
@@ -19,10 +25,12 @@ export function useEventFilters(options: {
   locale: string;
   /** Veranstaltungsart in der eingestellten Sprache. */
   term: (value: string) => string;
-  /** IDs der Merkliste (siehe `saved.ts`). */
-  saved: ReadonlySet<string>;
+  /** Steht der Termin auf der Merkliste (siehe `saved.ts`)? */
+  isSaved: (event: CalendarEvent) => boolean;
   /** Minuten seit Mitternacht in der eingestellten Zeitzone – für die Tageszeit. */
   minutesOfDay: (iso: string) => number;
+  /** Grenzen der Tageszeiten aus den Einstellungen. */
+  timeOfDayStarts: TimeOfDayStarts;
 }) {
   const { minutesOfDay } = options;
   const { locale, term } = options;
@@ -75,13 +83,13 @@ export function useEventFilters(options: {
           return false;
         if (availableOnly && !hasTickets(event)) return false;
         if (freeOnly && !isFreeEntry(event)) return false;
-        if (savedOnly && !options.saved.has(event.id)) return false;
-        if (!matchesTimeOfDay(event, timesOfDay, minutesOfDay)) return false;
+        if (savedOnly && !options.isSaved(event)) return false;
+        if (!matchesTimeOfDay(event, timesOfDay, minutesOfDay, options.timeOfDayStarts)) return false;
         return matchesText(event, query, locale, term);
       }),
     [
       options.events,
-      options.saved,
+      options.isSaved,
       visibleSources,
       disabledCategories,
       categorySolo,
@@ -90,6 +98,7 @@ export function useEventFilters(options: {
       savedOnly,
       timesOfDay,
       minutesOfDay,
+      options.timeOfDayStarts,
       query,
       locale,
       term,
@@ -98,8 +107,8 @@ export function useEventFilters(options: {
 
   /** Wie viele gemerkte Termine im geladenen Zeitraum liegen – unabhängig von den übrigen Filtern. */
   const savedCount = useMemo(
-    () => options.events.filter((event) => options.saved.has(event.id)).length,
-    [options.events, options.saved],
+    () => options.events.filter((event) => options.isSaved(event)).length,
+    [options.events, options.isSaved],
   );
 
   /** Was je Stadt gemerkt wird. */

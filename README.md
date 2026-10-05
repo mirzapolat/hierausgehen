@@ -34,7 +34,8 @@ src/
     layoutPrefs.ts         gemerkte Spalten und Filter je Stadt (localStorage)
     useEventData.ts        Datenstand zu Stadt und Zeitraum, mit Zwischenspeicher
     useEventFilters.ts     Quellen-, Arten-, Ticket- und Textfilter des Kalenders
-    saved.ts               Merkliste: gemerkte Termine dieses Geräts (localStorage)
+    saved-state.ts         Merkliste: Termine, Reihen und Suchen – reine Logik
+    saved.ts               Merkliste im Browser: Speicher (localStorage) und Hook
     useCalendarShortcuts.ts Tastaturkürzel
     settings/context.tsx   Erscheinungsbild, Sprache, Zeitformat, Zeitzone, Stadt
     events/
@@ -71,7 +72,7 @@ src/
     opengraph-image.tsx    Vorschaubild für geteilte Links
     api/events/            aggregierte Termine
     api/events/feed/       Kalender-Abo einer Stadt, auf Wunsch gefiltert
-    api/events/saved/      Termine zu den IDs der Merkliste, über alle Städte
+    api/events/saved/      Termine zur Merkliste (IDs, Reihen, Suchen), über alle Städte
     api/source-icon/[id]/  Favicon einer Quelle
 ```
 
@@ -83,19 +84,36 @@ Format einer fremden Website.
 
 **Merkliste.** Jeder Termin lässt sich merken – über das Lesezeichen in der
 Detailansicht, das Kontextmenü oder die Taste `S`. Gemerkt wird nur auf dem
-Gerät (`lib/saved.ts`, `localStorage`), ohne Konto. Gespeichert sind ID und
-Beginn; was seit einem Tag vorbei ist, fällt von selbst heraus. Der Schalter
+Gerät (`lib/saved.ts`, `localStorage`), ohne Konto. Drei Arten von Einträgen
+(`lib/saved-state.ts`):
+
+- **ein Termin** – gespeichert sind ID und Beginn; was seit einem Tag vorbei
+  ist, fällt von selbst heraus.
+- **eine Reihe** – hat ein Termin weitere Daten, fragt das Lesezeichen „nur
+  dieser Termin“ oder „alle Termine der Reihe“. Gemerkt wird dann der
+  Schlüssel der Reihe (`events/series.ts`: Quelle, Titel, Untertitel, Ort),
+  nicht die einzelnen Termine – was später ins Programm kommt, ist
+  automatisch gemerkt.
+- **eine Suche** – das Lesezeichen im Suchfeld merkt die Suche samt Stadt;
+  alles, was sie findet, steht auf der Merkliste.
+
+Reihen und Suchen sind Regeln. Wer daraus einen einzelnen Termin entfernt,
+wird gefragt, ob nur dieser oder die ganze Reihe bzw. Suche gehen soll; ein
+einzeln entfernter Termin bleibt als Ausnahme stehen. Der Schalter
 „Gemerkt“ in der Seitenleiste zeigt nur die gemerkten Termine; er erscheint
 erst, wenn es welche gibt, und ist wie ein Fokus flüchtig.
 
 Das Lesezeichen in der Kopfzeile führt auf `/merkliste`: alle gemerkten
-Termine nach Tagen, über alle Städte. Die Seite schickt die IDs an
+Termine nach Tagen, über alle Städte. Die Seite schickt die Liste per POST an
 `/api/events/saved` und bekommt die Termine aus dem täglichen Datenstand
 zurück; was dort nicht mehr steht, nennt sie und bietet an, es zu entfernen.
+Ein Klick auf einen Termin öffnet die Details gleich dort (Spalte rechts,
+mobil als Sheet). Darunter stehen die gemerkten Reihen und Suchen.
 
 **Tageszeit.** Der Filter „Tageszeit“ wählt nach dem Beginn in der
-Zeitzone der Stadt: Tagsüber (5–17 Uhr), Abends (17–22 Uhr), Nachts (22–5
-Uhr). Mehrere lassen sich kombinieren; die Auswahl wird je Stadt gemerkt.
+Zeitzone der Stadt: ab Werk Tagsüber (5–17 Uhr), Abends (17–22 Uhr), Nachts
+(22–5 Uhr); die Grenzen lassen sich in den Einstellungen verschieben und
+gehen ins Kalender-Abo mit (`hours=`). Mehrere lassen sich kombinieren; die Auswahl wird je Stadt gemerkt.
 Ganztägiges hat keinen Beginn und fällt heraus, sobald eine Tageszeit
 gewählt ist – eine Uhrzeit dafür wäre erfunden.
 

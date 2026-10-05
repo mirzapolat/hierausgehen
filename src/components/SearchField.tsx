@@ -1,7 +1,8 @@
 'use client';
 
+import { useSavedEvents } from '@/lib/saved';
 import { useSettings } from '@/lib/settings/context';
-import { Close, Search } from './icons';
+import { Bookmark, Close, Search } from './icons';
 
 interface Props {
   query: string;
@@ -24,7 +25,10 @@ interface Props {
  * liegen.
  */
 export function SearchField({ query, onQueryChange, className = '' }: Props) {
-  const { t } = useSettings();
+  const { cityId, settings, t } = useSettings();
+  const saved = useSavedEvents(cityId);
+  // Gemerkt wird die Suche selbst: was sie künftig findet, steht auch auf der Merkliste.
+  const searchSaved = query.trim() !== '' && saved.searchSaved(query, cityId);
 
   return (
     <div className={`search-shell ${query ? 'is-searching' : ''} ${className}`}>
@@ -41,6 +45,18 @@ export function SearchField({ query, onQueryChange, className = '' }: Props) {
           aria-label={t('searchAria')}
           className="search-input"
         />
+        {query.trim() && (
+          <button
+            type="button"
+            onClick={() => saved.toggleSearch(query, cityId, settings.locale)}
+            aria-pressed={searchSaved}
+            aria-label={searchSaved ? t('unsaveSearch') : t('saveSearch')}
+            title={searchSaved ? t('unsaveSearch') : t('saveSearch')}
+            className={`search-clear ${searchSaved ? 'is-saved' : ''}`}
+          >
+            <Bookmark filled={searchSaved} />
+          </button>
+        )}
         {query && (
           <button
             type="button"

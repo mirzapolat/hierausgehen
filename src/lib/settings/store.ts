@@ -1,4 +1,5 @@
 import { isKnownCityId } from '@/lib/cities';
+import { normalizeTimeOfDayStarts, TIME_OF_DAY_START, type TimeOfDayStarts } from '@/lib/events/filter';
 import type { Locale } from '@/lib/i18n';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -17,6 +18,8 @@ export interface Settings {
   timeZone: 'auto' | string;
   /** Was in der Tagesvorschau zuerst steht. */
   dayOrder: DayOrder;
+  /** Ab welcher Stunde tagsüber, abends und nachts beginnt – für den Tageszeit-Filter. */
+  timeOfDayStarts: TimeOfDayStarts;
 }
 
 export type DayOrder = 'exhibitions' | 'events';
@@ -28,6 +31,7 @@ export const defaultSettings: Settings = {
   hour12: false,
   timeZone: 'auto',
   dayOrder: 'exhibitions',
+  timeOfDayStarts: TIME_OF_DAY_START,
 };
 
 export const SETTINGS_STORAGE_KEY = 'hierausgehen.settings.v1';
@@ -111,5 +115,6 @@ function normalizeSettings(value: Partial<Settings>): Settings {
     hour12: merged.hour12,
     timeZone: merged.timeZone,
     dayOrder: merged.dayOrder === 'events' ? 'events' : 'exhibitions',
+    timeOfDayStarts: normalizeTimeOfDayStarts(merged.timeOfDayStarts),
   };
 }

@@ -1,21 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { returnPath } from '@/lib/return-path';
 import { cityById, cities } from '@/lib/cities';
-import { locales } from '@/lib/i18n';
+import {
+  isDefaultTimeOfDayStarts,
+  TIME_OF_DAY_START,
+  TIMES_OF_DAY,
+  type TimeOfDay,
+} from '@/lib/events/filter';
+import { locales, type MessageKey } from '@/lib/i18n';
 import { useSettings, type ThemePreference } from '@/lib/settings/context';
-import { ChevronLeft, MapPin } from './icons';
+import { BackToCalendar } from './BackToCalendar';
+import { MapPin } from './icons';
 
 /**
  * Einstellungen: Erscheinungsbild, Sprache, Zeitformat, Zeitzone und Stadt.
  * Alles wird lokal gespeichert – die App kennt keine Konten.
  */
 export function SettingsScreen() {
-  const { settings, update, cityId, chooseCity, locateCity, timeZone, t } = useSettings();
-  const router = useRouter();
+  const { settings, update, cityId, chooseCity, locateCity, timeZone, format, t } = useSettings();
+  const starts = settings.timeOfDayStarts;
   const city = cityById(cityId);
   const [locating, setLocating] = useState(false);
   const [locateFailed, setLocateFailed] = useState(false);
@@ -39,18 +43,7 @@ export function SettingsScreen() {
       <header className="flex h-12 shrink-0 items-center gap-2 bg-[var(--chrome)] px-3 hairline-b">
         {/* Zurück an die Stelle, von der aus die Einstellungen geöffnet
             wurden – Ansicht, Tag und offener Termin bleiben erhalten. */}
-        <Link
-          href="/"
-          onClick={(e) => {
-            e.preventDefault();
-            router.push(returnPath(cityId));
-          }}
-          className="-ml-1 flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-1 text-[12px]
-                     text-muted hover:text-text"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t('backToCalendar')}
-        </Link>
+        <BackToCalendar />
         <h1 className="ml-2 text-[14px] font-semibold tracking-[-0.01em]">{t('settings')}</h1>
       </header>
 
@@ -139,6 +132,42 @@ export function SettingsScreen() {
             </Field>
           </Section>
 
+          <Section title={t('timeOfDaySettings')}>
+            {TIMES_OF_DAY.map((time, index) => {
+              // Nur Stunden, die die Reihenfolge wahren: tagsüber < abends < nachts.
+              const min = index === 0 ? 0 : starts[TIMES_OF_DAY[index - 1]] + 1;
+              const max = index === TIMES_OF_DAY.length - 1 ? 23 : starts[TIMES_OF_DAY[index + 1]] - 1;
+              return (
+                <Field key={time} label={`${t(TIME_LABELS[time])} ${t('timeOfDayStartsAt')}`}>
+                  <Select
+                    value={String(starts[time])}
+                    onChange={(value) => update({ timeOfDayStarts: { ...starts, [time]: Number(value) } })}
+                    options={Array.from({ length: max - min + 1 }, (_, i) => min + i).map((hour) => ({
+                      value: String(hour),
+                      label: format.hourLabel(hour),
+                    }))}
+                  />
+                </Field>
+              );
+            })}
+            <div className="flex flex-col items-start gap-1.5 pt-2">
+              <p className="text-[11px] text-faint">{t('timeOfDayHint')}</p>
+              {!isDefaultTimeOfDayStarts(starts) && (
+                <button
+                  type="button"
+                  onClick={() => update({ timeOfDayStarts: TIME_OF_DAY_START })}
+                  className="-ml-1.5 h-[26px] rounded-[var(--radius-sm)] px-1.5 text-[12px] text-muted hover:text-text"
+                >
+                  {t('timeOfDayReset', {
+                    day: format.hourLabel(TIME_OF_DAY_START.day),
+                    evening: format.hourLabel(TIME_OF_DAY_START.evening),
+                    night: format.hourLabel(TIME_OF_DAY_START.night),
+                  })}
+                </button>
+              )}
+            </div>
+          </Section>
+
           <p className="mt-8 text-[12px] leading-relaxed text-faint">{t('settingsHint')}</p>
         </div>
       </div>
@@ -218,6 +247,12 @@ function Select({
     </select>
   );
 }
+
+const TIME_LABELS: Record<TimeOfDay, MessageKey> = {
+  day: 'timeDay',
+  evening: 'timeEvening',
+  night: 'timeNight',
+};
 
 /** Eine überschaubare Auswahl gebräuchlicher Zonen statt der vollen IANA-Liste. */
 function timeZoneOptions(): string[] {

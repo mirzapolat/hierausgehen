@@ -1,5 +1,6 @@
 import type { CalendarEvent, EventPerformance, SourceDefinition } from './types.ts';
 import { FALLBACK_CATEGORY, normalizeCategory } from './categories.ts';
+import { comparable, seriesKey } from './series.ts';
 import { clean } from './text.ts';
 
 /**
@@ -143,7 +144,7 @@ function eventTitleKey(title: string): string {
 function withRelatedPerformances(events: CalendarEvent[]): CalendarEvent[] {
   const buckets = new Map<string, CalendarEvent[]>();
   for (const event of events) {
-    const key = performanceKey(event);
+    const key = seriesKey(event);
     if (!key) continue;
     const bucket = buckets.get(key);
     if (bucket) bucket.push(event);
@@ -190,25 +191,3 @@ function performanceSummary(event: CalendarEvent): EventPerformance {
   };
 }
 
-function performanceKey(event: CalendarEvent): string {
-  return [
-    event.sourceId,
-    comparable(event.title),
-    comparable(event.subtitle ?? ''),
-    comparable(event.venue.name),
-    comparable(event.venue.city ?? ''),
-  ].join('|');
-}
-
-function comparable(text: string): string {
-  return clean(text)
-    .toLocaleLowerCase('de-DE')
-    .replace(/ß/g, 'ss')
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/&/g, ' und ')
-    .replace(/\b(theater|buhne|saal|haus)\b/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}

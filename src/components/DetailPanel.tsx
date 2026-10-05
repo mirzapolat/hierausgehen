@@ -10,13 +10,12 @@ import {
   sourceName,
 } from '@/lib/events/display';
 import { noteFacts } from '@/lib/events/notes';
-import { track } from '@/lib/analytics';
-import { useSavedEvents } from '@/lib/saved';
 import { useSettings } from '@/lib/settings/context';
 import { DayAgenda } from './AgendaList';
 import { SectionLabel } from './SectionLabel';
 import { AvailabilityDot } from './AvailabilityDot';
-import { Bookmark, CalendarPlus, ChevronLeft, Close, External, Ticket } from './icons';
+import { CalendarPlus, ChevronLeft, Close, External, Ticket } from './icons';
+import { SaveButton } from './SaveButton';
 import { ShareButton } from './ShareButton';
 
 interface Props {
@@ -34,6 +33,8 @@ interface Props {
    * Nur so lässt sich derselbe Wunsch zweimal hintereinander äussern.
    */
   revealPerformances?: number;
+  /** Stadt des Termins, falls nicht die eingestellte – etwa auf der Merkliste. */
+  cityId?: string;
 }
 
 /**
@@ -51,6 +52,7 @@ export function DetailPanel({
   onBackToDay,
   onClose,
   revealPerformances = 0,
+  cityId,
 }: Props) {
   const { format, t } = useSettings();
 
@@ -107,6 +109,7 @@ export function DetailPanel({
             definitions={definitions}
             onSelectPerformance={onSelectPerformance}
             revealPerformances={revealPerformances}
+            cityId={cityId}
           />
         ) : (
           // Etwas Luft unter der Kopfzeile, bevor der erste Abschnitt beginnt.
@@ -131,7 +134,9 @@ function EventDetail({
   definitions,
   onSelectPerformance,
   revealPerformances,
+  cityId,
 }: {
+  cityId?: string;
   event: CalendarEvent;
   shareUrl?: string;
   definitions: SourceDefinition[];
@@ -150,8 +155,6 @@ function EventDetail({
   // Was schon gelaufen ist, ist kein weiterer Termin mehr.
   const upcoming = (event.relatedPerformances ?? []).filter((performance) => !isPast(performance));
   const performances = useRef<HTMLElement>(null);
-  const savedEvents = useSavedEvents();
-  const saved = savedEvents.ids.has(event.id);
 
   useEffect(() => {
     if (!revealPerformances) return;
@@ -177,23 +180,17 @@ function EventDetail({
         <h3 className="min-w-0 flex-1 text-[19px] font-semibold leading-snug tracking-[-0.015em]">
           {event.title}
         </h3>
-        <button
-          type="button"
-          aria-pressed={saved}
-          aria-label={saved ? t('unsave') : t('save')}
-          title={saved ? t('unsave') : t('save')}
-          onClick={() => {
-            savedEvents.toggle(event);
-            if (!saved) track('event-save', { source: event.sourceId, category: event.category });
-          }}
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
-            saved
-              ? 'border-transparent bg-[var(--accent-soft)] text-accent'
-              : 'border-line bg-[var(--canvas)] text-muted hover:border-line-strong hover:text-text'
-          }`}
-        >
-          <Bookmark filled={saved} className="h-3.5 w-3.5" />
-        </button>
+        <SaveButton
+          event={event}
+          cityId={cityId}
+          className={(saved) =>
+            `grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
+              saved
+                ? 'border-transparent bg-[var(--accent-soft)] text-accent'
+                : 'border-line bg-[var(--canvas)] text-muted hover:border-line-strong hover:text-text'
+            }`
+          }
+        />
         {shareUrl && (
           <ShareButton
             url={shareUrl}

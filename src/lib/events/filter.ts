@@ -46,16 +46,39 @@ export const TIMES_OF_DAY = ['day', 'evening', 'night'] as const;
 export type TimeOfDay = (typeof TIMES_OF_DAY)[number];
 
 /** Beginn jeder Tageszeit in vollen Stunden – zugleich das Ende der vorigen. */
-export const TIME_OF_DAY_START: Record<TimeOfDay, number> = { day: 5, evening: 17, night: 22 };
+export type TimeOfDayStarts = Record<TimeOfDay, number>;
+
+/** Die Grenzen ab Werk; in den Einstellungen lassen sie sich verschieben. */
+export const TIME_OF_DAY_START: TimeOfDayStarts = { day: 5, evening: 17, night: 22 };
+
+/**
+ * Eigene Grenzen gelten nur, wenn sie aufsteigend in einem Tag liegen
+ * (tagsüber < abends < nachts, volle Stunden 0–23). Die Nacht reicht über
+ * Mitternacht bis zum Beginn des Tages.
+ */
+export function normalizeTimeOfDayStarts(value: unknown): TimeOfDayStarts {
+  if (!value || typeof value !== 'object') return TIME_OF_DAY_START;
+  const { day, evening, night } = value as Partial<Record<TimeOfDay, unknown>>;
+  const hours = [day, evening, night];
+  const valid =
+    hours.every((hour) => Number.isInteger(hour) && (hour as number) >= 0 && (hour as number) <= 23) &&
+    (day as number) < (evening as number) &&
+    (evening as number) < (night as number);
+  return valid ? { day: day as number, evening: evening as number, night: night as number } : TIME_OF_DAY_START;
+}
+
+export function isDefaultTimeOfDayStarts(starts: TimeOfDayStarts): boolean {
+  return TIMES_OF_DAY.every((time) => starts[time] === TIME_OF_DAY_START[time]);
+}
 
 export function isTimeOfDay(value: unknown): value is TimeOfDay {
   return TIMES_OF_DAY.includes(value as TimeOfDay);
 }
 
-export function timeOfDay(minutes: number): TimeOfDay {
+export function timeOfDay(minutes: number, starts: TimeOfDayStarts = TIME_OF_DAY_START): TimeOfDay {
   const hour = minutes / 60;
-  if (hour >= TIME_OF_DAY_START.night || hour < TIME_OF_DAY_START.day) return 'night';
-  if (hour >= TIME_OF_DAY_START.evening) return 'evening';
+  if (hour >= starts.night || hour < starts.day) return 'night';
+  if (hour >= starts.evening) return 'evening';
   return 'day';
 }
 
@@ -68,10 +91,11 @@ export function matchesTimeOfDay(
   event: Pick<CalendarEvent, 'start' | 'allDay'>,
   times: readonly TimeOfDay[],
   minutesOfDay: (iso: string) => number,
+  starts: TimeOfDayStarts = TIME_OF_DAY_START,
 ): boolean {
   if (times.length === 0 || times.length === TIMES_OF_DAY.length) return true;
   if (event.allDay) return false;
-  return times.includes(timeOfDay(minutesOfDay(event.start)));
+  return times.includes(timeOfDay(minutesOfDay(event.start), starts));
 }
 
 /** Karten sind buchbar – regulär oder als Restkarten. */
@@ -94,6 +118,8 @@ export interface FeedFilter {
   freeOnly?: boolean;
   /** Nur mit Beginn in diesen Tageszeiten. */
   timesOfDay?: TimeOfDay[];
+  /** Eigene Grenzen der Tageszeiten, falls in den Einstellungen verschoben. */
+  timeOfDayStarts?: TimeOfDayStarts;
   query?: string;
 }
 
@@ -115,7 +141,8 @@ export function applyFeedFilter(
     if (only ? !only.has(category) : skip.has(category)) return false;
     if (filter.ticketsOnly && !hasTickets(event)) return false;
     if (filter.freeOnly && !isFreeEntry(event)) return false;
-    if (minutesOfDay && !matchesTimeOfDay(event, filter.timesOfDay ?? [], minutesOfDay)) return false;
+    if (minutesOfDay && !matchesTimeOfDay(event, filter.timesOfDay ?? [], minutesOfDay, filter.timeOfDayStarts))
+      return false;
     // Das Abo kennt keine Sprache; die englischen Namen der Arten zählen mit.
     if (filter.query && !matchesText(event, filter.query, 'de', englishTerm)) return false;
     return true;
@@ -142,6 +169,11 @@ export function feedSearchParams(cityId: string, filter: FeedFilter): URLSearchP
   // Alle drei Tageszeiten heissen dasselbe wie keine.
   if (filter.timesOfDay && filter.timesOfDay.length < TIMES_OF_DAY.length) {
     list('time', filter.timesOfDay);
+    // Die Grenzen nur, wenn sie zählen – sonst bliebe die Adresse dieselbe.
+    if (filter.timeOfDayStarts && !isDefaultTimeOfDayStarts(filter.timeOfDayStarts)) {
+      const { day, evening, night } = filter.timeOfDayStarts;
+      params.set('hours', `${day},${evening},${night}`);
+    }
   }
   const query = filter.query?.trim();
   if (query) params.set('q', query);
@@ -161,6 +193,13 @@ export function parseFeedFilter(params: URLSearchParams): FeedFilter {
     ticketsOnly: params.get('tickets') === '1',
     freeOnly: params.get('free') === '1',
     timesOfDay: list('time')?.filter(isTimeOfDay),
+    timeOfDayStarts: parseTimeOfDayStarts(params.get('hours')),
     query: params.get('q')?.trim() || undefined,
   };
+}
+
+function parseTimeOfDayStarts(raw: string | null): TimeOfDayStarts | undefined {
+  if (!raw) return undefined;
+  const [day, evening, night] = raw.split(',').map((value) => Number(value.trim()));
+  return normalizeTimeOfDayStarts({ day, evening, night });
 }

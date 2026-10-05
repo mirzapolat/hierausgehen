@@ -7,6 +7,8 @@ import {
   matchesText,
   matchesTimeOfDay,
   parseFeedFilter,
+  normalizeTimeOfDayStarts,
+  TIME_OF_DAY_START,
   timeOfDay,
 } from './filter.ts';
 import type { CalendarEvent } from './types.ts';
@@ -129,4 +131,29 @@ test('Tageszeiten stehen in der Adresse – alle drei gar nicht', () => {
   assert.deepEqual(parseFeedFilter(params).timesOfDay, ['evening', 'night']);
   assert.equal(feedSearchParams('muenchen', { timesOfDay: ['day', 'evening', 'night'] }).get('time'), null);
   assert.deepEqual(parseFeedFilter(new URLSearchParams('time=evening,mittags')).timesOfDay, ['evening']);
+});
+
+test('eigene Grenzen der Tageszeiten', () => {
+  const starts = { day: 7, evening: 18, night: 23 };
+  assert.equal(timeOfDay(6 * 60, starts), 'night');
+  assert.equal(timeOfDay(17 * 60 + 30, starts), 'day');
+  assert.equal(timeOfDay(22 * 60 + 30, starts), 'evening');
+  assert.equal(timeOfDay(23 * 60, starts), 'night');
+});
+
+test('ungültige Grenzen fallen auf die Werte ab Werk zurück', () => {
+  assert.deepEqual(normalizeTimeOfDayStarts({ day: 7, evening: 18, night: 23 }), { day: 7, evening: 18, night: 23 });
+  assert.equal(normalizeTimeOfDayStarts({ day: 18, evening: 7, night: 23 }), TIME_OF_DAY_START);
+  assert.equal(normalizeTimeOfDayStarts({ day: 5, evening: 17, night: 24 }), TIME_OF_DAY_START);
+  assert.equal(normalizeTimeOfDayStarts({ day: 5.5, evening: 17, night: 22 }), TIME_OF_DAY_START);
+  assert.equal(normalizeTimeOfDayStarts(undefined), TIME_OF_DAY_START);
+});
+
+test('das Abo trägt eigene Grenzen nur, wenn sie zählen', () => {
+  const starts = { day: 7, evening: 18, night: 23 };
+  const params = feedSearchParams('muenchen', { timesOfDay: ['night'], timeOfDayStarts: starts });
+  assert.equal(params.get('hours'), '7,18,23');
+  assert.deepEqual(parseFeedFilter(params).timeOfDayStarts, starts);
+  assert.equal(feedSearchParams('muenchen', { timesOfDay: ['night'], timeOfDayStarts: TIME_OF_DAY_START }).get('hours'), null);
+  assert.equal(feedSearchParams('muenchen', { timeOfDayStarts: starts }).get('hours'), null);
 });

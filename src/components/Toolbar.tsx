@@ -86,7 +86,7 @@ export function Toolbar({
   onOpenShortcuts,
 }: Props) {
   const { format, t } = useSettings();
-  const savedCount = useSavedEvents().ids.size;
+  const savedCount = useSavedEvents().count;
   // Auf QWERTZ heissen die Spaltenkürzel „Ü“ und „+“ statt „[“ und „]“.
   const sidebarKey = useKeyLabel(SIDEBAR_KEY);
   const detailKey = useKeyLabel(DETAIL_KEY);

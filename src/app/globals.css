@@ -400,6 +400,10 @@ body {
   color: var(--text);
 }
 
+.search-clear.is-saved {
+  color: var(--accent);
+}
+
 .search-clear:active {
   transform: scale(0.9);
 }

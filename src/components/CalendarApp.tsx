@@ -30,6 +30,7 @@ import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { DayAgenda } from './AgendaList';
 import { CityIntroScreen } from './CityIntroScreen';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { saveChoices } from './SaveButton';
 import { DetailPanel } from './DetailPanel';
 import { HorizontalCalendar } from './HorizontalCalendar';
 import { MonthScrollView } from './MonthScrollView';
@@ -40,7 +41,7 @@ import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
-import { Bookmark, Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
+import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
 
 /**
  * Die Karte bringt Leaflet und dessen Stilvorlage mit. Beides wird erst
@@ -135,14 +136,15 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
 
   const data = useEventData({ initialCityId, initialRange, initialData, cityId, range });
-  const savedEvents = useSavedEvents();
+  const savedEvents = useSavedEvents(cityId);
   const filters = useEventFilters({
     events: data.events,
     definitions: data.definitions,
     locale: settings.locale,
     term,
-    saved: savedEvents.ids,
+    isSaved: savedEvents.isSaved,
     minutesOfDay: format.minutesOfDay,
+    timeOfDayStarts: settings.timeOfDayStarts,
   });
   const { events, focusSources, setQuery, restore: restoreFilters, space: filterSpace } = filters;
 
@@ -165,6 +167,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       ticketsOnly: filters.availableOnly,
       freeOnly: filters.freeOnly,
       timesOfDay: filters.timesOfDay,
+      timeOfDayStarts: settings.timeOfDayStarts,
       query: filters.query,
     };
   }, [
@@ -174,6 +177,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     filters.availableOnly,
     filters.freeOnly,
     filters.timesOfDay,
+    settings.timeOfDayStarts,
     filters.query,
     filterSpace.disabledCategories,
     data.definitions.length,
@@ -604,17 +608,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         icon: <External className="h-3.5 w-3.5" />,
         onSelect: () => window.open(event.url, '_blank', 'noopener,noreferrer'),
       },
-      {
-        key: 'save',
-        label: savedEvents.ids.has(event.id) ? t('unsave') : t('save'),
-        icon: <Bookmark filled={savedEvents.ids.has(event.id)} className="h-3.5 w-3.5" />,
-        onSelect: () => {
-          if (!savedEvents.ids.has(event.id)) {
-            track('event-save', { source: event.sourceId, category: event.category });
-          }
-          savedEvents.toggle(event);
-        },
-      },
+      ...saveChoices(event, savedEvents, t, cityId),
       {
         key: 'related',
         label: t('menuRelated'),
@@ -643,7 +637,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         onSelect: () => setQuery(event.title),
       },
     ];
-  }, [menu, linkCopied, copyLink, selectEvent, focusSources, setQuery, data.definitions, savedEvents, t]);
+  }, [menu, linkCopied, copyLink, selectEvent, focusSources, setQuery, data.definitions, savedEvents, cityId, t]);
 
   /* ------------------------------- Anzeige ------------------------------ */
 
@@ -906,6 +900,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 onSelectPerformance={selectPerformance}
                 onBackToDay={() => setSelectedEventId(undefined)}
                 revealPerformances={revealPerformances}
+                cityId={cityId}
               />
             </div>
           </aside>
@@ -1003,6 +998,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 }}
                 onClose={() => setSheetOpen(false)}
                 revealPerformances={revealPerformances}
+                cityId={cityId}
               />
             </div>
           </div>
