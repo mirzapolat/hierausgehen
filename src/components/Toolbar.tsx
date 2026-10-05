@@ -3,6 +3,7 @@
 import type { ViewMode } from '@/lib/calendar';
 import { DETAIL_KEY, SIDEBAR_KEY, useKeyLabel } from '@/lib/keyboard';
 import { useSettings } from '@/lib/settings/context';
+import type { FeedFilter } from '@/lib/events/filter';
 import { AppMenu } from './AppMenu';
 import { CityPicker } from './CityPicker';
 import { DayPicker } from './DayPicker';
@@ -20,6 +21,8 @@ interface Props {
   anchor: string;
   cityId: string;
   shareUrl: string;
+  /** Die aktuellen Filter, fürs Kalender-Abo im Menü. */
+  feedFilter: FeedFilter;
   onCityChange: (id: string) => void;
   onViewChange: (view: ViewMode) => void;
   onStep: (direction: -1 | 1) => void;
@@ -56,6 +59,7 @@ export function Toolbar({
   anchor,
   cityId,
   shareUrl,
+  feedFilter,
   onCityChange,
   onViewChange,
   onStep,
@@ -242,7 +246,13 @@ export function Toolbar({
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
         </button>
 
-        <AppMenu cityId={cityId} shareUrl={shareUrl} onOpenShortcuts={onOpenShortcuts} className={iconButton} />
+        <AppMenu
+          cityId={cityId}
+          shareUrl={shareUrl}
+          feedFilter={feedFilter}
+          onOpenShortcuts={onOpenShortcuts}
+          className={iconButton}
+        />
       </div>
     </header>
   );

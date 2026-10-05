@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { icsFileName, toICalendar } from './ics.ts';
+import { icsFileName, toICalendar, toICalendarFeed } from './ics.ts';
 import type { CalendarEvent } from './types.ts';
 
 const NOW = new Date('2026-09-01T08:00:00Z');
@@ -117,4 +117,25 @@ test('der Dateiname trägt Datum und Titel', () => {
     icsFileName(event({ title: 'Übermut & Größe' })),
     '2026-10-14-uebermut-groesse.ics',
   );
+});
+
+test('ein Abo bündelt mehrere Termine in einem Kalender mit Namen', () => {
+  const ics = toICalendarFeed(
+    [event(), event({ id: 'staatsoper:2', title: 'Tosca', start: '2026-10-20T19:30:00+02:00' })],
+    { now: NOW, name: 'HIERAUSGEHEN.de · München', refreshHours: 12 },
+  );
+  const out = lines(ics);
+  assert.equal(out.filter((line) => line === 'BEGIN:VCALENDAR').length, 1);
+  assert.equal(out.filter((line) => line === 'BEGIN:VEVENT').length, 2);
+  assert.ok(out.includes('X-WR-CALNAME:HIERAUSGEHEN.de · München'));
+  assert.ok(out.includes('REFRESH-INTERVAL;VALUE=DURATION:PT12H'));
+  assert.ok(out.includes('UID:staatsoper:2@hierausgehen.de'));
+  assert.equal(out.at(-2), 'END:VCALENDAR');
+});
+
+test('ein leeres Abo ist trotzdem ein gültiger Kalender', () => {
+  const out = lines(toICalendarFeed([], { now: NOW }));
+  assert.deepEqual(out.slice(0, 1), ['BEGIN:VCALENDAR']);
+  assert.ok(!out.includes('BEGIN:VEVENT'));
+  assert.equal(out.at(-2), 'END:VCALENDAR');
 });

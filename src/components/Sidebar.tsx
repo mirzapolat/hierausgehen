@@ -7,7 +7,7 @@ import { useSettings } from '@/lib/settings/context';
 import { groupColor, type EventGroup } from '@/lib/events/groups';
 import { Checkbox } from './Checkbox';
 import { SourceIcon } from './SourceIcon';
-import { ChevronDown, Close, MoreHorizontal, Tag, Ticket, Warning } from './icons';
+import { Bookmark, ChevronDown, Close, MoreHorizontal, Tag, Ticket, Warning } from './icons';
 import { SearchField } from './SearchField';
 
 interface Props {
@@ -32,6 +32,10 @@ interface Props {
   onAvailableOnlyChange: (next: boolean) => void;
   freeOnly: boolean;
   onFreeOnlyChange: (next: boolean) => void;
+  savedOnly: boolean;
+  onSavedOnlyChange: (next: boolean) => void;
+  /** Gemerkte Termine im geladenen Zeitraum; ohne sie fehlt der Schalter. */
+  savedCount: number;
   query: string;
   onQueryChange: (next: string) => void;
 }
@@ -58,6 +62,9 @@ export function Sidebar({
   onAvailableOnlyChange,
   freeOnly,
   onFreeOnlyChange,
+  savedOnly,
+  onSavedOnlyChange,
+  savedCount,
   query,
   onQueryChange,
 }: Props) {
@@ -89,6 +96,17 @@ export function Sidebar({
         >
           {t('onlyFree')}
         </FilterChip>
+        {(savedCount > 0 || savedOnly) && (
+          <FilterChip
+            pressed={savedOnly}
+            onChange={onSavedOnlyChange}
+            icon={<Bookmark filled={savedOnly} className="h-3.5 w-3.5 shrink-0" />}
+            title={t('onlySavedTitle')}
+          >
+            {t('onlySaved')}
+            <span className="ml-1.5 tabular-nums text-[10px] opacity-65">{savedCount}</span>
+          </FilterChip>
+        )}
       </div>
 
       <section>

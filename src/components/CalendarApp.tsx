@@ -19,7 +19,9 @@ import {
 import { track } from '@/lib/analytics';
 import { cityById, isKnownCityId } from '@/lib/cities';
 import { eventsOnDay, sourceColor, sourceName } from '@/lib/events/display';
+import type { FeedFilter } from '@/lib/events/filter';
 import { defaultLayout, readLayoutPrefs, saveLayoutPrefs, spacePrefs } from '@/lib/layoutPrefs';
+import { useSavedEvents } from '@/lib/saved';
 import { useSettings } from '@/lib/settings/context';
 import { useCalendarShortcuts } from '@/lib/useCalendarShortcuts';
 import { useEventData } from '@/lib/useEventData';
@@ -38,7 +40,7 @@ import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
-import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
+import { Bookmark, Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
 
 /**
  * Die Karte bringt Leaflet und dessen Stilvorlage mit. Beides wird erst
@@ -133,13 +135,46 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
 
   const data = useEventData({ initialCityId, initialRange, initialData, cityId, range });
+  const savedEvents = useSavedEvents();
   const filters = useEventFilters({
     events: data.events,
     definitions: data.definitions,
     locale: settings.locale,
     term,
+    saved: savedEvents.ids,
   });
   const { events, focusSources, setQuery, restore: restoreFilters, space: filterSpace } = filters;
+
+  /**
+   * Die Filter der Seite als Kalender-Abo (siehe `events/filter.ts`). Der
+   * Fokus zählt mit – wer gerade nur Kino sieht, will vermutlich Kino
+   * abonnieren. Die Merkliste nicht: sie lebt nur auf diesem Gerät.
+   */
+  const feedFilter = useMemo<FeedFilter>(() => {
+    const sources =
+      filters.solo.size > 0
+        ? [...filters.solo]
+        : filters.enabled.size < data.definitions.length
+          ? [...filters.enabled]
+          : undefined;
+    return {
+      sources,
+      categories: filters.categorySolo.size > 0 ? [...filters.categorySolo] : undefined,
+      skipCategories: filterSpace.disabledCategories,
+      ticketsOnly: filters.availableOnly,
+      freeOnly: filters.freeOnly,
+      query: filters.query,
+    };
+  }, [
+    filters.solo,
+    filters.enabled,
+    filters.categorySolo,
+    filters.availableOnly,
+    filters.freeOnly,
+    filters.query,
+    filterSpace.disabledCategories,
+    data.definitions.length,
+  ]);
 
   /* --------------------- Einstellungen und Deeplinks --------------------- */
 
@@ -523,6 +558,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     onOpenSelected: () => {
       if (selectedEvent) window.open(selectedEvent.url, '_blank', 'noopener,noreferrer');
     },
+    onSaveSelected: () => {
+      if (selectedEvent) savedEvents.toggle(selectedEvent);
+    },
     onSearch: focusSearch,
     onToggleShortcuts: () => setShortcutsOpen((open) => !open),
   });
@@ -564,6 +602,17 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         onSelect: () => window.open(event.url, '_blank', 'noopener,noreferrer'),
       },
       {
+        key: 'save',
+        label: savedEvents.ids.has(event.id) ? t('unsave') : t('save'),
+        icon: <Bookmark filled={savedEvents.ids.has(event.id)} className="h-3.5 w-3.5" />,
+        onSelect: () => {
+          if (!savedEvents.ids.has(event.id)) {
+            track('event-save', { source: event.sourceId, category: event.category });
+          }
+          savedEvents.toggle(event);
+        },
+      },
+      {
         key: 'related',
         label: t('menuRelated'),
         icon: <Calendar className="h-3.5 w-3.5" />,
@@ -591,7 +640,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
         onSelect: () => setQuery(event.title),
       },
     ];
-  }, [menu, linkCopied, copyLink, selectEvent, focusSources, setQuery, data.definitions, t]);
+  }, [menu, linkCopied, copyLink, selectEvent, focusSources, setQuery, data.definitions, savedEvents, t]);
 
   /* ------------------------------- Anzeige ------------------------------ */
 
@@ -627,6 +676,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       onAvailableOnlyChange={filters.setAvailableOnly}
       freeOnly={filters.freeOnly}
       onFreeOnlyChange={filters.setFreeOnly}
+      savedOnly={filters.savedOnly}
+      onSavedOnlyChange={filters.setSavedOnly}
+      savedCount={filters.savedCount}
       query={filters.query}
       onQueryChange={setQuery}
     />
@@ -643,6 +695,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           anchor={anchor}
           cityId={cityId}
           shareUrl={websiteShareUrl}
+          feedFilter={feedFilter}
           onCityChange={chooseCity}
           onViewChange={changeView}
           onStep={step}

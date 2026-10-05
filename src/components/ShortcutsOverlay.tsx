@@ -32,6 +32,7 @@ const groups: { title: MessageKey; rows: Row[] }[] = [
       { keys: ['↑', '↓'], label: 'scEvent' },
       { keys: ['T'], label: 'scToday' },
       { keys: ['O'], label: 'scOpen' },
+      { keys: ['S'], label: 'scSave' },
     ],
   },
   {

@@ -15,6 +15,7 @@ export interface ShortcutHandlers {
   onToday: () => void;
   onView: (view: ViewMode) => void;
   onOpenSelected: () => void;
+  onSaveSelected: () => void;
   onSearch: () => void;
   onToggleShortcuts: () => void;
 }
@@ -81,6 +82,7 @@ export function useCalendarShortcuts(handlers: ShortcutHandlers): void {
         case 'm': case 'M': h.onView('month'); break;
         case 'k': case 'K': h.onView('map'); break;
         case 'o': case 'O': h.onOpenSelected(); break;
+        case 's': case 'S': h.onSaveSelected(); break;
         case '/': h.onSearch(); break;
         case '?': h.onToggleShortcuts(); break;
         default: return;
