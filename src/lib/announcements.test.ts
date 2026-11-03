@@ -12,7 +12,18 @@ const make = (id: string, date: string, extra: Partial<Announcement> = {}): Anno
   ...extra,
 });
 
-const base = { today: '2026-11-10', device: 'mobile' as const };
+const base = { today: '2026-11-10', device: 'mobile' as const, standalone: false };
+
+test('`onlyInBrowser` erscheint nicht in der installierten App', () => {
+  const list = [make('installieren', '2026-11-01', { onlyInBrowser: true }), make('neu', '2026-10-01')];
+  assert.equal(pickAnnouncement(list, { ...base, seen: new Set() })?.id, 'installieren');
+  assert.equal(pickAnnouncement(list, { ...base, standalone: true, seen: new Set() })?.id, 'neu');
+});
+
+test('bei gleichem Datum gewinnt, was weiter oben in der Liste steht', () => {
+  const list = [make('z-oben', '2026-11-01'), make('a-unten', '2026-11-01')];
+  assert.equal(pickAnnouncement(list, { ...base, seen: new Set() })?.id, 'z-oben');
+});
 
 test('zeigt die neueste, noch nicht gesehene', () => {
   const list = [make('alt', '2026-10-01'), make('neu', '2026-11-01')];

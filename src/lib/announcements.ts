@@ -26,7 +26,17 @@ import type { Locale } from './i18n.ts';
 export type AnnouncementKind = 'feature' | 'notice' | 'tip';
 export type AnnouncementAudience = 'all' | 'mobile' | 'desktop';
 /** Bewusst Namen statt Komponenten: diese Datei bleibt frei von React. */
-export type AnnouncementIcon = 'calendar' | 'swipe' | 'pin' | 'refresh' | 'search' | 'bookmark' | 'ticket' | 'map';
+export type AnnouncementIcon =
+  | 'calendar'
+  | 'swipe'
+  | 'pin'
+  | 'refresh'
+  | 'search'
+  | 'bookmark'
+  | 'ticket'
+  | 'map'
+  | 'share'
+  | 'more';
 
 type Localized = Record<Locale, string>;
 
@@ -41,6 +51,8 @@ export interface Announcement {
   audience?: AnnouncementAudience;
   /** Auch beim allerersten Besuch zeigen (für echte Ankündigungen, nicht für Neuerungen). */
   forNewcomers?: boolean;
+  /** Nur im Browser, nicht in der App vom Startbildschirm – etwa „So installierst du sie“. */
+  onlyInBrowser?: boolean;
   title: Localized;
   lead: Localized;
   /** Einzelne Punkte, je mit Symbol, für eine Neuerung mit mehreren Teilen. */
@@ -50,6 +62,50 @@ export interface Announcement {
 }
 
 export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    // Im Browser auf dem Handy; wer die App schon installiert hat, sieht
+    // stattdessen „Neu auf dem Handy“ darunter.
+    id: '2026-11-installieren',
+    kind: 'tip',
+    date: '2026-11-03',
+    audience: 'mobile',
+    onlyInBrowser: true,
+    forNewcomers: true,
+    title: {
+      de: 'Hol dir die App aufs Handy',
+      en: 'Get the app on your phone',
+    },
+    lead: {
+      de: 'Leg den Kalender auf deinen Startbildschirm: Er öffnet sich dann wie eine App, ohne Browserleiste und ohne App Store.',
+      en: 'Add the calendar to your home screen: it then opens like an app, without the browser bar and without an app store.',
+    },
+    items: [
+      {
+        icon: 'share',
+        title: { de: 'iPhone', en: 'iPhone' },
+        text: {
+          de: 'In Safari unten auf Teilen tippen, dann „Zum Home-Bildschirm“.',
+          en: 'In Safari, tap Share at the bottom, then “Add to Home Screen”.',
+        },
+      },
+      {
+        icon: 'more',
+        title: { de: 'Android', en: 'Android' },
+        text: {
+          de: 'In Chrome oben rechts das Menü öffnen, dann „App installieren“ oder „Zum Startbildschirm hinzufügen“.',
+          en: 'In Chrome, open the menu in the top right, then “Install app” or “Add to Home screen”.',
+        },
+      },
+      {
+        icon: 'refresh',
+        title: { de: 'Immer aktuell', en: 'Always up to date' },
+        text: {
+          de: 'Die App lädt dieselben Termine wie die Seite und meldet sich, wenn es eine neue Version gibt.',
+          en: 'The app shows the same events as the website and lets you know when a new version is out.',
+        },
+      },
+    ],
+  },
   {
     id: '2026-11-mobil',
     kind: 'feature',
@@ -108,6 +164,8 @@ export interface PickContext {
   /** Heutiger Tag (ISO) in der Zeitzone der Stadt. */
   today: string;
   device: 'mobile' | 'desktop';
+  /** Als App vom Startbildschirm geöffnet. */
+  standalone: boolean;
 }
 
 /** Was jetzt grundsätzlich gezeigt werden dürfte, unabhängig von „gesehen“. Neueste zuerst. */
@@ -119,7 +177,11 @@ export function currentAnnouncements(
     .filter((item) => item.date <= context.today)
     .filter((item) => !item.until || context.today <= item.until)
     .filter((item) => (item.audience ?? 'all') === 'all' || item.audience === context.device)
-    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+    .filter((item) => !(item.onlyInBrowser && context.standalone))
+    // Bei gleichem Datum gilt die Reihenfolge der Liste: weiter oben ist neuer.
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => b.item.date.localeCompare(a.item.date) || a.index - b.index)
+    .map(({ item }) => item);
 }
 
 /** Die eine Ankündigung, die beim Start erscheint, oder keine. */

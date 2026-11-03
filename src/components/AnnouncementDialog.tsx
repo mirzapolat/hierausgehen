@@ -18,7 +18,7 @@ import { useSettings } from '@/lib/settings/context';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { BottomSheet } from './BottomSheet';
-import { Bookmark, Calendar, ChevronDown, Map, MapPin, Refresh, Search, Ticket } from './icons';
+import { Bookmark, Calendar, ChevronDown, Map, MapPin, MoreHorizontal, Refresh, Search, Share, Ticket } from './icons';
 
 /** Kurz warten, bis der Kalender steht: die Ankündigung soll nicht mit ihm aufblitzen. */
 const SHOW_AFTER_MS = 700;
@@ -43,9 +43,11 @@ const ICONS: Record<AnnouncementIcon, (props: { className?: string }) => React.R
   bookmark: Bookmark,
   ticket: Ticket,
   map: Map,
+  share: Share,
+  more: MoreHorizontal,
 };
 
-function isStandalone(): boolean {
+export function isStandalone(): boolean {
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true
@@ -85,7 +87,12 @@ export function AnnouncementDialog({ enabled, reopen }: { enabled: boolean; reop
     if (new URLSearchParams(window.location.search).has('event')) return;
 
     const seen = readSeen();
-    const pick = pickAnnouncement(ANNOUNCEMENTS, { seen, today: format.today(), device: announcementDevice() });
+    const pick = pickAnnouncement(ANNOUNCEMENTS, {
+      seen,
+      today: format.today(),
+      device: announcementDevice(),
+      standalone: isStandalone(),
+    });
     // Beim ersten Besuch gilt alles Bisherige als gesehen: sonst käme es beim
     // zweiten Start als „neu“ daher.
     if (seen === null) writeSeen(ANNOUNCEMENTS.filter((entry) => entry.id !== pick?.id).map((entry) => entry.id));
@@ -102,7 +109,11 @@ export function AnnouncementDialog({ enabled, reopen }: { enabled: boolean; reop
   // Auf Wunsch aus dem Menü: die neueste, ob gesehen oder nicht.
   useEffect(() => {
     if (!reopen) return;
-    const latest = currentAnnouncements(ANNOUNCEMENTS, { today: format.today(), device: announcementDevice() })[0];
+    const latest = currentAnnouncements(ANNOUNCEMENTS, {
+      today: format.today(),
+      device: announcementDevice(),
+      standalone: isStandalone(),
+    })[0];
     if (!latest) return;
     // Ein Wunsch von aussen, kein Effekt-Kreislauf: genau einmal je Zählerstand.
     /* eslint-disable react-hooks/set-state-in-effect */

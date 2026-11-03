@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
 import { ANNOUNCEMENTS, currentAnnouncements } from '@/lib/announcements';
+import { announcementDevice, isStandalone } from './AnnouncementDialog';
 import { cities, cityById } from '@/lib/cities';
 import { GROUP_COLORS } from '@/lib/events/groups';
 import { feedSearchParams, type FeedFilter } from '@/lib/events/filter';
@@ -89,7 +90,8 @@ export function AppMenu({
     Boolean(onOpenNews) &&
     currentAnnouncements(ANNOUNCEMENTS, {
       today: format.today(),
-      device: anchor?.narrow ? 'mobile' : 'desktop',
+      device: anchor ? announcementDevice() : 'desktop',
+      standalone: anchor ? isStandalone() : false,
     }).length > 0;
 
   const items: MenuItem[] = [
