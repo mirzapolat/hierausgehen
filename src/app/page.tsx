@@ -5,7 +5,7 @@ import { eventsInRange, getSnapshot } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { coverageRange, loadRange } from '@/lib/calendar';
 import { DEFAULT_CITY_ID, cityById, isKnownCityId } from '@/lib/cities';
-import { SITE_NAME, cityPath } from '@/lib/site';
+import { SITE_NAME, cityPath, pageTitle } from '@/lib/site';
 import { cityMetadata, eventMetadata } from '@/lib/site-metadata';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +34,7 @@ export async function generateMetadata({ searchParams }: PageProps<'/'>): Promis
   const event = await sharedEvent(cityId, params.event);
   if (event) {
     const { title, description } = eventMetadata(event, cityId);
-    const shareTitle = `${title} — ${SITE_NAME}`;
+    const shareTitle = pageTitle(title);
     return {
       title,
       description,

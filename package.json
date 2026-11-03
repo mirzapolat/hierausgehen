@@ -14,7 +14,8 @@
     "probe": "node --experimental-strip-types scripts/probe-source.ts",
     "check": "node --experimental-strip-types scripts/check-source.ts",
     "categories": "node --experimental-strip-types scripts/categories.ts",
-    "venues": "node --experimental-strip-types scripts/venues.ts"
+    "venues": "node --experimental-strip-types scripts/venues.ts",
+    "icons": "node --experimental-strip-types scripts/icons.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

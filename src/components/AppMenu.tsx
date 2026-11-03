@@ -17,16 +17,19 @@ const DONATE_URL = 'https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03';
 /**
  * Das Drei-Punkte-Menü ganz rechts in der Kopfzeile. Es sammelt alles, was
  * nicht zum Kalender selbst gehört: Teilen, Abo, Einstellungen, Tastenkürzel,
- * Unterstützen, Export, Status und Impressum.
+ * Unterstützen, Status und Impressum.
  */
 export function AppMenu({
   cityId,
+  onCityChange,
   shareUrl,
   feedFilter,
   onOpenShortcuts,
   className,
 }: {
   cityId: string;
+  /** Auf schmalen Geräten wird die Stadt hier gewählt statt in der Kopfzeile. */
+  onCityChange: (id: string) => void;
   shareUrl: string;
   feedFilter: FeedFilter;
   onOpenShortcuts: () => void;
@@ -37,7 +40,6 @@ export function AppMenu({
   const button = useRef<HTMLButtonElement>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number; narrow: boolean }>();
   const [copied, setCopied] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   // Ein Klick auf den Knopf bei offenem Menü schliesst es zuerst über das
   // Menü selbst (dessen Zuhörer am Fenster kommt vor dem Knopf dran). Ohne
@@ -64,9 +66,24 @@ export function AppMenu({
     });
   };
 
+  // Unterhalb von `lg` steht die Stadtauswahl nicht in der Kopfzeile, sondern
+  // als erster Abschnitt hier, die gewählte mit Häkchen.
+  const cityItems: MenuItem[] = anchor?.narrow
+    ? cities.map((city) => ({
+        key: `city-${city.id}`,
+        label: city.name,
+        icon: <Check className={`h-3.5 w-3.5 ${city.id === cityId ? 'text-accent' : 'text-transparent'}`} />,
+        onSelect: () => {
+          if (city.id !== cityId) onCityChange(city.id);
+        },
+      }))
+    : [];
+
   const items: MenuItem[] = [
+    ...cityItems,
     {
       key: 'share',
+      divider: cityItems.length > 0,
       label: copied ? t('menuLinkCopied') : t('shareWebsite'),
       icon: <Share className="h-3.5 w-3.5" />,
       keepOpen: true,
@@ -111,18 +128,6 @@ export function AppMenu({
       onSelect: () => window.open(DONATE_URL, '_blank', 'noopener,noreferrer'),
     },
     {
-      key: 'export',
-      label: t('exportCsv'),
-      onSelect: () => {
-        if (cities.length < 2) {
-          track('csv-export', { cities: cities[0].id, count: 1 });
-          download('/api/events/export');
-        } else {
-          setExportOpen(true);
-        }
-      },
-    },
-    {
       key: 'status',
       label: t('status'),
       onSelect: () => router.push(`/status?city=${encodeURIComponent(cityId)}`),
@@ -155,7 +160,6 @@ export function AppMenu({
       {anchor && (
         <ContextMenu x={anchor.x} y={anchor.y} items={items} label={t('appMenu')} onClose={close} />
       )}
-      {exportOpen && <ExportPanel onClose={() => setExportOpen(false)} />}
       {subscribeOpen && (
         <SubscribePanel cityId={cityId} filter={feedFilter} onClose={() => setSubscribeOpen(false)} />
       )}
@@ -262,84 +266,6 @@ function useDismiss(panel: React.RefObject<HTMLDivElement | null>, onClose: () =
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [panel, onClose]);
-}
-
-/**
- * Auswahl der Städte für den CSV-Export – voreingestellt alle, denn der
- * Endpunkt ohne Parameter meint denselben ganzen Bestand.
- */
-function ExportPanel({ onClose }: { onClose: () => void }) {
-  const { t } = useSettings();
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(cities.map((city) => city.id)));
-  const panel = useRef<HTMLDivElement>(null);
-  useDismiss(panel, onClose);
-
-  const chosen = cities.filter((city) => selected.has(city.id)).map((city) => city.id);
-  const href = `/api/events/export?${chosen.map((id) => `city=${encodeURIComponent(id)}`).join('&')}`;
-
-  return (
-    <div
-      ref={panel}
-      className="absolute right-0 top-full z-50 mt-1 w-64 max-w-[calc(100vw-1.5rem)] rounded-[var(--radius-md)]
-                 border border-line bg-[var(--raised)] p-3"
-      style={{ boxShadow: 'var(--shadow-overlay)' }}
-    >
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-faint">
-        {t('exportCities')}
-      </p>
-      <ul className="flex flex-col gap-1.5">
-        {cities.map((city) => (
-          <li key={city.id}>
-            <label className="flex cursor-pointer items-center gap-2 text-[12px] text-text">
-              <Checkbox
-                state={selected.has(city.id) ? 'on' : 'off'}
-                label={city.name}
-                onChange={() =>
-                  setSelected((current) => {
-                    const next = new Set(current);
-                    if (!next.delete(city.id)) next.add(city.id);
-                    return next;
-                  })
-                }
-              />
-              {city.name}
-            </label>
-          </li>
-        ))}
-      </ul>
-      {/* Kein <Link>: die CSV kommt von der API, sie ist keine Seite. */}
-      <a
-        href={href}
-        download
-        aria-disabled={selected.size === 0}
-        onClick={(event) => {
-          if (selected.size === 0) {
-            event.preventDefault();
-            return;
-          }
-          track('csv-export', { cities: chosen.join(','), count: chosen.length });
-          onClose();
-        }}
-        className={`mt-3 block rounded-[var(--radius-sm)] px-2 py-1.5 text-center text-[12px]
-                    font-medium transition-colors ${
-                      selected.size === 0
-                        ? 'cursor-not-allowed bg-[var(--chrome)] text-faint'
-                        : 'bg-[var(--accent)] text-white hover:opacity-90'
-                    }`}
-      >
-        {t('exportDownload')}
-      </a>
-    </div>
-  );
-}
-
-function download(href: string) {
-  const link = document.createElement('a');
-  link.href = href;
-  link.download = '';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
 }
 
 const Heart = () => (

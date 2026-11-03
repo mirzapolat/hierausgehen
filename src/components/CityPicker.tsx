@@ -12,9 +12,11 @@ import { Check, ChevronDown } from './icons';
 export function CityPicker({
   cityId,
   onChange,
+  className = '',
 }: {
   cityId: string;
   onChange: (id: string) => void;
+  className?: string;
 }) {
   const { t } = useSettings();
   const [open, setOpen] = useState(false);
@@ -38,7 +40,7 @@ export function CityPicker({
   }, [open]);
 
   return (
-    <div ref={container} className="relative">
+    <div ref={container} className={`relative ${className}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

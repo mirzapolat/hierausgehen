@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 export interface MenuItem {
   key: string;
@@ -9,6 +9,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** Bleibt das Menü nach der Wahl offen? Für Rückmeldungen wie „Link kopiert“. */
   keepOpen?: boolean;
+  /** Eine feine Linie davor: hier beginnt ein neuer Abschnitt. */
+  divider?: boolean;
   onSelect: () => void;
 }
 
@@ -104,15 +106,16 @@ export function ContextMenu({ x, y, items, label, onClose }: Props) {
         e.preventDefault();
         e.stopPropagation();
       }}
-      className={`fixed z-50 min-w-[200px] max-w-[280px] origin-top-left rounded-[var(--radius-lg)]
+      className={`fixed z-50 min-w-[220px] max-w-[300px] lg:min-w-[200px] lg:max-w-[280px] origin-top-left rounded-[var(--radius-lg)]
                   border border-line bg-[var(--raised)] p-1 outline-none
                   transition-[opacity,transform] duration-120 ease-out
                   ${shown ? 'scale-100 opacity-100' : 'scale-[0.97] opacity-0'}`}
       style={{ left: position.left, top: position.top, boxShadow: 'var(--shadow-overlay)' }}
     >
       {items.map((item, index) => (
+        <Fragment key={item.key}>
+        {item.divider && <div role="separator" className="mx-1 my-1 border-t border-line" />}
         <button
-          key={item.key}
           id={`${id}-${item.key}`}
           type="button"
           role="menuitem"
@@ -120,13 +123,17 @@ export function ContextMenu({ x, y, items, label, onClose }: Props) {
           disabled={item.disabled}
           onMouseEnter={() => !item.disabled && setActive(index)}
           onClick={() => choose(item)}
-          className={`flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2 py-[5px] text-left
-                      text-[13px] text-text outline-none disabled:opacity-35
+          // Auf dem Finger 44 px hoch (Mindestmass für Tippziele), mit dem
+          // Zeiger ab `lg` wieder kompakt.
+          className={`flex min-h-11 w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left
+                      text-[15px] text-text outline-none disabled:opacity-35
+                      lg:min-h-0 lg:gap-2 lg:px-2 lg:py-[5px] lg:text-[13px]
                       ${index === active && !item.disabled ? 'bg-[var(--accent-soft)] text-accent' : ''}`}
         >
           <span className="grid h-3.5 w-3.5 shrink-0 place-items-center text-faint">{item.icon}</span>
           <span className="min-w-0 flex-1 truncate">{item.label}</span>
         </button>
+        </Fragment>
       ))}
     </div>
   );

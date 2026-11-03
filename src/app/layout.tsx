@@ -13,6 +13,7 @@ import {
   SITE_KEYWORDS,
   SITE_NAME,
   SITE_TITLE,
+  pageTitle,
   SITE_URL,
 } from '@/lib/site';
 import './globals.css';
@@ -21,9 +22,9 @@ import './globals.css';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} — ${SITE_TITLE}`,
+    default: pageTitle(SITE_TITLE),
     // Unterseiten hängen sich an, statt den Namen zu wiederholen.
-    template: `%s — ${SITE_NAME}`,
+    template: pageTitle('%s'),
   },
   description: SITE_DESCRIPTION,
   keywords: SITE_KEYWORDS,
@@ -47,12 +48,12 @@ export const metadata: Metadata = {
     locale: 'de_DE',
     url: SITE_URL,
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — ${SITE_TITLE}`,
+    title: pageTitle(SITE_TITLE),
     description: SITE_DESCRIPTION,
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${SITE_NAME} — ${SITE_TITLE}`,
+    title: pageTitle(SITE_TITLE),
     description: SITE_DESCRIPTION,
   },
   category: 'events',

@@ -94,7 +94,7 @@ export function DetailPanel({
             type="button"
             onClick={onClose}
             aria-label={t('close')}
-            className="ml-auto grid h-7 w-7 place-items-center rounded-[var(--radius-sm)] text-muted hover:text-text"
+            className="-mr-2 ml-auto grid h-10 w-10 place-items-center rounded-[var(--radius-sm)] text-muted hover:text-text"
           >
             <Close />
           </button>

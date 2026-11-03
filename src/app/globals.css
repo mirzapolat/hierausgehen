@@ -117,6 +117,10 @@ html[data-theme='dark'] { color-scheme: dark; }
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Kein Herunterziehen zum Neuladen und kein Nachfedern der ganzen Seite:
+     der Kalender ist eine App-Fläche, und das Sheet braucht die Geste nach
+     unten zum Schliessen. Gilt am Wurzelelement, dort lösen die Browser es aus. */
+  overscroll-behavior: none;
 }
 
 body {

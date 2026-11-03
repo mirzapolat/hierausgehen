@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city } = await params;
   if (!isKnownCityId(city)) notFound();
   const { description } = cityMetadata(city);
-  const title = `Veranstaltungen in ${cityById(city).name} – kommende Termine`;
+  const title = `Kommende Veranstaltungen in ${cityById(city).name}`;
   const url = new URL(programmePath(city), SITE_URL).toString();
   return {
     title, description, alternates: { canonical: url },

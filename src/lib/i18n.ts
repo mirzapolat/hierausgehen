@@ -15,6 +15,8 @@ export function isLocale(value: string): value is Locale {
 
 const de = {
   appName: 'HIERAUSGEHEN.de',
+  /** Was im Browser-Tab vor dem Namen der Seite steht. */
+  tabCity: 'Veranstaltungen in {city}',
   // Der Platzhalter nennt, wonach tatsächlich gesucht wird (`CalendarApp`):
   // Titel, Untertitel, Beschreibung, Ort und Veranstaltungsart. Künstler
   // stehen in aller Regel in Titel oder Beschreibung – ein eigenes Feld dafür
@@ -84,10 +86,6 @@ const de = {
   statusNoEvents: 'Die Quelle kündigt derzeit keine Termine an, etwa in der Spielpause.',
   imprint: 'Impressum',
   appMenu: 'Menü',
-  exportCsv: 'Export',
-  exportCsvTitle: 'Alle bekannten Veranstaltungen als CSV herunterladen',
-  exportCities: 'Städte im Export',
-  exportDownload: 'Herunterladen',
   imprintHeading: 'Angaben gemäß § 5 DDG',
   imprintName: 'Verantwortlich',
   imprintAddress: 'Anschrift',
@@ -107,7 +105,7 @@ const de = {
   selectCity: 'Stadt wählen',
   cityIntroTitle: 'In welcher Stadt bist du?',
   cityIntroLead: 'Der Kalender zeigt das Programm einer Stadt. Die Auswahl bleibt gespeichert.',
-  cityIntroHint: 'Später jederzeit oben links zu wechseln.',
+  cityIntroHint: 'Später jederzeit oben zu wechseln.',
   useLocation: 'Standort verwenden',
   useLocationPending: 'Standort wird ermittelt …',
   useLocationFailed: 'Der Standort ist nicht verfügbar – bitte die Stadt selbst wählen.',
@@ -254,6 +252,7 @@ export type MessageKey = keyof typeof de;
 
 const en: Record<MessageKey, string> = {
   appName: 'HIERAUSGEHEN.de',
+  tabCity: 'Events in {city}',
   search: 'Name, venue, type, artist …',
   searchAria: 'Search events',
   clearSearch: 'Clear search',
@@ -319,10 +318,6 @@ const en: Record<MessageKey, string> = {
   statusNoEvents: 'The source has no upcoming events right now, e.g. during a season break.',
   imprint: 'Imprint',
   appMenu: 'Menu',
-  exportCsv: 'Export',
-  exportCsvTitle: 'Download all known events as CSV',
-  exportCities: 'Cities in the export',
-  exportDownload: 'Download',
   imprintHeading: 'Information pursuant to § 5 DDG',
   imprintName: 'Responsible',
   imprintAddress: 'Address',
@@ -342,7 +337,7 @@ const en: Record<MessageKey, string> = {
   selectCity: 'Select city',
   cityIntroTitle: 'Which city are you in?',
   cityIntroLead: 'The calendar shows one city at a time. Your choice is remembered.',
-  cityIntroHint: 'You can switch any time in the top left.',
+  cityIntroHint: 'You can switch any time at the top.',
   useLocation: 'Use my location',
   useLocationPending: 'Finding your location …',
   useLocationFailed: 'Your location is unavailable – please pick a city yourself.',

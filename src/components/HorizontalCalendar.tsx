@@ -138,8 +138,9 @@ function WeekLists({
 
   return (
     <div className="h-full min-h-0">
-      {/* Desktop: eine Bildlaufleiste für die ganze Woche, die Tagesköpfe bleiben oben stehen. */}
-      <div className="hidden h-full min-h-0 flex-col overflow-y-auto scroll-quiet lg:flex">
+      {/* Desktop und quer gehaltenes Telefon: eine Bildlaufleiste für die
+          ganze Woche, die Tagesköpfe bleiben oben stehen. */}
+      <div className="hidden h-full min-h-0 flex-col overflow-y-auto scroll-quiet landscape:flex lg:flex">
         {/* Leicht abgesetzt – Chrome-Ton und kräftigere Linie –, damit die
             Köpfe über den durchlaufenden Listen stehen bleiben. Nur
             Beschriftungen, keine Knöpfe: einen Tag auszuwählen bewirkt in
@@ -204,7 +205,7 @@ function WeekLists({
         </div>
       </div>
 
-      <div className="h-full overflow-y-auto scroll-quiet lg:hidden">
+      <div className="h-full overflow-y-auto scroll-quiet landscape:hidden lg:hidden">
         <MobileAgenda
           from={from}
           to={to}

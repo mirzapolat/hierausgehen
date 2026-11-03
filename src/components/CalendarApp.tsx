@@ -19,6 +19,7 @@ import {
 
 import { track } from '@/lib/analytics';
 import { cityById, isKnownCityId } from '@/lib/cities';
+import { pageTitle } from '@/lib/site';
 import { eventsOnDay, sourceColor, sourceName } from '@/lib/events/display';
 import type { FeedFilter } from '@/lib/events/filter';
 import { seriesRuns } from '@/lib/events/series';
@@ -29,6 +30,7 @@ import { useSettings } from '@/lib/settings/context';
 import { useCalendarShortcuts } from '@/lib/useCalendarShortcuts';
 import { useEventData } from '@/lib/useEventData';
 import { useEventFilters } from '@/lib/useEventFilters';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { ActiveFilters } from './ActiveFilters';
 import { DayAgenda } from './AgendaList';
@@ -43,6 +45,7 @@ import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
+import { BottomSheet } from './BottomSheet';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
 import { Calendar, Check, Close, External, Filter, Link as LinkIcon } from './icons';
@@ -269,11 +272,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   }, [restored, cityId, view, anchor, selectedEventId]);
 
   // Der Stadtwechsel lädt die Seite nicht neu; der Titel im Tab muss deshalb
-  // von Hand nachziehen, damit er dem entspricht, was der Server geliefert hat.
+  // von Hand nachziehen – in derselben Form, die der Server liefert
+  // (`pageTitle`): ein offener Termin vorn, sonst die Stadt.
+  const selectedTitle = events.find((event) => event.id === selectedEventId)?.title;
   useEffect(() => {
     if (!restored) return;
-    document.title = `${cityById(cityId).name} ${t('appName')}`;
-  }, [restored, cityId, t]);
+    document.title = pageTitle(selectedTitle ?? t('tabCity', { city: cityById(cityId).name }));
+  }, [restored, cityId, selectedTitle, t]);
 
   useEffect(() => {
     if (!restored) return;
@@ -408,6 +413,22 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     },
     [coverageDay],
   );
+
+  /**
+   * Unterhalb von `lg` gibt es keinen Umschalter: die Haltung des Geräts
+   * wählt die Ansicht. Hochkant der Monat mit der Tagesliste darunter, quer
+   * die Woche als Raster wie am Schreibtisch. Auch ein Deeplink mit anderer
+   * Ansicht landet so in der passenden.
+   */
+  const compact = useMediaQuery('(max-width: 63.999rem)');
+  const landscape = useMediaQuery('(orientation: landscape)');
+  useEffect(() => {
+    if (!restored || !compact) return;
+    const wanted: ViewMode = landscape ? 'week' : 'month';
+    // Folgt einer äusseren Grösse (der Media Query), wie die Effekte oben.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (view !== wanted) changeView(wanted);
+  }, [restored, compact, landscape, view, changeView]);
 
   const openEvent = useCallback(
     (event: CalendarEvent) => {
@@ -744,7 +765,13 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   return (
     <SeriesProvider runs={runs}>
-    <div className="flex h-full flex-col overflow-hidden" onContextMenu={openMenu}>
+    {/* Quer gehalten ragen Notch und Rundungen seitlich ins Bild; der Abstand
+        ist am Schreibtisch null. */}
+    <div
+      className="flex h-full flex-col overflow-hidden bg-[var(--chrome)]"
+      style={{ paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
+      onContextMenu={openMenu}
+    >
         <Toolbar
           view={view}
           anchor={anchor}
@@ -1055,46 +1082,24 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
       {/* Mobile: Detail als Sheet, das von unten aufsteigt */}
       {sheet.mounted && sheetEvent && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            aria-label={t('close')}
-            onClick={() => setSheetOpen(false)}
-            className={`absolute inset-0 transition-opacity ${motion}
-                        ${sheet.shown ? 'opacity-100' : 'opacity-0'}`}
-            style={{ background: 'var(--overlay)' }}
-          />
-          <div
-            className={`absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
-                        rounded-t-[var(--radius-sheet)] bg-[var(--chrome)]
-                        transition-transform ${motion}
-                        ${sheet.shown ? 'translate-y-0' : 'translate-y-full'}`}
-            style={{
-              boxShadow: 'var(--shadow-overlay)',
-              height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
-              paddingBottom: 'env(safe-area-inset-bottom)',
+        <BottomSheet shown={sheet.shown} onClose={() => setSheetOpen(false)} closeLabel={t('close')}>
+          <DetailPanel
+            day={selectedDay}
+            dayEvents={dayEvents}
+            event={sheetEvent}
+            shareUrl={eventShareUrl(sheetEvent)}
+            definitions={data.definitions}
+            onSelectEvent={selectEvent}
+            onSelectPerformance={selectPerformance}
+            onBackToDay={() => {
+              setSelectedEventId(undefined);
+              setSheetOpen(false);
             }}
-          >
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <DetailPanel
-                day={selectedDay}
-                dayEvents={dayEvents}
-                event={sheetEvent}
-                shareUrl={eventShareUrl(sheetEvent)}
-                definitions={data.definitions}
-                onSelectEvent={selectEvent}
-                onSelectPerformance={selectPerformance}
-                onBackToDay={() => {
-                  setSelectedEventId(undefined);
-                  setSheetOpen(false);
-                }}
-                onClose={() => setSheetOpen(false)}
-                revealPerformances={revealPerformances}
-                cityId={cityId}
-              />
-            </div>
-          </div>
-        </div>
+            onClose={() => setSheetOpen(false)}
+            revealPerformances={revealPerformances}
+            cityId={cityId}
+          />
+        </BottomSheet>
       )}
 
       {menu && (

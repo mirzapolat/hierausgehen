@@ -169,15 +169,20 @@ export function Toolbar({
       >
         {t('appName')}
       </a>
-      <CityPicker cityId={cityId} onChange={onCityChange} />
+      {/* Auf schmalen Geräten steht die Stadt im Drei-Punkte-Menü, damit der
+          Titel Platz hat. */}
+      <CityPicker className="hidden lg:block" cityId={cityId} onChange={onCityChange} />
 
-      {/* Ab lg mittig über der Kalenderfläche: die Mitte zwischen den Spalten,
-          nicht die des Fensters. Auf schmalen Geräten ist `left` wirkungslos. */}
+      {/* Immer mittig. Auf schmalen Geräten in der Mitte des Bildschirms, so
+          schmal gehalten, dass sie die Knöpfe links und rechts nicht
+          berührt (der Titel kürzt sich dann). Ab lg mittig über der
+          Kalenderfläche: die Mitte zwischen den Spalten, nicht die des
+          Fensters – die Spalten gibt es darunter nicht. */}
       <div
-        className={`flex min-w-0 flex-1 items-center gap-0.5 lg:absolute lg:top-1/2 lg:-translate-x-1/2
-                    lg:-translate-y-1/2 lg:flex-none
+        className={`absolute left-1/2 top-1/2 flex max-w-[calc(100%-14rem)] -translate-x-1/2 -translate-y-1/2
+                    items-center gap-0.5 lg:left-[var(--nav-left)] lg:max-w-none
                     ${animateInsets ? 'lg:transition-[left] lg:duration-200 lg:ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
-        style={{ left: `calc(50% + ${(leftInset - rightInset) / 2}px)` }}
+        style={{ '--nav-left': `calc(50% + ${(leftInset - rightInset) / 2}px)` } as React.CSSProperties}
       >
         <button
           type="button"
@@ -226,7 +231,10 @@ export function Toolbar({
           onPick={onPickDay}
         />
 
+        {/* Auf schmalen Geräten wählt die Haltung die Ansicht – hochkant der
+            Monat, quer die Woche –, ein Umschalter wäre dort doppelt. */}
         <Dropdown
+          className="hidden lg:block"
           label={t('view')}
           value={view}
           buttonLabel={
@@ -288,6 +296,7 @@ export function Toolbar({
 
         <AppMenu
           cityId={cityId}
+          onCityChange={onCityChange}
           shareUrl={shareUrl}
           feedFilter={feedFilter}
           onOpenShortcuts={onOpenShortcuts}

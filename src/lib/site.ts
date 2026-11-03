@@ -50,9 +50,19 @@ export function cityUrl(cityId: string): string {
   return new URL(cityPath(cityId), SITE_URL).toString();
 }
 
-/** Der Titel im Browser: erst die Stadt, dann die Seite. */
+/**
+ * Jeder Titel im Browser hat dieselbe Form: vorn, was offen ist, dahinter
+ * der Name der Seite. Der Mittelpunkt trennt, nie ein Gedankenstrich.
+ */
+export const TITLE_SEPARATOR = ' · ';
+
+export function pageTitle(part: string): string {
+  return `${part}${TITLE_SEPARATOR}${SITE_NAME}`;
+}
+
+/** Was im Tab vor dem Namen steht, solange der Kalender einer Stadt offen ist. */
 export function cityTitle(cityName: string): string {
-  return `Veranstaltungen in ${cityName} – Kalender & Tickets`;
+  return `Veranstaltungen in ${cityName}`;
 }
 
 /** Lesbare Programmübersicht, auch ohne JavaScript. */

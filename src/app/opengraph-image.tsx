@@ -1,11 +1,11 @@
 import { ImageResponse } from 'next/og';
 import { GROUP_COLORS } from '@/lib/events/groups';
 import { sources } from '@/lib/events/registry';
-import { SITE_NAME, SITE_TITLE } from '@/lib/site';
+import { SITE_TITLE, pageTitle } from '@/lib/site';
 
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
-export const alt = `${SITE_NAME} — ${SITE_TITLE}`;
+export const alt = pageTitle(SITE_TITLE);
 
 /**
  * Vorschaubild für geteilte Links.
