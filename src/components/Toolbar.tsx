@@ -59,6 +59,8 @@ interface Props {
   onToggleSidebar: () => void;
   onToggleDetail: () => void;
   onOpenShortcuts: () => void;
+  /** „Neuigkeiten“ im Menü: die neueste Ankündigung noch einmal zeigen. */
+  onOpenNews?: () => void;
 }
 
 export function Toolbar({
@@ -88,6 +90,7 @@ export function Toolbar({
   onToggleSidebar,
   onToggleDetail,
   onOpenShortcuts,
+  onOpenNews,
 }: Props) {
   const { format, t } = useSettings();
   const savedCount = useSavedEvents().count;
@@ -301,6 +304,7 @@ export function Toolbar({
           shareUrl={shareUrl}
           feedFilter={feedFilter}
           onOpenShortcuts={onOpenShortcuts}
+          onOpenNews={onOpenNews}
           className={iconButton}
         />
       </div>

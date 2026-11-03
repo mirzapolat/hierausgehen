@@ -42,16 +42,27 @@ interface Mark {
   half: number;
   /** Stärke des farbigen Scheins (0 = keiner). */
   glow: number;
-  /** Weisse Fläche oder durchsichtig. */
-  background: boolean;
+  /** Farbe der Fläche (RGB) oder `null` für durchsichtig. */
+  background: [number, number, number] | null;
+  /** Helligkeit des Rings anheben (OKLab-L); auf Dunkel leuchtet er sonst nicht. */
+  lift?: number;
 }
 
+const WHITE: [number, number, number] = [255, 255, 255];
+/** Das dunkle `--chrome` aus `globals.css`: dieselbe Fläche wie Kopfzeile und Statusleiste. */
+const NIGHT: [number, number, number] = [0x0e, 0x0e, 0x10];
+
 /** Die App-Marke: grosszügig Weiss ringsum, der Ring sitzt ruhig in der Mitte. */
-const APP: Mark = { radius: 0.29, half: 0.075, glow: 0.2, background: true };
+const APP: Mark = { radius: 0.29, half: 0.075, glow: 0.2, background: WHITE };
+/**
+ * Dieselbe Marke für das dunkle Schema: der Ring etwas heller, der Schein
+ * stärker – Licht trägt auf Dunkel weiter, und genau das soll er hier tun.
+ */
+const APP_DARK: Mark = { radius: 0.29, half: 0.075, glow: 0.34, background: NIGHT, lift: 0.1 };
 /** Für Android-Masken: alles innerhalb des sicheren Kreises (40 %). */
-const MASKABLE: Mark = { radius: 0.25, half: 0.064, glow: 0.2, background: true };
+const MASKABLE: Mark = { radius: 0.25, half: 0.064, glow: 0.2, background: WHITE };
 /** Im Browser-Tab: ohne Fläche, kräftiger, damit er bei 16 px noch ein Ring ist. */
-const FAVICON: Mark = { radius: 0.33, half: 0.13, glow: 0, background: false };
+const FAVICON: Mark = { radius: 0.33, half: 0.13, glow: 0, background: null };
 
 function hexToOklab(hex: string): [number, number, number] {
   const channel = (i: number) => {
@@ -98,13 +109,13 @@ const LAB = STOPS.map((hex) => {
  * Farbe an Position `t` (0–1) rundum, zwischen den Stopps gleichmässig
  * gemischt: so bleibt keine Farbe als Band stehen, der Ring dreht sich.
  */
-function colorAt(t: number): [number, number, number] {
+function colorAt(t: number, lift = 0): [number, number, number] {
   const scaled = t * LAB.length;
   const i = Math.floor(scaled) % LAB.length;
   const f = scaled - Math.floor(scaled);
   const a = LAB[i];
   const b = LAB[(i + 1) % LAB.length];
-  return oklabToRgb([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]);
+  return oklabToRgb([a[0] + (b[0] - a[0]) * f + lift, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]);
 }
 
 function render(size: number, mark: Mark): Promise<Buffer> {
@@ -121,7 +132,7 @@ function render(size: number, mark: Mark): Promise<Buffer> {
       const distance = Math.abs(Math.hypot(dx, dy) - radius) - half;
       // Oben beginnend, im Uhrzeigersinn.
       const t = (Math.atan2(dx, -dy) / (2 * Math.PI) + 1) % 1;
-      const [r, g, b] = colorAt(t);
+      const [r, g, b] = colorAt(t, mark.lift);
 
       // Analytische Kantenglättung: Abdeckung des Pixels durch das Band.
       const ring = Math.min(1, Math.max(0, 0.5 - distance));
@@ -130,10 +141,11 @@ function render(size: number, mark: Mark): Promise<Buffer> {
       let alpha = ring + glow * (1 - ring);
       let [outR, outG, outB] = [r, g, b];
       if (mark.background) {
-        // Auf Weiss gemischt, das Icon selbst bleibt deckend.
-        outR = Math.round(255 + (r - 255) * alpha);
-        outG = Math.round(255 + (g - 255) * alpha);
-        outB = Math.round(255 + (b - 255) * alpha);
+        // Auf die Fläche gemischt, das Icon selbst bleibt deckend.
+        const [bgR, bgG, bgB] = mark.background;
+        outR = Math.round(bgR + (r - bgR) * alpha);
+        outG = Math.round(bgG + (g - bgG) * alpha);
+        outB = Math.round(bgB + (b - bgB) * alpha);
         alpha = 1;
       }
 
@@ -169,11 +181,12 @@ function ico(images: { size: number; png: Buffer }[]): Buffer {
 }
 
 const outputs: [string, number, Mark][] = [
-  ['src/app/icon.png', 512, APP],
   ['src/app/apple-icon.png', 180, APP],
   ['public/icon-192.png', 192, APP],
   ['public/icon-512.png', 512, APP],
   ['public/icon-maskable-512.png', 512, MASKABLE],
+  // Dunkles Schema: Browser nehmen sie über `media` im Layout (`layout.tsx`).
+  ['public/icon-dark-512.png', 512, APP_DARK],
 ];
 
 for (const [path, size, mark] of outputs) {

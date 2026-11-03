@@ -60,6 +60,18 @@ export const metadata: Metadata = {
   },
   category: 'events',
   manifest: '/manifest.webmanifest',
+  // Das App-Icon im hellen und im dunklen Schema (`npm run icons`). Browser
+  // wählen über `media`; Favicon und Apple-Icon kommen aus `src/app/`.
+  // Startbildschirm-Icons kennen kein dunkles Schema, dort bleibt das helle.
+  icons: {
+    icon: [
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark-512.png', sizes: '512x512', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+    ],
+    // Muss hier stehen: mit `icons` übernimmt Next `src/app/apple-icon.png`
+    // nicht mehr von selbst in den Kopf der Seite.
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: 'default' },
   formatDetection: { telephone: false, date: false, address: false, email: false },
 };

@@ -45,6 +45,7 @@ import { SearchField } from './SearchField';
 import { ResizeHandle } from './ResizeHandle';
 import { ShortcutsOverlay } from './ShortcutsOverlay';
 import { Sidebar } from './Sidebar';
+import { AnnouncementDialog } from './AnnouncementDialog';
 import { BottomSheet } from './BottomSheet';
 import { SwipePager } from './SwipePager';
 import { Toolbar } from './Toolbar';
@@ -96,6 +97,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  /** Zähler: jede Erhöhung zeigt die neueste Ankündigung noch einmal. */
+  const [newsRequest, setNewsRequest] = useState(0);
   /** Offenes Kontextmenü samt Zeigerposition; `null` heisst geschlossen. */
   const [menu, setMenu] = useState<{ x: number; y: number; event: CalendarEvent } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -879,6 +882,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           }
           onToggleDetail={() => setLayout((c) => ({ ...c, detailCollapsed: !c.detailCollapsed }))}
           onOpenShortcuts={() => setShortcutsOpen(true)}
+          onOpenNews={() => setNewsRequest((current) => current + 1)}
         />
 
         {/* Ab lg ist die Zeile ein Rahmen im Chrome-Ton, auf dem die
@@ -1200,6 +1204,9 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       )}
 
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {/* Neuigkeiten beim Start, sobald der Kalender steht (siehe `lib/announcements.ts`). */}
+      <AnnouncementDialog enabled={restored} reopen={newsRequest} />
     </div>
     </SeriesProvider>
   );

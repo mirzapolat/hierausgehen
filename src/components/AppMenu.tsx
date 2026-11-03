@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { track } from '@/lib/analytics';
+import { ANNOUNCEMENTS, currentAnnouncements } from '@/lib/announcements';
 import { cities, cityById } from '@/lib/cities';
+import { GROUP_COLORS } from '@/lib/events/groups';
 import { feedSearchParams, type FeedFilter } from '@/lib/events/filter';
 import { rememberReturn } from '@/lib/return-path';
 import { useSettings } from '@/lib/settings/context';
@@ -25,6 +27,7 @@ export function AppMenu({
   shareUrl,
   feedFilter,
   onOpenShortcuts,
+  onOpenNews,
   className,
 }: {
   cityId: string;
@@ -33,9 +36,11 @@ export function AppMenu({
   shareUrl: string;
   feedFilter: FeedFilter;
   onOpenShortcuts: () => void;
+  /** Die neueste Ankündigung noch einmal zeigen (`AnnouncementDialog`). */
+  onOpenNews?: () => void;
   className: string;
 }) {
-  const { t } = useSettings();
+  const { format, t } = useSettings();
   const router = useRouter();
   const button = useRef<HTMLButtonElement>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number; narrow: boolean }>();
@@ -79,11 +84,31 @@ export function AppMenu({
       }))
     : [];
 
+  // „Neuigkeiten“ nur, wenn es für dieses Gerät gerade eine gibt.
+  const hasNews =
+    Boolean(onOpenNews) &&
+    currentAnnouncements(ANNOUNCEMENTS, {
+      today: format.today(),
+      device: anchor?.narrow ? 'mobile' : 'desktop',
+    }).length > 0;
+
   const items: MenuItem[] = [
     ...cityItems,
+    ...(hasNews && onOpenNews
+      ? [
+          {
+            key: 'news',
+            divider: cityItems.length > 0,
+            label: t('newsMenu'),
+            // Derselbe Ring wie in der Ankündigung und im App-Icon.
+            icon: <NewsRing />,
+            onSelect: onOpenNews,
+          },
+        ]
+      : []),
     {
       key: 'share',
-      divider: cityItems.length > 0,
+      divider: cityItems.length > 0 && !hasNews,
       label: copied ? t('menuLinkCopied') : t('shareWebsite'),
       icon: <Share className="h-3.5 w-3.5" />,
       keepOpen: true,
@@ -267,6 +292,28 @@ function useDismiss(panel: React.RefObject<HTMLDivElement | null>, onClose: () =
     };
   }, [panel, onClose]);
 }
+
+/** Kleiner Ring in den Ordnerfarben, das Zeichen für Neuigkeiten. */
+const NewsRing = () => {
+  const ring = [
+    GROUP_COLORS.Theater,
+    GROUP_COLORS.Kino,
+    GROUP_COLORS.Literatur,
+    GROUP_COLORS.Kultur,
+    GROUP_COLORS.Konzert,
+    GROUP_COLORS['Oper & Ballett'],
+    GROUP_COLORS.Club,
+    GROUP_COLORS.Theater,
+  ].join(', ');
+  const mask = 'radial-gradient(farthest-side, transparent 50%, black 54%)';
+  return (
+    <span
+      aria-hidden="true"
+      className="block h-3.5 w-3.5 rounded-full"
+      style={{ background: `conic-gradient(${ring})`, mask, WebkitMask: mask }}
+    />
+  );
+};
 
 const Heart = () => (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className="h-3 w-3 shrink-0 text-red-500">

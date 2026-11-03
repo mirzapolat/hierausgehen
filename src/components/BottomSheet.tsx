@@ -7,6 +7,13 @@ interface Props {
   shown: boolean;
   onClose: () => void;
   closeLabel: string;
+  /**
+   * So hoch wie der Inhalt statt fast bildschirmhoch – für kurze Inhalte wie
+   * eine Ankündigung. Wird es zu viel, scrollt der Inhalt.
+   */
+  fit?: boolean;
+  /** Beschriftung des Dialogs für Screenreader (`aria-labelledby`). */
+  labelledBy?: string;
   children: React.ReactNode;
 }
 
@@ -41,7 +48,7 @@ const RETURN_MS = 260;
  * Quer gehalten ist es schmaler als der Bildschirm und steht mittig: über die
  * ganze Breite wäre eine Zeile Text dort kaum noch zu lesen.
  */
-export function BottomSheet({ shown, onClose, closeLabel, children }: Props) {
+export function BottomSheet({ shown, onClose, closeLabel, fit = false, labelledBy, children }: Props) {
   const panel = useRef<HTMLDivElement>(null);
   const backdrop = useRef<HTMLButtonElement>(null);
   const closeRef = useRef(onClose);
@@ -206,6 +213,7 @@ export function BottomSheet({ shown, onClose, closeLabel, children }: Props) {
         ref={panel}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={labelledBy}
         className={`absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
                     rounded-t-[var(--radius-sheet)] bg-[var(--chrome)]
                     landscape:mx-auto landscape:w-[min(36rem,calc(100%-2rem))]
@@ -215,7 +223,7 @@ export function BottomSheet({ shown, onClose, closeLabel, children }: Props) {
           boxShadow: 'var(--shadow-overlay)',
           // Kein Rand unten: der Inhalt läuft bis an die Kante und hält selbst
           // Abstand zum Home-Indikator (`pb-safe` in `DetailPanel`).
-          height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
+          [fit ? 'maxHeight' : 'height']: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
         }}
       >
         {/* Der Griff: eine breite, gut zu treffende Fläche über die ganze
@@ -229,7 +237,11 @@ export function BottomSheet({ shown, onClose, closeLabel, children }: Props) {
         >
           <span className="h-[5px] w-10 rounded-full bg-[var(--line-strong)]" />
         </button>
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        {fit ? (
+          <div className="min-h-0 overflow-y-auto scroll-quiet pb-safe">{children}</div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        )}
       </div>
     </div>
   );
