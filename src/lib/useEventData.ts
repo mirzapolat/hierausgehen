@@ -20,8 +20,14 @@ export function useEventData(options: {
   initialData: AggregateResult;
   cityId: string;
   range: Range;
+  /**
+   * Zeiträume, die als Nächstes gebraucht werden könnten, etwa beim Blättern.
+   * Sie werden leise in den Zwischenspeicher geholt, ohne die Anzeige zu
+   * ändern; ein Wechsel dorthin kommt dann ohne Wartezeit aus.
+   */
+  prefetch?: Range[];
 }): AggregateResult {
-  const { initialCityId, initialRange, initialData, cityId, range } = options;
+  const { initialCityId, initialRange, initialData, cityId, range, prefetch } = options;
 
   const [loaded, setLoaded] = useState({ cityId: initialCityId, result: initialData });
   const cache = useRef(new Map<string, AggregateResult>([[key(initialCityId, initialRange), initialData]]));
@@ -51,6 +57,32 @@ export function useEventData(options: {
   useEffect(() => {
     void load(range, cityId);
   }, [range, cityId, load]);
+
+  /** Laufende Vorabrufe, damit derselbe Zeitraum nicht doppelt angefragt wird. */
+  const inFlight = useRef(new Set<string>());
+  const prefetchKey = prefetch?.map((target) => key(cityId, target)).join('|') ?? '';
+  useEffect(() => {
+    if (!prefetch?.length) return;
+    // Erst wenn der Browser Luft hat: der sichtbare Zeitraum geht vor.
+    const timer = window.setTimeout(() => {
+      for (const target of prefetch) {
+        const cacheKey = key(cityId, target);
+        if (cache.current.has(cacheKey) || inFlight.current.has(cacheKey)) continue;
+        inFlight.current.add(cacheKey);
+        const params = new URLSearchParams({ from: target.from, to: target.to, city: cityId });
+        fetch(`/api/events?${params}`)
+          .then((res) => (res.ok ? (res.json() as Promise<AggregateResult>) : undefined))
+          .then((next) => {
+            if (next) cache.current.set(cacheKey, next);
+          })
+          .catch(() => undefined)
+          .finally(() => inFlight.current.delete(cacheKey));
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+    // `prefetchKey` fasst die Zeiträume zusammen; das Array selbst ist jedes Mal neu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefetchKey]);
 
   return loaded.cityId === cityId ? loaded.result : emptyResult;
 }

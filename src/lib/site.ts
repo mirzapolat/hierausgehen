@@ -8,6 +8,8 @@ import { cities } from './cities.ts';
  */
 export const SITE_URL = 'https://hierausgehen.de';
 export const SITE_NAME = 'HIERAUSGEHEN.de';
+/** Der Name unter dem Icon auf dem Startbildschirm (iOS und Android). */
+export const APP_NAME = 'HIER AUSGEHEN';
 /** „München, Glasgow und Oldenburg“ – folgt der Liste in `cities.ts`. */
 export const CITY_NAMES = listOf(cities.map((city) => city.name));
 export const SITE_TITLE = `Veranstaltungskalender für ${CITY_NAMES}`;

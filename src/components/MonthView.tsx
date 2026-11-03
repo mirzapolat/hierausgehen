@@ -23,6 +23,11 @@ interface Props {
    * nach oben – so lässt sich der Übergang animieren.
    */
   collapsed?: boolean;
+  /**
+   * Während der Griff gezogen wird: wie weit eingeklappt (0 = Monat,
+   * 1 = Woche). Das Raster folgt dann ohne Übergang dem Finger.
+   */
+  collapseProgress?: number;
   /** Weitere Termine derselben Produktion wie der gewählte. */
   relatedIds?: ReadonlySet<string>;
 }
@@ -50,6 +55,7 @@ export function MonthView({
   onSelectEvent,
   compact = false,
   collapsed = false,
+  collapseProgress,
   relatedIds,
 }: Props) {
   const { format } = useSettings();
@@ -89,8 +95,20 @@ export function MonthView({
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <div
-          className={`flex flex-col ${compact ? 'transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]' : 'h-full'}`}
-          style={compact ? { transform: `translateY(${collapsed ? -focusWeek * COMPACT_ROW : 0}px)` } : undefined}
+          className={`flex flex-col ${
+            compact
+              ? collapseProgress === undefined
+                ? 'transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]'
+                : ''
+              : 'h-full'
+          }`}
+          style={
+            compact
+              ? {
+                  transform: `translateY(${-focusWeek * COMPACT_ROW * (collapseProgress ?? (collapsed ? 1 : 0))}px)`,
+                }
+              : undefined
+          }
         >
           {weeks.map((week) => (
             <div

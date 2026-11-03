@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { SettingsProvider } from '@/lib/settings/context';
 import { ServiceWorker } from '@/components/ServiceWorker';
+import { UpdateBanner } from '@/components/UpdateBanner';
 import { AnalyticsRecorder } from '@/components/AnalyticsRecorder';
 import {
   ANALYTICS_DOMAINS,
@@ -9,6 +10,7 @@ import {
   ANALYTICS_WEBSITE_ID,
 } from '@/lib/analytics';
 import {
+  APP_NAME,
   SITE_DESCRIPTION,
   SITE_KEYWORDS,
   SITE_NAME,
@@ -58,7 +60,7 @@ export const metadata: Metadata = {
   },
   category: 'events',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: 'default' },
   formatDetection: { telephone: false, date: false, address: false, email: false },
 };
 
@@ -89,7 +91,10 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="h-full" suppressHydrationWarning>
-        <SettingsProvider>{children}</SettingsProvider>
+        <SettingsProvider>
+          {children}
+          <UpdateBanner />
+        </SettingsProvider>
         <ServiceWorker />
         {/* Seitenwechsel im App Router zählt das Skript von selbst mit. */}
         <Script

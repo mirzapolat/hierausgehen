@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import type { EventGroup } from '@/lib/events/groups';
 import type { SourceDefinition, SourceResult } from '@/lib/events/types';
@@ -79,7 +78,12 @@ export function Sidebar({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto scroll-quiet px-4 py-4 lg:gap-5 lg:pr-2">
+      {/* Unten hält die Liste selbst Abstand zum Home-Indikator (die
+          Einstellungen stehen im Drei-Punkte-Menü, nicht mehr hier). */}
+      <div
+        className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto scroll-quiet px-4 pt-4 lg:gap-5 lg:pr-2"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      >
       {/* Rechts nur 8 px: die Kalenderfläche hält selbst 8 px Abstand – zusammen
           so viel wie links am Fensterrand. */}
       {/* Auf schmalen Geräten steht die Suche über dem Kalender, nicht hier. */}
@@ -176,14 +180,6 @@ export function Sidebar({
         />
       </section>
       </div>
-
-      <Link
-        href="/settings"
-        className="shrink-0 px-4 py-3 text-[12px] text-faint hairline-t hover:text-muted lg:hidden"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
-        {t('settings')}
-      </Link>
     </div>
   );
 }

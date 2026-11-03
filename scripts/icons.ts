@@ -15,9 +15,25 @@
  */
 import { writeFileSync } from 'node:fs';
 import sharp from 'sharp';
+import { GROUP_COLORS } from '../src/lib/events/groups.ts';
 
-/** Die Farben im Uhrzeigersinn, oben beginnend. Der letzte Ton läuft in den ersten zurück. */
-const STOPS = ['#ff2d55', '#ff7a00', '#ffcc00', '#34d17a', '#00b8f0', '#3d5afe', '#a23dff'];
+/**
+ * Die Farben des Rings sind die der Ordner (`groups.ts`): dieselben Töne,
+ * die im Kalender Oper von Kino unterscheiden. Das Icon zeigt damit, was
+ * die App ist: alles, was in der Stadt läuft, in einem Kreis. Ein neuer
+ * Ordner kommt beim nächsten `npm run icons` von selbst dazu.
+ *
+ * Sortiert nach Farbton, damit der Ring einmal ruhig um den Farbkreis läuft.
+ */
+const STOPS = Object.values(GROUP_COLORS).sort((a, b) => hueOf(a) - hueOf(b));
+
+/**
+ * In der App sind es Pastelltöne für Flächen. Als Ring auf Weiss, und erst
+ * recht als 16-px-Favicon, wären sie zu blass: der Ton bleibt, nur Sättigung
+ * und Helligkeit werden für das Icon angehoben (in OKLab, damit sich der
+ * Farbton dabei nicht verschiebt).
+ */
+const VIVID = { chroma: 1.55, lightness: -0.07 };
 
 interface Mark {
   /** Radius der Ringmitte, Anteil der Kantenlänge. */
@@ -68,7 +84,15 @@ function oklabToRgb([L, A, B]: [number, number, number]): [number, number, numbe
   }) as [number, number, number];
 }
 
-const LAB = STOPS.map(hexToOklab);
+function hueOf(hex: string): number {
+  const [, a, b] = hexToOklab(hex);
+  return (Math.atan2(b, a) * 180) / Math.PI + (b < 0 ? 360 : 0);
+}
+
+const LAB = STOPS.map((hex) => {
+  const [L, a, b] = hexToOklab(hex);
+  return [L + VIVID.lightness, a * VIVID.chroma, b * VIVID.chroma] as [number, number, number];
+});
 
 /**
  * Farbe an Position `t` (0–1) rundum, zwischen den Stopps gleichmässig

@@ -29,6 +29,12 @@ interface Props {
   onBackToDay: () => void;
   onClose?: () => void;
   /**
+   * Im Sheet auf dem Telefon: ohne Kopfzeile. Zurück zum Tag führt dort
+   * nirgends hin (die Tagesliste steht ohnehin unter dem Kalender), und
+   * geschlossen wird mit Griff, Wischen oder einem Tipp daneben.
+   */
+  inSheet?: boolean;
+  /**
    * Zähler statt Schalter: jede Erhöhung rollt die weiteren Termine ins Bild.
    * Nur so lässt sich derselbe Wunsch zweimal hintereinander äussern.
    */
@@ -51,6 +57,7 @@ export function DetailPanel({
   onSelectPerformance,
   onBackToDay,
   onClose,
+  inSheet = false,
   revealPerformances = 0,
   cityId,
 }: Props) {
@@ -58,6 +65,7 @@ export function DetailPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[var(--chrome)]">
+      {!inSheet && (
       <div className="flex h-12 shrink-0 items-center gap-2 px-4 hairline-b">
         {event ? (
           <button
@@ -100,8 +108,9 @@ export function DetailPanel({
           </button>
         )}
       </div>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
+      <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet pb-safe">
         {event ? (
           <EventDetail
             event={event}

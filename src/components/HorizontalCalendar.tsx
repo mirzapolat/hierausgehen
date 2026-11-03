@@ -20,6 +20,8 @@ interface Props {
   onSelectDay: (day: string) => void;
   onSelectEvent: (event: CalendarEvent) => void;
   onStep: (direction: -1 | 1) => void;
+  /** Wohin ein laufendes Wischen führt (siehe `SwipePager`). */
+  onPreview?: (direction: -1 | 0 | 1) => void;
   /** Ob es in diese Richtung überhaupt noch einen Zeitraum gibt. */
   canStep: (direction: -1 | 1) => boolean;
   /** Weitere Termine derselben Produktion wie der gewählte. */
@@ -42,6 +44,7 @@ export function HorizontalCalendar({
   onSelectDay,
   onSelectEvent,
   onStep,
+  onPreview,
   canStep,
   relatedIds,
 }: Props) {
@@ -53,6 +56,7 @@ export function HorizontalCalendar({
       anchor={anchor}
       pageAnchor={(offset) => addDays(anchor, offset * step)}
       onStep={onStep}
+      onPreview={onPreview}
       canStep={canStep}
       resetKey={mode}
       label={mode === 'day' ? t('day') : t('week')}
@@ -125,7 +129,7 @@ function WeekLists({
   selectedEventId,
   onSelectEvent,
   relatedIds,
-}: Omit<Props, 'mode' | 'onStep' | 'canStep'>) {
+}: Omit<Props, 'mode' | 'onStep' | 'onPreview' | 'canStep'>) {
   const { format, t } = useSettings();
   const from = startOfWeek(anchor);
   const to = addDays(from, 6);
@@ -140,7 +144,7 @@ function WeekLists({
     <div className="h-full min-h-0">
       {/* Desktop und quer gehaltenes Telefon: eine Bildlaufleiste für die
           ganze Woche, die Tagesköpfe bleiben oben stehen. */}
-      <div className="hidden h-full min-h-0 flex-col overflow-y-auto scroll-quiet landscape:flex lg:flex">
+      <div className="hidden h-full min-h-0 flex-col overflow-y-auto scroll-quiet pb-safe landscape:flex lg:flex">
         {/* Leicht abgesetzt – Chrome-Ton und kräftigere Linie –, damit die
             Köpfe über den durchlaufenden Listen stehen bleiben. Nur
             Beschriftungen, keine Knöpfe: einen Tag auszuwählen bewirkt in
@@ -205,7 +209,7 @@ function WeekLists({
         </div>
       </div>
 
-      <div className="h-full overflow-y-auto scroll-quiet landscape:hidden lg:hidden">
+      <div className="h-full overflow-y-auto scroll-quiet pb-safe landscape:hidden lg:hidden">
         <MobileAgenda
           from={from}
           to={to}

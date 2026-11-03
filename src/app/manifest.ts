@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { SITE_DESCRIPTION } from '@/lib/site';
+import { APP_NAME, SITE_DESCRIPTION } from '@/lib/site';
 
 /**
  * Web-App-Manifest. Damit lässt sich der Kalender auf dem Startbildschirm
@@ -7,8 +7,8 @@ import { SITE_DESCRIPTION } from '@/lib/site';
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'HIERAUSGEHEN.de',
-    short_name: 'HIERAUSGEHEN.de',
+    name: APP_NAME,
+    short_name: APP_NAME,
     description: SITE_DESCRIPTION,
     id: '/',
     start_url: '/',

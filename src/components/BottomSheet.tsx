@@ -213,15 +213,22 @@ export function BottomSheet({ shown, onClose, closeLabel, children }: Props) {
                     ${shown ? 'translate-y-0' : 'translate-y-full'}`}
         style={{
           boxShadow: 'var(--shadow-overlay)',
+          // Kein Rand unten: der Inhalt läuft bis an die Kante und hält selbst
+          // Abstand zum Home-Indikator (`pb-safe` in `DetailPanel`).
           height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
-          paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
         {/* Der Griff: eine breite, gut zu treffende Fläche über die ganze
-            Breite, sichtbar nur als kurze Linie in der Mitte. */}
-        <div aria-hidden="true" className="flex h-6 shrink-0 items-end justify-center pb-1">
+            Breite, sichtbar nur als kurze Linie in der Mitte. Ziehen
+            schliesst, ein Tipp auch: er ersetzt den Schliessen-Knopf. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={closeLabel}
+          className="flex h-7 w-full shrink-0 items-center justify-center"
+        >
           <span className="h-[5px] w-10 rounded-full bg-[var(--line-strong)]" />
-        </div>
+        </button>
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
       </div>
     </div>

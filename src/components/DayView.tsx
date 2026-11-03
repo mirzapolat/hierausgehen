@@ -55,7 +55,7 @@ export function DayView({ day, events, definitions, selectedEventId, onSelectEve
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet">
+      <div className="min-h-0 flex-1 overflow-y-auto scroll-quiet pb-safe">
         {sorted.length === 0 ? (
           <p className="px-6 py-10 text-[13px] text-faint">{t('noEventsDay')}</p>
         ) : (

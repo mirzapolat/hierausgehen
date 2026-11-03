@@ -12,6 +12,7 @@ import { useSettings } from '@/lib/settings/context';
 import { useOverlayTransition } from '@/lib/useOverlayTransition';
 import { AvailabilityDot } from './AvailabilityDot';
 import { BackToCalendar } from './BackToCalendar';
+import { BottomSheet } from './BottomSheet';
 import { DetailPanel } from './DetailPanel';
 import { Calendar, Close, Search } from './icons';
 import { SaveButton } from './SaveButton';
@@ -155,7 +156,8 @@ export function SavedScreen() {
         onSelectEvent={selectEvent}
         onSelectPerformance={selectPerformance}
         onBackToDay={() => (mobile ? setSheetOpen(false) : setPanel({ day: panel.day }))}
-        onClose={mobile ? () => setSheetOpen(false) : () => setPanel(undefined)}
+        onClose={mobile ? undefined : () => setPanel(undefined)}
+        inSheet={mobile}
       />
     );
 
@@ -339,30 +341,11 @@ export function SavedScreen() {
       </div>
 
       {/* Telefon: Details als Sheet, das von unten aufsteigt. */}
+      {/* Dasselbe Sheet wie im Kalender: mit Griff, zum Herunterwischen. */}
       {sheet.mounted && panel?.item && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            aria-label={t('close')}
-            onClick={() => setSheetOpen(false)}
-            className={`absolute inset-0 transition-opacity duration-200 ease-out
-                        ${sheet.shown ? 'opacity-100' : 'opacity-0'}`}
-            style={{ background: 'var(--overlay)' }}
-          />
-          <div
-            className={`absolute inset-x-0 bottom-0 flex flex-col overflow-hidden
-                        rounded-t-[var(--radius-sheet)] bg-[var(--chrome)]
-                        transition-transform duration-200 ease-out
-                        ${sheet.shown ? 'translate-y-0' : 'translate-y-full'}`}
-            style={{
-              boxShadow: 'var(--shadow-overlay)',
-              height: 'min(88dvh, calc(100dvh - env(safe-area-inset-top) - 8px))',
-              paddingBottom: 'env(safe-area-inset-bottom)',
-            }}
-          >
-            <div className="min-h-0 flex-1 overflow-hidden">{detail(true)}</div>
-          </div>
-        </div>
+        <BottomSheet shown={sheet.shown} onClose={() => setSheetOpen(false)} closeLabel={t('close')}>
+          {detail(true)}
+        </BottomSheet>
       )}
     </div>
   );

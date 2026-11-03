@@ -152,6 +152,14 @@ body {
 }
 
 @utility hairline-b { border-bottom: 1px solid var(--line); }
+
+/*
+ * Abstand zum Home-Indikator – innen am Ende einer Liste, nicht als Rand um
+ * sie herum. So läuft die Liste bis an die Kante und unter den Indikator,
+ * und erst ihr letzter Eintrag hält Abstand. Ein Rand aussen wäre ein leerer
+ * Streifen, an dem der Bildlauf sichtbar endet. Am Schreibtisch null.
+ */
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 @utility hairline-t { border-top: 1px solid var(--line); }
 @utility hairline-r { border-right: 1px solid var(--line); }
 @utility hairline-l { border-left: 1px solid var(--line); }

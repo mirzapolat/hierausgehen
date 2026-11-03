@@ -148,8 +148,22 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    */
   const fromToday = useMemo(() => navigationRange('day', coverageDay, coverage), [coverageDay, coverage]);
   const range = useMemo(() => loadRange(anchor, coverage), [anchor, coverage]);
+  // Die Zeiträume eines Blätterschritts vor und zurück liegen schon bereit,
+  // bevor jemand wischt: der Wechsel wartet dann nicht aufs Netz.
+  const prefetch = useMemo(
+    () => [loadRange(addMonths(anchor, 1), coverage), loadRange(addMonths(anchor, -1), coverage)],
+    [anchor, coverage],
+  );
 
-  const data = useEventData({ initialCityId, initialRange, initialData, cityId, range });
+  const data = useEventData({ initialCityId, initialRange, initialData, cityId, range, prefetch });
+
+  /**
+   * Wohin ein laufendes Wischen führt, noch bevor die Seite eingerastet ist.
+   * Titel und Zähler folgen ihm sofort; der Anker selbst wechselt erst mit
+   * `step`, wenn der Pager zur Ruhe gekommen ist.
+   */
+  const [previewAnchor, setPreviewAnchor] = useState<string | null>(null);
+  const displayAnchor = previewAnchor ?? anchor;
   const savedEvents = useSavedEvents(cityId);
   const filters = useEventFilters({
     events: data.events,
@@ -170,6 +184,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
    * aktiven Filter. Gezählt wird, was in diesem Zeitraum beginnt.
    */
   const filterSummary = useMemo(() => {
+    const anchor = displayAnchor;
     const [from, to, label] =
       view === 'month'
         ? [`${anchor.slice(0, 7)}-01`, `${anchor.slice(0, 7)}-31`, t('inMonth', { month: format.monthName(anchor) })]
@@ -188,7 +203,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
       return day >= from && day <= to;
     }).length;
     return `${count === 1 ? t('resultCountOne') : t('resultCount', { count })} ${label}`;
-  }, [view, anchor, selectedDay, events, format, t]);
+  }, [view, displayAnchor, selectedDay, events, format, t]);
 
   /**
    * Die Filter der Seite als Kalender-Abo (siehe `events/filter.ts`): wer
@@ -358,10 +373,19 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     (direction: -1 | 1) => {
       if (!canStep(direction)) return;
       setAnchor(steppedAnchor(anchor, direction));
+      setPreviewAnchor(null);
       const amount = isDayView(view) ? direction : view === 'week' ? direction * 7 : 0;
       if (amount) setSelectedDay((current) => clampDay(addDays(current, amount), navRange));
     },
     [anchor, view, navRange, canStep, steppedAnchor],
+  );
+
+  /** Vom Pager: die Seite in diese Richtung ist schon mehr als halb im Bild. */
+  const previewStep = useCallback(
+    (direction: -1 | 0 | 1) => {
+      setPreviewAnchor(direction && canStep(direction) ? steppedAnchor(anchor, direction) : null);
+    },
+    [anchor, canStep, steppedAnchor],
   );
 
   /** Sprung auf einen Tag aus der Tagesauswahl oder auf heute. */
@@ -726,6 +750,58 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     if (element.scrollTop > COLLAPSE_AFTER && room > (monthRows - 1) * COMPACT_ROW + COLLAPSE_AFTER) setMonthCollapsed(true);
   };
 
+  /**
+   * Mobil: der Griff unter dem Monat lässt sich ziehen, wie der des Sheets.
+   * Nach oben klappt der Monat auf die Woche ein, nach unten wieder auf; das
+   * Raster folgt dabei dem Finger (`gripProgress`, 0 = Monat, 1 = Woche).
+   * Losgelassen rastet es ein: mit dem Schwung des Fingers, sonst nach der
+   * halben Strecke. Ein Tippen schaltet wie bisher um.
+   */
+  const [gripProgress, setGripProgress] = useState<number | null>(null);
+  const grip = useRef({ startY: 0, start: 0, lastY: 0, lastTime: 0, velocity: 0, dragging: false });
+  const collapseRange = (monthRows - 1) * COMPACT_ROW;
+
+  const onGripStart = (e: React.TouchEvent) => {
+    const y = e.touches[0].clientY;
+    grip.current = {
+      startY: y,
+      start: monthCollapsed ? 1 : 0,
+      lastY: y,
+      lastTime: e.timeStamp,
+      velocity: 0,
+      dragging: false,
+    };
+  };
+
+  const onGripMove = (e: React.TouchEvent) => {
+    const g = grip.current;
+    const y = e.touches[0].clientY;
+    if (!g.dragging && Math.abs(y - g.startY) < 4) return;
+    g.dragging = true;
+    const elapsed = e.timeStamp - g.lastTime;
+    if (elapsed > 0) g.velocity = 0.7 * ((y - g.lastY) / elapsed) + 0.3 * g.velocity;
+    g.lastY = y;
+    g.lastTime = e.timeStamp;
+    setGripProgress(Math.min(1, Math.max(0, g.start - (y - g.startY) / collapseRange)));
+  };
+
+  const onGripEnd = (e: React.TouchEvent) => {
+    const g = grip.current;
+    if (!g.dragging) return;
+    // Kein Klick hinterher, der würde gleich wieder umschalten.
+    e.preventDefault();
+    g.dragging = false;
+    const velocity = e.timeStamp - g.lastTime > 80 ? 0 : g.velocity;
+    const progress = gripProgress ?? g.start;
+    const collapse = velocity < -0.3 ? true : velocity > 0.3 ? false : progress > 0.5;
+    setMonthCollapsed(collapse);
+    setGripProgress(null);
+    if (!collapse) agendaScroller.current?.scrollTo({ top: 0 });
+  };
+
+  /** Wie weit der Monat gerade eingeklappt ist, gezogen oder eingerastet. */
+  const collapseProgress = gripProgress ?? (monthCollapsed ? 1 : 0);
+
   // Ein anderer Monat bringt das ganze Raster zurück – seine Woche wäre sonst geraten.
   const anchorMonth = anchor.slice(0, 7);
   useEffect(() => {
@@ -774,7 +850,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     >
         <Toolbar
           view={view}
-          anchor={anchor}
+          anchor={displayAnchor}
           cityId={cityId}
           shareUrl={websiteShareUrl}
           feedFilter={feedFilter}
@@ -832,12 +908,12 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
           )}
 
           {/* Kalender */}
-          {/* Ohne Fussleiste hält die Hauptfläche selbst Abstand zum Home-Indikator. */}
+          {/* Die Hauptfläche reicht bis an die untere Kante; Abstand zum
+              Home-Indikator halten die Listen darin selbst (`pb-safe`). */}
           <main
             className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--canvas)]
                        lg:m-2 lg:rounded-[var(--radius-lg)] lg:border lg:border-line
                        lg:shadow-[var(--shadow-float)]"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
           >
             {/* Mobile: die Suche steht über dem Kalender statt in den Filtern –
                 aber erst auf Abruf über die Lupe, und solange sie etwas
@@ -868,6 +944,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                 onSelectDay={selectDay}
                 onSelectEvent={selectEvent}
                 onStep={step}
+                onPreview={previewStep}
                 canStep={canStep}
                 relatedIds={relatedIds}
               />
@@ -931,13 +1008,15 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                     Wer die Liste darunter liest, braucht vom Monat nur noch
                     die Woche: das Raster klappt beim Scrollen auf sie ein. */}
                 <div
-                  className={`shrink-0 overflow-hidden ${motion} transition-[height]`}
-                  style={{ height: COMPACT_HEAD + (monthCollapsed ? 1 : monthRows) * COMPACT_ROW }}
+                  // Während des Ziehens folgt die Höhe dem Finger ohne Übergang.
+                  className={`shrink-0 overflow-hidden ${gripProgress === null ? `${motion} transition-[height]` : ''}`}
+                  style={{ height: COMPACT_HEAD + (monthRows - collapseProgress * (monthRows - 1)) * COMPACT_ROW }}
                 >
                   <SwipePager
                     anchor={anchor}
                     pageAnchor={(offset) => addMonths(anchor, offset)}
                     onStep={step}
+                    onPreview={previewStep}
                     // Eingeklappt gehört die Geste der Woche, nicht dem Monat.
                     canStep={monthCollapsed ? () => false : canStep}
                     label={t('month')}
@@ -947,6 +1026,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                       <MonthView
                         compact
                         collapsed={monthCollapsed}
+                        collapseProgress={gripProgress ?? undefined}
                         anchor={pageAnchor}
                         events={events}
                         definitions={data.definitions}
@@ -965,16 +1045,23 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
                     setMonthCollapsed((collapsed) => !collapsed);
                     if (monthCollapsed) agendaScroller.current?.scrollTo({ top: 0 });
                   }}
+                  onTouchStart={onGripStart}
+                  onTouchMove={onGripMove}
+                  onTouchEnd={onGripEnd}
+                  onTouchCancel={onGripEnd}
                   aria-label={monthCollapsed ? t('monthExpand') : t('monthCollapse')}
                   aria-expanded={!monthCollapsed}
-                  className="grid h-3.5 shrink-0 place-items-center hairline-b"
+                  // Gut zu treffen wie der Griff des Sheets: ein breiter
+                  // Streifen, sichtbar nur als Linie. `touch-none`, damit der
+                  // Browser die Geste nicht selbst als Bildlauf nimmt.
+                  className="grid h-6 shrink-0 touch-none place-items-center hairline-b"
                 >
-                  <span className="h-[3px] w-7 rounded-full bg-[var(--line-strong)]" />
+                  <span className="h-[5px] w-10 rounded-full bg-[var(--line-strong)]" />
                 </button>
                 <div
                   ref={agendaScroller}
                   onScroll={onAgendaScroll}
-                  className="min-h-0 flex-1 overflow-y-auto scroll-quiet"
+                  className="min-h-0 flex-1 overflow-y-auto scroll-quiet pb-safe"
                 >
                   <DayAgenda
                     events={dayEvents}
@@ -1095,7 +1182,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
               setSelectedEventId(undefined);
               setSheetOpen(false);
             }}
-            onClose={() => setSheetOpen(false)}
+            inSheet
             revealPerformances={revealPerformances}
             cityId={cityId}
           />

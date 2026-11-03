@@ -15,6 +15,13 @@ interface Props {
   /** Anker einer Nachbarseite – wohin ein Wischen in diese Richtung führt. */
   pageAnchor: (offset: -1 | 1) => string;
   onStep: (direction: -1 | 1) => void;
+  /**
+   * Meldet schon während des Wischens, wohin es geht: sobald eine
+   * Nachbarseite mehr als zur Hälfte im Bild ist (0 = zurück zur Mitte).
+   * `onStep` folgt erst, wenn die Seite eingerastet ist; so kann der Titel
+   * schon vorher umspringen.
+   */
+  onPreview?: (direction: -1 | 0 | 1) => void;
   /** Ob es in diese Richtung überhaupt noch einen Zeitraum gibt. */
   canStep: (direction: -1 | 1) => boolean;
   /**
@@ -43,6 +50,7 @@ export function SwipePager({
   anchor,
   pageAnchor,
   onStep,
+  onPreview,
   canStep,
   resetKey = '',
   label,
@@ -126,9 +134,26 @@ export function SwipePager({
     [],
   );
 
+  /** Zuletzt gemeldete Richtung – gemeldet wird nur ein Wechsel. */
+  const previewed = useRef<-1 | 0 | 1>(0);
+  const preview = (direction: -1 | 0 | 1) => {
+    if (previewed.current === direction) return;
+    previewed.current = direction;
+    onPreview?.(direction);
+  };
+
+  // Mit dem neuen Anker steht wieder die Mitte im Bild.
+  useEffect(() => {
+    previewed.current = 0;
+  }, [anchor, resetKey]);
+
   const onScroll = () => {
     const element = scroller.current;
     if (!element || pageSpan === 0) return;
+    if (!navigating.current) {
+      const page = Math.round(element.scrollLeft / pageSpan);
+      preview(page < centerPage ? -1 : page > centerPage ? 1 : 0);
+    }
     if (navigating.current) {
       if (!supportsScrollEnd(element)) {
         element.scrollLeft = pageSpan * centerPage;
