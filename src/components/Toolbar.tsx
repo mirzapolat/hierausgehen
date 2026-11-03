@@ -146,6 +146,17 @@ export function Toolbar({
         )}
       </button>
 
+      {/* Suche und Filter stehen zusammen: beide grenzen ein, was der Kalender zeigt. */}
+      <button
+        type="button"
+        onClick={onOpenSearch}
+        aria-label={t('openSearch')}
+        title={`${t('openSearch')} (/)`}
+        className={`${iconButton} lg:hidden`}
+      >
+        <Search className="h-4 w-4" />
+      </button>
+
       <button
         type="button"
         onClick={onToggleSidebar}
@@ -179,7 +190,7 @@ export function Toolbar({
           Kalenderfläche: die Mitte zwischen den Spalten, nicht die des
           Fensters – die Spalten gibt es darunter nicht. */}
       <div
-        className={`absolute left-1/2 top-1/2 flex max-w-[calc(100%-14rem)] -translate-x-1/2 -translate-y-1/2
+        className={`absolute left-1/2 top-1/2 flex max-w-[calc(100%-11rem)] -translate-x-1/2 -translate-y-1/2
                     items-center gap-0.5 lg:left-[var(--nav-left)] lg:max-w-none
                     ${animateInsets ? 'lg:transition-[left] lg:duration-200 lg:ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
         style={{ '--nav-left': `calc(50% + ${(leftInset - rightInset) / 2}px)` } as React.CSSProperties}
@@ -262,16 +273,6 @@ export function Toolbar({
           className={`hidden ${stepButton} lg:grid`}
         >
           <PanelRight className={`h-4 w-4 ${detailCollapsed ? 'opacity-50' : ''}`} />
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenSearch}
-          aria-label={t('openSearch')}
-          title={`${t('openSearch')} (/)`}
-          className={`${iconButton} lg:hidden`}
-        >
-          <Search className="h-4 w-4" />
         </button>
 
         {/* Die Merkliste – mit Zahl, sobald etwas darauf steht. */}

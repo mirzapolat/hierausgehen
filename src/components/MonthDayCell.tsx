@@ -82,7 +82,6 @@ export function MonthDayCell({
           ),
     [compact, events, maxEvents, runs, selectedEventId, relatedIds],
   );
-  const hasRelated = compact && relatedIds ? events.some((event) => relatedIds.has(event.id)) : false;
 
   return (
     <div
@@ -140,13 +139,6 @@ export function MonthDayCell({
           <span className="truncate text-[11px] font-medium text-text">
             {format.monthName(day)}
           </span>
-        )}
-        {/* Weitere Aufführungen des gewählten Stücks: ein Ring, wo sonst nur Fläche ist. */}
-        {hasRelated && (
-          <span
-            aria-hidden="true"
-            className="absolute -right-0.5 top-0 h-[6px] w-[6px] rounded-full ring-[1.5px] ring-[var(--text)]"
-          />
         )}
       </div>
 

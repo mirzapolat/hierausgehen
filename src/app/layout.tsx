@@ -66,9 +66,11 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  // Der Ton der Kopfzeilen (`--chrome` in globals.css), damit Statusleiste
+  // und Kopfzeile eine Fläche sind.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#141416' },
+    { media: '(prefers-color-scheme: light)', color: '#fafaf9' },
+    { media: '(prefers-color-scheme: dark)', color: '#0e0e10' },
   ],
 };
 

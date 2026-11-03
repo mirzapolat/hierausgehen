@@ -123,8 +123,18 @@ html {
   overscroll-behavior: none;
 }
 
+/*
+ * Als App vom Startbildschirm (viewport-fit=cover) läge die Seite sonst unter
+ * der Statusleiste, und iOS legt dort einen Schleier über, was darunter
+ * durchscrollt. Deshalb beginnt die Seite unter ihr, und der Streifen darüber
+ * trägt den Ton der Kopfzeilen (`--chrome`), damit er zu ihnen gehört. Im
+ * Browser ist der Abstand null.
+ */
 body {
-  background: var(--canvas);
+  padding-top: env(safe-area-inset-top);
+  background:
+    linear-gradient(var(--chrome), var(--chrome)) top / 100% env(safe-area-inset-top) no-repeat,
+    var(--canvas);
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -198,8 +208,14 @@ body {
   transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.search-shell:hover {
-  transform: translateY(-1px);
+/*
+ * Schweben nur, wo es einen Zeiger gibt: auf dem Finger bleibt `:hover` nach
+ * dem Tippen kleben, und das Feld leuchtete dann ohne laufende Suche weiter.
+ */
+@media (hover: hover) {
+  .search-shell:hover {
+    transform: translateY(-1px);
+  }
 }
 
 /* Beim Tippen tritt das Feld einen Schritt vor – kurz federnd, nicht weit. */
@@ -242,8 +258,10 @@ body {
 }
 
 /* Beim Schweben leise, bei laufender Suche deutlich – sie bleibt ja stehen. */
-.search-shell:hover::before {
-  opacity: 0.4;
+@media (hover: hover) {
+  .search-shell:hover::before {
+    opacity: 0.4;
+  }
 }
 
 .search-shell.is-searching::before {
@@ -289,9 +307,11 @@ body {
 }
 
 /* Beim Schweben hebt sich das Feld; den Schein bringt der Verlauf dahinter. */
-.search-shell:hover .search-glass {
-  --glass-cast-near: rgb(0 0 0 / 0.05);
-  --glass-cast-far: rgb(0 0 0 / 0.07);
+@media (hover: hover) {
+  .search-shell:hover .search-glass {
+    --glass-cast-near: rgb(0 0 0 / 0.05);
+    --glass-cast-far: rgb(0 0 0 / 0.07);
+  }
 }
 
 /*
