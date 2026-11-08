@@ -93,7 +93,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="de" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script id="theme-bootstrap" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
       </head>
       <body className="h-full" suppressHydrationWarning>
         <SettingsProvider>

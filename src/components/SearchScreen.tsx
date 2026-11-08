@@ -296,8 +296,11 @@ export function SearchScreen({
       <main
         className={`flex h-full flex-col overflow-y-auto bg-[var(--canvas)] scroll-quiet ${leaving ? 'search-leave' : ''}`}
       >
-        <div className="flex shrink-0 items-center justify-between px-2 pt-2 sm:px-4 sm:pt-3">
+        <div className="relative flex shrink-0 items-center justify-between px-2 pt-2 sm:px-4 sm:pt-3">
           <ShareSite />
+          <div className="absolute left-1/2 top-2 z-50 -translate-x-1/2 sm:hidden">
+            <CitySelect cityId={cityId} onChange={changeCity} size="large" standalone />
+          </div>
           <TopLinks />
         </div>
 
@@ -312,14 +315,14 @@ export function SearchScreen({
 
           <div className="mt-7 w-full sm:mt-8">{field('large')}</div>
 
-          {/* Zwei Wege: suchen oder im Kalender stöbern – gleich gross, die
-              Farbe trägt nur „Suchen". */}
-          <div className="mt-5 grid w-full grid-cols-2 gap-2.5 sm:mt-6 sm:flex sm:w-auto sm:justify-center sm:gap-3">
+          {/* Zwei kompakte Wege: im Kalender stöbern oder suchen. Die Farbe
+              und die rechte Position tragen die primäre Aktion „Suchen". */}
+          <div className="mt-5 flex w-auto justify-center gap-2.5 sm:mt-6 sm:gap-3">
             <Link
               href={calendarHref}
               data-umami-event="search-open-calendar"
-              className="flex h-12 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-line
-                         bg-[var(--raised)] px-6 text-[15px] text-text hover:border-line-strong sm:px-7"
+              className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)]
+                         border border-line bg-[var(--raised)] px-4 text-[15px] text-text hover:border-line-strong sm:px-7"
             >
               <Calendar className="h-[18px] w-[18px] text-muted" />
               {t('searchOpenCalendar')}
@@ -328,8 +331,8 @@ export function SearchScreen({
               type="button"
               onClick={() => submit()}
               data-umami-event="search-submit"
-              className="flex h-12 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--accent)] px-6
-                         text-[15px] font-medium text-white hover:opacity-90 sm:px-8"
+              className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)]
+                         bg-[var(--accent)] px-4 text-[15px] font-medium text-white hover:opacity-90 sm:px-8"
             >
               <SearchIcon className="h-[18px] w-[18px]" />
               {t('searchSubmit')}
@@ -577,8 +580,11 @@ function SearchField({
                     focus-within:shadow-[0_0_0_3px_var(--accent-soft)]
                     ${large ? 'h-[52px] sm:h-14' : 'h-10'}`}
       >
-        {city}
-        <span aria-hidden="true" className={`w-px shrink-0 bg-[var(--line-strong)] ${large ? 'h-6' : 'h-5'}`} />
+        <div className={large ? 'hidden h-full sm:block' : 'h-full'}>{city}</div>
+        <span
+          aria-hidden="true"
+          className={`w-px shrink-0 bg-[var(--line-strong)] ${large ? 'hidden h-6 sm:block' : 'h-5'}`}
+        />
         <input
           id="search-input"
           ref={inputRef}
@@ -1056,10 +1062,12 @@ function CitySelect({
   cityId,
   onChange,
   size,
+  standalone = false,
 }: {
   cityId: string;
   onChange: (id: string) => void;
   size: 'large' | 'compact';
+  standalone?: boolean;
 }) {
   const { t } = useSettings();
   const [open, setOpen] = useState(false);
@@ -1084,19 +1092,22 @@ function CitySelect({
   }, [open]);
 
   return (
-    <div ref={container} className="h-full shrink-0">
+    <div ref={container} className={standalone ? 'relative' : 'relative h-full shrink-0'}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`${t('selectCity')}: ${city.name}`}
-        className={`flex h-full items-center gap-1.5 rounded-l-[var(--radius-lg)] font-medium text-text
-                    hover:bg-[var(--chrome)] ${large ? 'pl-4 pr-3 text-[15px] sm:pl-5' : 'pl-3 pr-2 text-[13px]'}`}
+        className={`flex items-center gap-1.5 ${
+          standalone
+            ? 'h-9 max-w-[132px] rounded-[var(--radius-md)] px-2 text-[14px] font-normal text-muted hover:bg-[var(--chrome)] hover:text-text'
+            : `h-full rounded-l-[var(--radius-lg)] font-medium text-text hover:bg-[var(--chrome)] ${large ? 'pl-4 pr-3 text-[15px] sm:pl-5' : 'pl-3 pr-2 text-[13px]'}`
+        }`}
       >
-        <MapPin className="h-4 w-4 shrink-0 text-accent" />
+        <MapPin className={`h-4 w-4 shrink-0 ${standalone ? 'text-faint' : 'text-accent'}`} />
         {large ? (
-          <span>{city.name}</span>
+          <span className={standalone ? 'truncate' : undefined}>{city.name}</span>
         ) : (
           <>
             <span className="sm:hidden">{city.shortName}</span>
@@ -1108,9 +1119,11 @@ function CitySelect({
       {open && (
         <ul
           role="listbox"
-          className="absolute left-0 top-[calc(100%+6px)] z-50 min-w-[230px] overflow-hidden rounded-[var(--radius-lg)]
-                     border border-line bg-[var(--raised)] py-1"
-          style={{ boxShadow: 'var(--shadow-overlay)' }}
+          className={`absolute top-[calc(100%+6px)] z-50 min-w-[230px] overflow-hidden rounded-[var(--radius-lg)]
+                      border border-line py-1 ${
+                        standalone ? 'left-1/2 -translate-x-1/2 bg-[var(--canvas)]' : 'left-0 bg-[var(--raised)]'
+                      }`}
+          style={{ boxShadow: standalone ? 'none' : 'var(--shadow-overlay)' }}
         >
           {cities.map((item) => (
             <li key={item.id}>
