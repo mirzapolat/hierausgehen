@@ -101,8 +101,11 @@ const REJECTED_CATEGORIES = new Set([
 /**
  * Namen, die gar keinen Ort meinen. Bewusst am Anfang verankert: "per Zoom"
  * ist ortlos, "Saal & Stream" ist ein Saal, der zusätzlich übertragen wird.
+ * "nicht im zakk" und "ausser Haus" sagen nur, dass es woanders stattfindet –
+ * fiele das aufs Haus zurück, stünde der Pin falsch.
  */
-const PLACELESS = /^(stream|livestream|online|per\s+zoom|zoom|digital|gastspiel|tba|tbd|ort\s+folgt)\b/i;
+const PLACELESS =
+  /^(stream|livestream|online|per\s+zoom|zoom|digital|gastspiel|tba|tbd|ort\s+folgt|nicht\s+im|au(?:ss|ß)er\s+haus)\b/i;
 
 /**
  * Allerweltsnamen für Räume.

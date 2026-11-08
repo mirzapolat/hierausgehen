@@ -66,11 +66,13 @@ export const FALLBACK_CATEGORY: EventCategory = 'Sonstiges';
  * deshalb keinen eigenen Eintrag.
  */
 const SYNONYMS: Record<EventCategory, string[]> = {
-  Oper: ['Opern', 'Opernabend', 'Musiktheater', 'Opera', 'Opera And Vocal'],
+  // Deutsche Oper am Rhein: die Sparte für junges Publikum.
+  Oper: ['Opern', 'Opernabend', 'Musiktheater', 'Opera', 'Opera And Vocal', 'Junge Oper'],
   Operette: ['Singspiel'],
   Musical: ['Musicalshow', 'Musical Gala', 'Musicalgala', 'Musical Theatre'],
   Ballett: ['Tanztheater'],
-  Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend'],
+  // „Tanz mit!": Kurse und offene Klassen des Balletts am Rhein.
+  Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend', 'Tanz mit!'],
   Theater: [
     'Schauspiel',
     'Sprechtheater',
@@ -82,6 +84,9 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     // Oldenburg: Sparten des Staatstheaters.
     'Junges Staatstheater',
     'Niederdeutsches Schauspiel',
+    // D'haus: Sparten des Schauspielhauses (Stadt:Kollektiv ist die Bürgerbühne).
+    'Junges Schauspiel',
+    'Stadt:Kollektiv',
     // Benennt die Form, nicht die Gattung – an einem Theater meist Theater.
     'Gastspiel',
     // Theater Unikum: Komödie und Solostück sind dort Sprechtheater.
@@ -186,6 +191,8 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Infotainment',
     // Theaterpädagogik: Workshops, Jugendclubs, Gespräche.
     'Theatervermittlung',
+    // zakk: Vorträge, Gespräche und Workshops der Rubrik.
+    'Politik & Gesellschaft',
   ],
   Netzwerk: ['Networking', 'Vernetzung', 'Austausch'],
   Ausstellung: ['Ausstellungen', 'Installation', 'Exhibition'],
@@ -197,7 +204,9 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   // und deren Programm quer über Konzert, Bühne und Ausstellung läuft.
   // „Sparte 7“ (Staatstheater Oldenburg) ist so ein Programm: Diskursabende,
   // Bingo, Experimente – quer durch alle Formen.
-  Kultur: ['Arts, Music and Culture', 'Arts', 'Culture', 'Sparte 7'],
+  // „Wort & Bühne" (zakk) ohne Genre-Schlagwort: Lesung, Kabarett und Slam in
+  // einer Rubrik – trägt das Schlagwort mehr, gewinnt es vorher.
+  Kultur: ['Arts, Music and Culture', 'Arts', 'Culture', 'Sparte 7', 'Wort & Bühne'],
   'Kinder & Familie': [
     'Kinder',
     'Familie',
