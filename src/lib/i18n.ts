@@ -623,6 +623,8 @@ const terms: Partial<Record<Locale, Record<Term, string>>> = {
     'Kinder & Familie': 'Children & Family',
     Kulinarik: 'Food & Drink',
     Wettbewerb: 'Competition',
+    Sport: 'Sport',
+    Markt: 'Market',
     Sonstiges: 'Other',
     // Ordner, soweit sie nicht schon oben stehen
     'Oper & Ballett': 'Opera & Ballet',

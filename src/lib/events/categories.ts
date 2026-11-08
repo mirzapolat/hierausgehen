@@ -49,6 +49,8 @@ export const CATEGORIES = [
   'Kinder & Familie',
   'Kulinarik',
   'Wettbewerb',
+  'Sport',
+  'Markt',
   'Sonstiges',
 ] as const;
 
@@ -72,7 +74,7 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   Musical: ['Musicalshow', 'Musical Gala', 'Musicalgala', 'Musical Theatre'],
   Ballett: ['Tanztheater'],
   // „Tanz mit!": Kurse und offene Klassen des Balletts am Rhein.
-  Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend', 'Tanz mit!'],
+  Tanz: ['Dance', 'Tanzen', 'Tanzshow', 'Tanzabend', 'Tanz mit!', 'Tanz Performance'],
   Theater: [
     'Schauspiel',
     'Sprechtheater',
@@ -108,6 +110,8 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Comedy-Lesung',
   ],
   Konzert: [
+    // Backstage: „Live“ heisst Konzert (vereinzelt Comedy, das Genre steht in den Hinweisen).
+    'Live',
     'Musik',
     'Live Music',
     'Livemusik',
@@ -139,6 +143,11 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Junior Conservatoire',
   ],
   Party: [
+    // Muffatwerk, Backstage („Feiern“), Printhouse (Genre statt Form).
+    'Clubbing',
+    'Clubbing & Live Act',
+    'Feiern',
+    'Techno',
     'Club',
     'Clubnacht',
     'Clubnight',
@@ -220,6 +229,8 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   ],
   Kulinarik: ['Essen', 'Küche', 'Kochen'],
   Wettbewerb: ['Wettbewerbe', 'Preisverleihung'],
+  Sport: ['Fussball', 'Public Viewing', 'Fussball Live im Backstage'],
+  Markt: ['Märkte', 'Flohmarkt', 'Designmarkt'],
   // "Other" ist der Auffangkorb der Trafalgar-Plattform für alles, was in
   // keine ihrer Gattungen passt – dasselbe, was hier "Sonstiges" heisst.
   Sonstiges: ['Extra', 'Plus Event', 'Sonstige', 'Special', 'Spezial', 'Veranstaltung', 'Event', 'Other'],

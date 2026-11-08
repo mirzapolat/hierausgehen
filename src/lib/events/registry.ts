@@ -37,6 +37,10 @@ import { werkstattkino } from './sources/werkstattkino/index.ts';
 import { wilhelm13 } from './sources/wilhelm13/index.ts';
 import { zakk } from './sources/zakk/index.ts';
 import { kommoedchen } from './sources/kommoedchen/index.ts';
+import { muffatwerk } from './sources/muffatwerk/index.ts';
+import { backstageSource } from './sources/backstage/index.ts';
+import { printhouseSource } from './sources/printhouse/index.ts';
+import { roteSonneSource } from './sources/rotesonne/index.ts';
 
 /**
  * Alle bekannten Quellen. Eine neue Quelle wird ausschliesslich hier
@@ -81,6 +85,10 @@ export const sources: EventSource[] = [
   tonhalle,
   zakk,
   kommoedchen,
+  muffatwerk,
+  backstageSource,
+  printhouseSource,
+  roteSonneSource,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));
