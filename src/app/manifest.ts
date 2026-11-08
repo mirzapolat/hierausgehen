@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
-import { APP_NAME, SITE_DESCRIPTION } from '@/lib/site';
+import { APP_NAME } from '@/lib/site';
+import { SITE_DESCRIPTION } from '@/lib/site-metadata';
 
 /**
  * Web-App-Manifest. Damit lässt sich der Kalender auf dem Startbildschirm

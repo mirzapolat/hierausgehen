@@ -9,15 +9,8 @@ import {
   ANALYTICS_SCRIPT,
   ANALYTICS_WEBSITE_ID,
 } from '@/lib/analytics';
-import {
-  APP_NAME,
-  SITE_DESCRIPTION,
-  SITE_KEYWORDS,
-  SITE_NAME,
-  SITE_TITLE,
-  pageTitle,
-  SITE_URL,
-} from '@/lib/site';
+import { APP_NAME, SITE_NAME, pageTitle, SITE_URL } from '@/lib/site';
+import { SITE_DESCRIPTION, SITE_KEYWORDS, SITE_TITLE } from '@/lib/site-metadata';
 import './globals.css';
 
 

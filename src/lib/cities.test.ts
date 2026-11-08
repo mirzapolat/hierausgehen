@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cityById, nearestCity, resolveCity, type City } from './cities.ts';
+import { cities, cityById, nearestCity, resolveCity, type City } from './cities.ts';
 
 const testCities: City[] = [
   {
@@ -53,4 +53,22 @@ test('unbekannte Angaben zaehlen nicht', () => {
 
 test('ohne Vorwissen bleibt die Stadt offen', () => {
   assert.deepEqual(resolveCity({}), { status: 'unresolved' });
+});
+
+test('Kennungen und Kürzel der Städte sind eindeutig', () => {
+  assert.equal(new Set(cities.map((city) => city.id)).size, cities.length);
+  assert.equal(new Set(cities.map((city) => city.shortName)).size, cities.length);
+  for (const city of cities) {
+    assert.match(city.id, /^[a-z-]+$/, `URL-taugliche Kennung: ${city.id}`);
+    // Wirft bei einer unbekannten Zeitzone.
+    new Intl.DateTimeFormat('de-DE', { timeZone: city.timeZone });
+  }
+});
+
+test('jede Stadt ist an ihrem eigenen Mittelpunkt die nächste', () => {
+  // Jede Stadt muss an ihrem eigenen Mittelpunkt die nächste sein – sonst
+  // stimmen Koordinaten nicht. Freising liegt nur gut 30 km von München.
+  for (const city of cities) {
+    assert.equal(nearestCity(city.coordinates).id, city.id);
+  }
 });

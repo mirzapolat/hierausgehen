@@ -3,13 +3,51 @@ name: Deploy to VPS
 on:
   push:
     branches: ["main"]
+  # Erlaubt einen erneuten Lauf von Hand (Actions → Deploy to VPS → Run
+  # workflow), etwa wenn ein Push-Lauf gar nicht erst gestartet ist.
+  workflow_dispatch:
+
+# Ein neuer Push bricht einen noch laufenden Deploy nicht ab, sondern wartet:
+# zwei rsyncs gleichzeitig auf dasselbe Verzeichnis gehen schief.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 env:
   APP_NAME: "hierausgehen"
 
 jobs:
-  # Geprüft wird lokal (siehe CLAUDE.md); hier wird nur ausgeliefert.
+  # Dieselben Prüfungen wie lokal (siehe CLAUDE.md). Schlägt eine fehl, wird
+  # nicht ausgeliefert – auf dem Server läuft dann weiter der letzte Stand.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          # Wie im Dockerfile.
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

@@ -6,6 +6,7 @@ import type { AggregateResult, CalendarEvent, EventPerformance } from '@/lib/eve
 import { addDays, addMonths, clampDay, loadRange, startOfWeek } from '@/lib/calendar';
 
 import { track } from '@/lib/analytics';
+import { cityById } from '@/lib/cities';
 import { eventsOnDay } from '@/lib/events/display';
 import type { FeedFilter } from '@/lib/events/filter';
 import { seriesRuns } from '@/lib/events/series';
@@ -16,7 +17,7 @@ import { useSettings } from '@/lib/settings/context';
 import { useAppPersistence } from '@/lib/useAppPersistence';
 import { useCalendarNavigation } from '@/lib/useCalendarNavigation';
 import { useCalendarShortcuts } from '@/lib/useCalendarShortcuts';
-import { useEventData } from '@/lib/useEventData';
+import { pendingResult, useEventData } from '@/lib/useEventData';
 import { useEventFilters } from '@/lib/useEventFilters';
 import { ActiveFilters } from './ActiveFilters';
 import { AnnouncementDialog } from './AnnouncementDialog';
@@ -123,6 +124,8 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
     [anchor, coverage],
   );
   const data = useEventData({ initialCityId, initialRange, initialData, cityId, range, prefetch });
+  /** Die Stadt steht schon in der Auswahl, hat aber noch keine Quellen. */
+  const withoutSources = data !== pendingResult && data.definitions.length === 0;
 
   const savedEvents = useSavedEvents(cityId);
   const filters = useEventFilters({
@@ -543,6 +546,12 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
             )}
 
             <ActiveFilters filters={filters} definitions={data.definitions} summary={filterSummary} />
+
+            {withoutSources && (
+              <p className="shrink-0 px-4 py-2.5 text-[12px] leading-relaxed text-muted hairline-b">
+                {t('cityNoSources', { city: cityById(cityId).name })}
+              </p>
+            )}
 
             {(view === 'day' || view === 'week') && (
               <HorizontalCalendar

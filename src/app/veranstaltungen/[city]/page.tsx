@@ -5,7 +5,7 @@ import { cities, cityById, isKnownCityId } from '@/lib/cities';
 import { getSnapshot } from '@/lib/events/snapshot';
 import { todayInZone } from '@/lib/events/schedule';
 import { SITE_NAME, SITE_URL, programmePath } from '@/lib/site';
-import { cityMetadata } from '@/lib/site-metadata';
+import { cityMetadata, hasSources } from '@/lib/site-metadata';
 import { StructuredData } from '@/components/StructuredData';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +20,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const url = new URL(programmePath(city), SITE_URL).toString();
   return {
     title, description, alternates: { canonical: url },
+    // Eine Stadt ohne Quellen ist noch eine leere Seite – nicht in den Index.
+    ...(hasSources(city) ? {} : { robots: { index: false, follow: true } }),
     openGraph: { type: 'website', locale: 'de_DE', siteName: SITE_NAME, title, description, url },
     twitter: { card: 'summary_large_image', title, description },
   };

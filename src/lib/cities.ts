@@ -47,6 +47,57 @@ export const cities: City[] = [
     country: 'DE',
     coordinates: { latitude: 53.143889, longitude: 8.213889 },
   },
+  // Noch ohne Quellen: auswählbar, der Kalender sagt dann, dass noch nichts
+  // eingebunden ist. Sitemap und Seitentitel nehmen sie erst mit der ersten
+  // Quelle auf (`site-metadata.ts`).
+  {
+    id: 'freising',
+    name: 'Freising',
+    shortName: 'FRS',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 48.402866, longitude: 11.748835 },
+  },
+  {
+    id: 'duesseldorf',
+    name: 'Düsseldorf',
+    shortName: 'DUS',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 51.227741, longitude: 6.773456 },
+  },
+  {
+    id: 'tuebingen',
+    name: 'Tübingen',
+    shortName: 'TÜB',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 48.521637, longitude: 9.057645 },
+  },
+  {
+    id: 'goettingen',
+    name: 'Göttingen',
+    shortName: 'GÖT',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 51.54128, longitude: 9.915804 },
+  },
+  {
+    id: 'augsburg',
+    name: 'Augsburg',
+    shortName: 'AUG',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 48.370545, longitude: 10.89779 },
+  },
+  {
+    id: 'regensburg',
+    name: 'Regensburg',
+    shortName: 'REG',
+    timeZone: 'Europe/Berlin',
+    country: 'DE',
+    coordinates: { latitude: 49.013432, longitude: 12.101624 },
+  },
 ];
 
 export const DEFAULT_CITY_ID = 'muenchen';

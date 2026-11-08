@@ -3,8 +3,12 @@ import type { AggregateResult } from '@/lib/events/types';
 
 type Range = { from: string; to: string };
 
-/** Solange die Daten einer anderen Stadt gehören, zeigt der Kalender nichts. */
-const emptyResult: AggregateResult = { events: [], sources: [], definitions: [] };
+/**
+ * Solange die Daten einer anderen Stadt gehören, zeigt der Kalender nichts.
+ * Exportiert, damit sich „lädt noch“ von „Stadt ohne Quellen“ unterscheiden
+ * lässt – beide haben keine Definitionen, nur dieser Stand ist es per Identität.
+ */
+export const pendingResult: AggregateResult = { events: [], sources: [], definitions: [] };
 
 /**
  * Der Datenstand zu Stadt und Zeitraum, mit Zwischenspeicher je Kombination.
@@ -84,7 +88,7 @@ export function useEventData(options: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefetchKey]);
 
-  return loaded.cityId === cityId ? loaded.result : emptyResult;
+  return loaded.cityId === cityId ? loaded.result : pendingResult;
 }
 
 function key(cityId: string, range: Range): string {
