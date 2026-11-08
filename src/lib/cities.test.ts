@@ -67,7 +67,7 @@ test('Kennungen und Kürzel der Städte sind eindeutig', () => {
 
 test('jede Stadt ist an ihrem eigenen Mittelpunkt die nächste', () => {
   // Jede Stadt muss an ihrem eigenen Mittelpunkt die nächste sein – sonst
-  // stimmen Koordinaten nicht. Freising liegt nur gut 30 km von München.
+  // stimmen Koordinaten nicht.
   for (const city of cities) {
     assert.equal(nearestCity(city.coordinates).id, city.id);
   }
