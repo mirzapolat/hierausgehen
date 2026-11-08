@@ -12,9 +12,12 @@ export const SITE_NAME = 'HIERAUSGEHEN.de';
 /** Der Name unter dem Icon auf dem Startbildschirm (iOS und Android). */
 export const APP_NAME = 'HIER AUSGEHEN';
 
-/** Der Link auf eine Stadt – die Standardstadt liegt auf der Wurzel. */
+/** Unterstützen – Spende über Stripe, öffnet in einem neuen Tab. */
+export const DONATE_URL = 'https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03';
+
+/** Der Link auf den Kalender einer Stadt – die Standardstadt ohne Parameter. */
 export function cityPath(cityId: string): string {
-  return cityId === cities[0].id ? '/' : `/?city=${cityId}`;
+  return cityId === cities[0].id ? '/calendar' : `/calendar?city=${cityId}`;
 }
 
 export function cityUrl(cityId: string): string {

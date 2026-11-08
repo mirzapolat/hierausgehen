@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
-import { returnPath } from '@/lib/return-path';
+import { useSyncExternalStore, useTransition } from 'react';
+import { isSearchPath, returnPath } from '@/lib/return-path';
 import { useSettings } from '@/lib/settings/context';
 import { ChevronLeft } from './icons';
 
 /**
- * „Zurück zum Kalender“ oben links auf Einstellungen und Merkliste – an die
- * Stelle, von der aus die Seite geöffnet wurde. Ansicht, Tag und offener
- * Termin bleiben erhalten.
+ * „Zurück“ oben links auf Einstellungen, Merkliste und Impressum – an die
+ * Stelle, von der aus die Seite geöffnet wurde: in den Kalender mit Ansicht,
+ * Tag und offenem Termin, oder auf die Suche mit derselben Anfrage. Die
+ * Beschriftung sagt, wohin.
  *
  * Der Kalender braucht einen Moment, bis er steht. Solange tritt an die
  * Stelle des Knopfs ein Ladekreis, damit der Klick sichtbar angekommen ist.
@@ -19,12 +20,20 @@ export function BackToCalendar() {
   const { cityId, t } = useSettings();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Der Weg liegt im sessionStorage – erst im Browser bekannt, auf dem
+  // Server gilt der Kalender.
+  const target = useSyncExternalStore(
+    noSubscription,
+    () => returnPath(cityId),
+    () => `/calendar?city=${encodeURIComponent(cityId)}`,
+  );
+  const label = t(isSearchPath(target) ? 'backToSearch' : 'backToCalendar');
 
   if (pending) {
     return (
       <span
         role="status"
-        aria-label={t('backToCalendar')}
+        aria-label={label}
         className="-ml-1 grid h-[26px] w-[26px] place-items-center text-muted"
       >
         <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 animate-spin" aria-hidden="true">
@@ -37,7 +46,7 @@ export function BackToCalendar() {
 
   return (
     <Link
-      href="/"
+      href={target}
       onClick={(e) => {
         e.preventDefault();
         startTransition(() => router.push(returnPath(cityId)));
@@ -46,7 +55,12 @@ export function BackToCalendar() {
                  text-muted hover:text-text"
     >
       <ChevronLeft className="h-3.5 w-3.5" />
-      {t('backToCalendar')}
+      {label}
     </Link>
   );
+}
+
+/** Der gemerkte Weg ändert sich nicht, solange die Seite offen ist. */
+function noSubscription(): () => void {
+  return () => {};
 }

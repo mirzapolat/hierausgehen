@@ -347,7 +347,7 @@ export function CalendarApp({ initialData, initialRange, initialCityId, initialA
 
   // Die allgemeine Teilen-Aktion bleibt beim Stadtkalender. Ein offenes Event
   // gehört nur in den Link des Teilen-Knopfs in dessen Detailansicht.
-  const websiteShareUrl = `/?city=${encodeURIComponent(cityId)}`;
+  const websiteShareUrl = `/calendar?city=${encodeURIComponent(cityId)}`;
 
   const showPerformances = useCallback(() => setRevealPerformances((current) => current + 1), []);
   const menu = useEventMenu({

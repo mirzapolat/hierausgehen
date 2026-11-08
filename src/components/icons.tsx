@@ -128,3 +128,10 @@ export const Bookmark = ({ filled, ...p }: Props & { filled?: boolean }) => (
     <path d="M4.5 2.5h7v11L8 10.8l-3.5 2.7z" fill={filled ? 'currentColor' : 'none'} />
   </Svg>
 );
+
+/** Herz – gefüllt, für „Unterstützen". */
+export const Heart = (p: Props) => (
+  <svg viewBox="0 0 16 16" aria-hidden="true" className={p.className ?? base} fill="currentColor">
+    <path d="M8 14s-5.75-3.4-5.75-7.6A3.15 3.15 0 0 1 8 4.55a3.15 3.15 0 0 1 5.75 1.85C13.75 10.6 8 14 8 14z" />
+  </svg>
+);

@@ -54,7 +54,7 @@ export default async function ProgrammePage({ params }: Props) {
         <h1 className="mt-8 text-3xl font-semibold">Veranstaltungen in {city.name}</h1>
         <p className="mt-4 leading-relaxed">{cityMetadata(cityId).description}</p>
         <p className="mt-3 text-sm leading-relaxed text-muted">Hier ausgehen bündelt die Programme der unten genannten Häuser. Die Quellen werden täglich abgerufen; bei Ausfällen kann der letzte verfügbare Stand angezeigt werden. Verbindliche Angaben zu Beginn, Änderungen und Tickets findest du auf der verlinkten Originalseite. Alle Uhrzeiten gelten vor Ort in {city.name}.</p>
-        <Link href={`/?city=${cityId}`} className="mt-5 inline-block rounded border border-line px-4 py-2 text-sm">Kalender öffnen und nach Datum oder Veranstaltungsart filtern</Link>
+        <Link href={`/calendar?city=${cityId}`} className="mt-5 inline-block rounded border border-line px-4 py-2 text-sm">Kalender öffnen und nach Datum oder Veranstaltungsart filtern</Link>
         <h2 className="mt-10 text-xl font-semibold">Kommende Termine</h2>
         <p className="mt-2 text-sm text-muted">Die nächsten bis zu 60 Termine aus unserem Datenstand. Weitere Termine findest du im Kalender.</p>
         {events.length === 0 && <p className="mt-6">Aktuell liegen keine kommenden Termine vor. Die Programme der Häuser sind unten direkt verlinkt.</p>}

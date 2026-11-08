@@ -255,6 +255,15 @@ export function normalizeCategory(raw: string | undefined): string | undefined {
   return parts[0];
 }
 
+/**
+ * Die Art, die ein einzelnes Wort oder eine kurze Wendung benennt – ohne
+ * Aufteilen und ohne Rückfall auf den Wortlaut. Für die Suche: „Konzerte",
+ * „Live Music" und „Kabarett" sind Arten, „Rattle" ist keine.
+ */
+export function lookupCategory(text: string): EventCategory | undefined {
+  return BY_KEY.get(categoryKey(text));
+}
+
 /** Ist der Wert Teil des kanonischen Wortschatzes? */
 export function isKnownCategory(value: string): value is EventCategory {
   return BY_KEY.get(categoryKey(value)) === value;

@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import type { AggregateResult, SourceDefinition, SourceResult, SourceStatus } from '@/lib/events/types';
 import { useSettings } from '@/lib/settings/context';
-import { ChevronLeft, External, Warning } from './icons';
+import { External, Warning } from './icons';
+import { BackToCalendar } from './BackToCalendar';
 import { SourceIcon } from './SourceIcon';
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
   cityName: string;
 }
 
-export function StatusScreen({ data, range, cityId, cityName }: Props) {
+export function StatusScreen({ data, range, cityName }: Props) {
   const { format, t } = useSettings();
   const statusById = new Map(data.sources.map((source) => [source.sourceId, source]));
   const rows = data.definitions
@@ -32,15 +32,8 @@ export function StatusScreen({ data, range, cityId, cityName }: Props) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2 bg-[var(--chrome)] px-3 hairline-b">
-        {/* Zurück in dieselbe Stadt, aus der man gekommen ist. */}
-        <Link
-          href={`/?city=${encodeURIComponent(cityId)}`}
-          className="-ml-1 flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-1 text-[12px]
-                     text-muted hover:text-text"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t('backToCalendar')}
-        </Link>
+        {/* Zurück dorthin, woher man kam – Kalender oder Suche. */}
+        <BackToCalendar />
         <h1 className="ml-2 text-[14px] font-semibold tracking-[-0.01em]">{t('status')}</h1>
       </header>
 

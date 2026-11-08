@@ -10,12 +10,11 @@ import { GROUP_COLORS } from '@/lib/events/groups';
 import { feedSearchParams, type FeedFilter } from '@/lib/events/filter';
 import { rememberReturn } from '@/lib/return-path';
 import { useSettings } from '@/lib/settings/context';
+import { DONATE_URL } from '@/lib/site';
 import { Checkbox } from './Checkbox';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 import { Calendar, Check, External, Keyboard, Link as LinkIcon, MoreHorizontal, Settings, Share } from './icons';
 import { shareLink } from './ShareButton';
-
-const DONATE_URL = 'https://donate.stripe.com/aFa8wO78f6zndFp2xF0kE03';
 
 /**
  * Das Drei-Punkte-Menü ganz rechts in der Kopfzeile. Es sammelt alles, was
@@ -157,7 +156,10 @@ export function AppMenu({
     {
       key: 'status',
       label: t('status'),
-      onSelect: () => router.push(`/status?city=${encodeURIComponent(cityId)}`),
+      onSelect: () => {
+        rememberReturn();
+        router.push(`/status?city=${encodeURIComponent(cityId)}`);
+      },
     },
     { key: 'imprint', label: t('imprint'), onSelect: () => router.push('/impressum') },
   ];

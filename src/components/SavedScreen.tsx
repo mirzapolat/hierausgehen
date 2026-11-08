@@ -126,7 +126,7 @@ export function SavedScreen() {
       date: format.localDay(event.start),
       event: event.id,
     });
-    return `/?${params}`;
+    return `/calendar?${params}`;
   };
 
   /** Weitere Termine: steht er hier, dann hier – sonst im Kalender. */

@@ -1,9 +1,8 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import Link from 'next/link';
+import { BackToCalendar } from './BackToCalendar';
 import { useSettings } from '@/lib/settings/context';
-import { ChevronLeft } from './icons';
 
 /**
  * Impressum. Bewusst schmucklos: eine Spalte, klare Reihenfolge,
@@ -15,14 +14,7 @@ export function ImprintScreen() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex h-12 shrink-0 items-center gap-2 bg-[var(--chrome)] px-3 hairline-b">
-        <Link
-          href="/"
-          className="-ml-1 flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-1 text-[12px]
-                     text-muted hover:text-text"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          {t('backToCalendar')}
-        </Link>
+        <BackToCalendar />
         <h1 className="ml-2 text-[14px] font-semibold tracking-[-0.01em]">{t('imprint')}</h1>
       </header>
 

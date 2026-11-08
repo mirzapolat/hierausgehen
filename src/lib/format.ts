@@ -31,6 +31,8 @@ export interface Formatter extends FormatOptions {
   monthYearShort: (day: string) => string;
   /** Nur der Monatsname – für enge Stellen wie den Monatswechsel im Raster. */
   monthName: (day: string) => string;
+  /** Monat kurz, ohne Punkt – „Nov", „Mär" bzw. „Nov", „Mar" – fürs Kalenderblatt. */
+  monthShort: (day: string) => string;
   weekdayShort: (day: string) => string;
   weekdayLong: (day: string) => string;
   dayNumber: (day: string) => string;
@@ -64,6 +66,7 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
   const monthYear = dateFmt({ month: 'long', year: 'numeric' });
   const monthYearShort = dateFmt({ month: 'short', year: 'numeric' });
   const monthName = dateFmt({ month: 'long' });
+  const monthShort = dateFmt({ month: 'short' });
   const dayShort = dateFmt({ weekday: 'short', day: 'numeric', month: 'short' });
   const dayShortNoWeekday = dateFmt({ day: 'numeric', month: 'short' });
   const weekdayShort = dateFmt({ weekday: 'short' });
@@ -124,6 +127,7 @@ export function createFormatter({ locale, timeZone, hour12 }: FormatOptions): Fo
     monthYear: (day) => monthYear.format(noon(day)),
     monthYearShort: (day) => monthYearShort.format(noon(day)).replace(/\./g, ''),
     monthName: (day) => monthName.format(noon(day)),
+    monthShort: (day) => monthShort.format(noon(day)).replace(/\./g, ''),
     weekdayShort: (day) => weekdayShort.format(noon(day)).replace('.', ''),
     weekdayLong: (day) => weekdayLong.format(noon(day)),
     dayNumber: (day) => String(Number(day.slice(8, 10))),

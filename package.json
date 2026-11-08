@@ -18,9 +18,12 @@
     "categories": "node --experimental-strip-types scripts/categories.ts",
     "venues": "node --experimental-strip-types scripts/venues.ts",
     "icons": "node --experimental-strip-types scripts/icons.ts",
-    "demo:pull": "node --experimental-strip-types scripts/demo-pull.ts"
+    "demo:pull": "node --experimental-strip-types scripts/demo-pull.ts",
+    "model:fetch": "node --experimental-strip-types scripts/fetch-model.ts",
+    "search:eval": "node --experimental-strip-types scripts/search-eval.ts"
   },
   "dependencies": {
+    "@huggingface/transformers": "4.3.1",
     "cheerio": "^1.2.0",
     "leaflet": "^1.9.4",
     "next": "16.3.3",

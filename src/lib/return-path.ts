@@ -1,5 +1,6 @@
 /**
- * Wohin „Zurück zum Kalender" führt.
+ * Wohin „Zurück" auf Einstellungen, Merkliste und Impressum führt – zum
+ * Kalender oder zur Suche, je nachdem, woher man kam.
  *
  * Der Kalender trägt Ansicht, Tag und offenen Termin in der Adresse. Wer die
  * Einstellungen öffnet, soll genau dorthin zurückkommen – nicht auf die
@@ -29,13 +30,20 @@ export function returnPath(cityId: string): string {
 }
 
 /**
- * Nur Adressen des Kalenders selbst kommen in Frage. Wurde in den
- * Einstellungen die Stadt gewechselt, gilt die alte Adresse nicht mehr – sie
- * würde die eben gewählte Stadt wieder überschreiben.
+ * Nur Adressen von Kalender und Suche kommen in Frage. Wurde in den
+ * Einstellungen die Stadt gewechselt, gilt eine alte Kalenderadresse nicht
+ * mehr – sie würde die eben gewählte Stadt wieder überschreiben. Die Suche
+ * gleicht die Stadt beim Öffnen selbst ab; ihre Adresse samt Anfrage bleibt.
  */
 export function resolveReturnPath(stored: string | null, cityId: string): string {
-  const fallback = `/?city=${encodeURIComponent(cityId)}`;
-  if (!stored?.startsWith('/?')) return fallback;
-  const params = new URLSearchParams(stored.slice(2));
+  const fallback = `/calendar?city=${encodeURIComponent(cityId)}`;
+  if (stored && isSearchPath(stored)) return stored;
+  if (!stored?.startsWith('/calendar?')) return fallback;
+  const params = new URLSearchParams(stored.slice('/calendar?'.length));
   return params.get('city') === cityId ? stored : fallback;
+}
+
+/** Führt der Weg zurück auf die Suche (statt in den Kalender)? */
+export function isSearchPath(path: string): boolean {
+  return path === '/search' || path.startsWith('/search?');
 }

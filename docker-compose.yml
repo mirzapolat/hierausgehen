@@ -19,6 +19,9 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       # Zwischenspeicher auf Platte. "0" schaltet ihn ab (nur zum Testen).
       EVENT_CACHE_DISK: ${EVENT_CACHE_DISK:-1}
+      # Bedeutungssuche (lokales Embedding-Modell). "0" lässt nur die
+      # Wortsuche laufen und spart den Speicher des Modells (gut 400 MB).
+      EVENT_SEMANTIC: ${EVENT_SEMANTIC:-1}
     expose:
       - "3000"
     volumes:
