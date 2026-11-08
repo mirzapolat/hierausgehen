@@ -36,6 +36,7 @@ import { volkstheater } from './sources/volkstheater/index.ts';
 import { werkstattkino } from './sources/werkstattkino/index.ts';
 import { wilhelm13 } from './sources/wilhelm13/index.ts';
 import { zakk } from './sources/zakk/index.ts';
+import { kommoedchen } from './sources/kommoedchen/index.ts';
 
 /**
  * Alle bekannten Quellen. Eine neue Quelle wird ausschliesslich hier
@@ -79,6 +80,7 @@ export const sources: EventSource[] = [
   dhaus,
   tonhalle,
   zakk,
+  kommoedchen,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));

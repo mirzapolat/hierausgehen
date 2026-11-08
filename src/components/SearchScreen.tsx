@@ -71,6 +71,36 @@ const EXAMPLES: Record<'de' | 'en', string[]> = {
     'Something for a rainy Sunday',
   ],
 };
+type SortOrder = 'relevance' | 'date';
+const SORT_ORDERS: SortOrder[] = ['relevance', 'date'];
+const SORT_KEY = 'search-sort';
+
+// Die Wahl gilt für diesen Browser; ohne Speicher bleibt sie bis zum Neuladen.
+let sortFallback: SortOrder = 'relevance';
+const sortListeners = new Set<() => void>();
+function subscribeSort(listener: () => void) {
+  sortListeners.add(listener);
+  return () => sortListeners.delete(listener);
+}
+function readSort(): SortOrder {
+  try {
+    const stored = window.localStorage.getItem(SORT_KEY);
+    if (stored === 'date' || stored === 'relevance') return stored;
+  } catch {
+    // Kein Speicher – der Wert im Speicher der Seite gilt.
+  }
+  return sortFallback;
+}
+function writeSort(order: SortOrder) {
+  sortFallback = order;
+  try {
+    window.localStorage.setItem(SORT_KEY, order);
+  } catch {
+    // Nur eine Bequemlichkeit.
+  }
+  sortListeners.forEach((listener) => listener());
+}
+
 const FACET_KEYS: Record<Facet, MessageKey> = {
   time: 'searchFacetTime',
   price: 'searchFacetPrice',
@@ -108,6 +138,9 @@ export function SearchScreen({
   const [preview, setPreview] = useState<Preview>();
   /** Im Kalender angeklickter Tag – die Liste zeigt dann nur ihn. */
   const [dayFilter, setDayFilter] = useState<string>();
+  /** Reihenfolge der Treffer; die Wahl bleibt für diesen Browser erhalten. */
+  const sortOrder = useSyncExternalStore(subscribeSort, readSort, () => 'relevance' as const);
+  const changeSort = writeSort;
 
   const showResults = ((!!data && !!data.query.trim()) || !!pendingQuery) && !leaving;
   const wide = useMediaQuery('(min-width: 1024px)');
@@ -354,11 +387,14 @@ export function SearchScreen({
   const shown = data && data.query.trim() ? data : undefined;
   const today = format.today();
   // Jeder Termin ist eine eigene Zeile – der Tagesfilter nimmt die des Tages.
-  const visibleHits = shown
+  const filteredHits = shown
     ? dayFilter
       ? shown.hits.filter((hit) => format.localDay(hit.event.start) === dayFilter)
       : shown.hits
     : [];
+  // Die API liefert nach Relevanz; nach Datum wird stabil umsortiert.
+  const visibleHits =
+    sortOrder === 'date' ? [...filteredHits].sort((a, b) => a.event.start.localeCompare(b.event.start)) : filteredHits;
   /** Ein Tag im Kalender: filtern – derselbe Tag noch einmal hebt den Filter auf. */
   const toggleDay = (day: string) => setDayFilter((current) => (current === day ? undefined : day));
 
@@ -423,6 +459,8 @@ export function SearchScreen({
               dayFilter={dayFilter}
               shownCount={visibleHits.length}
               onClearDay={() => setDayFilter(undefined)}
+              sortOrder={sortOrder}
+              onSort={changeSort}
             />
           )}
 
@@ -450,7 +488,7 @@ export function SearchScreen({
           )}
 
           {shown && visibleHits.length > 0 && (
-            <ol key={`${shown.cityId}:${shown.query}:${dayFilter ?? ''}`} className={`transition-opacity ${loading ? 'opacity-50' : ''}`}>
+            <ol key={`${shown.cityId}:${shown.query}:${dayFilter ?? ''}:${sortOrder}`} className={`transition-opacity ${loading ? 'opacity-50' : ''}`}>
               {visibleHits.map((hit, index) => (
                 <ResultRow
                   key={hit.key}
@@ -629,6 +667,8 @@ function Toolbar({
   dayFilter,
   shownCount,
   onClearDay,
+  sortOrder,
+  onSort,
 }: {
   data: SearchPayload;
   loading: boolean;
@@ -637,6 +677,8 @@ function Toolbar({
   dayFilter?: string;
   shownCount: number;
   onClearDay: () => void;
+  sortOrder: SortOrder;
+  onSort: (order: SortOrder) => void;
 }) {
   const { t, format } = useSettings();
   const count = dayFilter ? shownCount : data.total;
@@ -691,6 +733,25 @@ function Toolbar({
         <span aria-live="polite" className="text-[12px] tabular-nums text-muted">
           {loading ? t('searchLoading') : count === 1 ? t('searchResultCountOne') : t('searchResultCount', { count })}
         </span>
+        <div
+          role="group"
+          aria-label={t('searchSortAria')}
+          className="ml-auto inline-flex rounded-[var(--radius-sm)] border border-line p-[2px] text-[12px]"
+        >
+          {SORT_ORDERS.map((order) => (
+            <button
+              key={order}
+              type="button"
+              aria-pressed={sortOrder === order}
+              onClick={() => onSort(order)}
+              className={`rounded-[var(--radius-xs)] px-2 py-0.5 ${
+                sortOrder === order ? 'bg-[var(--sunken)] text-text' : 'text-muted hover:text-text'
+              }`}
+            >
+              {t(order === 'date' ? 'searchSortDate' : 'searchSortRelevance')}
+            </button>
+          ))}
+        </div>
         <Link
           href={calendarHref}
           className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 text-[12px] text-accent
