@@ -69,30 +69,41 @@ export function SwipePager({
   const offsets: (-1 | 0 | 1)[] = [...(back ? [-1 as const] : []), 0, ...(canStep(1) ? [1 as const] : [])];
   const centerPage = back ? 1 : 0;
 
+  /**
+   * Aktuelle Lage für Rückrufe, die ausserhalb eines Renderings feuern
+   * (`scrollend`, Rückfall-Timer). Ändert sich die Zahl der Seiten – etwa
+   * beim Ein- und Ausklappen des Monats, das die Nachbarn entfernt und
+   * zurückbringt –, wandert die Mitte von Seite 0 auf 1. Ein Rückruf mit der
+   * alten Mitte hielte die neu angefahrene Mitte für einen Schritt nach vorn
+   * und blätterte weiter.
+   */
+  const live = useRef({ centerPage, pageSpan, onStep });
+  useLayoutEffect(() => {
+    live.current = { centerPage, pageSpan, onStep };
+  });
+
   const settle = useCallback(() => {
     const element = scroller.current;
+    const { centerPage, pageSpan, onStep } = live.current;
     if (!element || pageSpan === 0 || navigating.current) return;
     const page = Math.round(element.scrollLeft / pageSpan);
     if (page === centerPage) return;
     navigating.current = true;
     onStep(page < centerPage ? -1 : 1);
-  }, [centerPage, onStep, pageSpan]);
+  }, []);
 
   /**
    * Alte Browser erkennen das Ende einer Geste nur über eine kurze Pause.
    * Solange nach einem Schritt noch Trägheit ankommt, bleibt der Pager
    * gesperrt und wird wieder auf die neue mittlere Seite gezogen.
    */
-  const releaseFallbackNavigation = useCallback(
-    (element: HTMLDivElement) => {
-      if (settleTimer.current) clearTimeout(settleTimer.current);
-      settleTimer.current = setTimeout(() => {
-        element.scrollLeft = pageSpan * centerPage;
-        navigating.current = false;
-      }, SCROLL_END_FALLBACK_MS);
-    },
-    [centerPage, pageSpan],
-  );
+  const releaseFallbackNavigation = useCallback((element: HTMLDivElement) => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      element.scrollLeft = live.current.pageSpan * live.current.centerPage;
+      navigating.current = false;
+    }, SCROLL_END_FALLBACK_MS);
+  }, []);
 
   useLayoutEffect(() => {
     const element = scroller.current;
