@@ -7,10 +7,20 @@ Konto.
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
-npm test         # Parser gegen gespeicherte Antworten der Quellen
+npm run dev        # http://localhost:3000, mit Demo-Daten (siehe unten)
+npm run dev:live   # dasselbe, aber mit echtem Abruf der Quellen
+npm test           # Parser gegen gespeicherte Antworten der Quellen
 npm run build
 ```
+
+`npm run dev` liest den Datenstand aus `demo/<stadt>.json` – einem Abzug der
+Live-Seite – statt die Quellen abzurufen: der Kalender steht sofort, ohne
+Tageslauf und ohne Wartezeit, und Änderungen an Oberfläche oder
+`categories.ts` sind gleich zu sehen. Fehlt der Ordner, holt der erste Start
+ihn einmal; `npm run demo:pull` holt jederzeit den neuesten Stand, der
+laufende Server übernimmt ihn ohne Neustart. Die Daten sind eingefroren
+(nichts wird umdatiert) und liegen nicht im Repository. Termine einer gerade
+erst eingebundenen Quelle stehen dort noch nicht drin – dafür `dev:live`.
 
 Ist eine Quelle gerade nicht erreichbar, füllt `npm run seed` den Cache aus den
 mitgelieferten Fixtures, damit die Oberfläche mit echten Daten läuft. Ein
@@ -45,6 +55,7 @@ src/
       snapshot.ts          täglicher Datenstand einer Stadt (zwölf Monate)
       schedule.ts          Zeitrechnung der Erhebung (5 Uhr Ortszeit)
       cache.ts             TTL-Cache mit Rückfall auf veraltete Daten
+      demo.ts              Demo-Datenstand für `npm run dev` (Abzug der Live-Seite)
       ics.ts               Termine als .ics (RFC 5545) – einzeln oder als Abo
       filter.ts            Filter, die Oberfläche und Kalender-Abo teilen
       http.ts              Timeout, Retry, Browser-Header

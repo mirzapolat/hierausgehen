@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "predev": "node --experimental-strip-types scripts/demo-pull.ts --if-missing",
+    "dev": "EVENT_DEMO=1 next dev",
+    "dev:live": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -15,7 +17,8 @@
     "check": "node --experimental-strip-types scripts/check-source.ts",
     "categories": "node --experimental-strip-types scripts/categories.ts",
     "venues": "node --experimental-strip-types scripts/venues.ts",
-    "icons": "node --experimental-strip-types scripts/icons.ts"
+    "icons": "node --experimental-strip-types scripts/icons.ts",
+    "demo:pull": "node --experimental-strip-types scripts/demo-pull.ts"
   },
   "dependencies": {
     "cheerio": "^1.2.0",

@@ -44,6 +44,10 @@ next-env.d.ts
 /.cache
 .probe/
 
+# Demo-Datenbank für `npm run dev` (Abzug der Live-Seite, `npm run demo:pull`).
+# Gut 25 MB, die bei jedem Abzug neu wären – gehört nicht in die Historie.
+/demo
+
 # Rohantworten einer Quelle, lokal abgelegt. Auf dem Server schreibt der
 # Container in dieses Verzeichnis – deshalb darf der Deploy es nicht anfassen
 # (rsync bekäme "Permission denied" und bräche den ganzen Lauf ab).

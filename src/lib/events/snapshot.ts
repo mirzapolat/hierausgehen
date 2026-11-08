@@ -10,6 +10,7 @@ import { aggregateEvents } from './aggregate.ts';
 import { locateEvents } from './geocode.ts';
 import { sourcesForCity } from './registry.ts';
 import { dedupe, isFresh, readCache, writeCache } from './cache.ts';
+import { isDemoMode, readDemoSnapshot } from './demo.ts';
 import { dedupeEvents, normalizeAndDedupeEvents } from './normalize.ts';
 import { nextRefreshAt, secondsUntilRefresh, todayInZone } from './schedule.ts';
 import { coverageRange } from '../calendar.ts';
@@ -81,6 +82,10 @@ export async function getSnapshot(
     patient?: boolean;
   } = {},
 ): Promise<AggregateResult> {
+  // Entwicklung mit eingefrorenem Abzug der Live-Seite (`demo.ts`): weder
+  // Cache noch Quellen, auch kein `force`.
+  if (isDemoMode()) return withRegistrySources(cityId, await readDemoSnapshot(cityId));
+
   const city = cityById(cityId);
   const range = snapshotRange(cityId);
   const key = cacheKey(cityId, range);
@@ -394,7 +399,7 @@ let scheduled = false;
  * regelmässig Quellen angefasst werden.
  */
 export function startDailyRefresh(): void {
-  if (scheduled || process.env.EVENT_REFRESH_SCHEDULE === '0') return;
+  if (scheduled || process.env.EVENT_REFRESH_SCHEDULE === '0' || isDemoMode()) return;
   scheduled = true;
 
   for (const city of cities) {
