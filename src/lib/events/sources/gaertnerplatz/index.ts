@@ -48,6 +48,7 @@ export const gaertnerplatz: EventSource = {
     // Greift nur, wenn die Sparten einmal nicht lesbar sind – dann ist der
     // gemeinsame Nenner des Hauses die ehrlichste Auskunft.
     defaultCategory: 'Musiktheater',
+    concerts: 'Klassik',
     homepage: 'https://www.gaertnerplatztheater.de',
     // Ausnahmsweise fest: die Erkennung liefe über die Startseite des Hauses,
     // und genau die erreicht dieser Server nicht (der Grund für den Umzug in

@@ -39,6 +39,7 @@ export const unterfahrt: EventSource = {
     cityId: 'muenchen',
     group: 'Konzert',
     defaultCategory: 'Konzert',
+    concerts: 'Konzert',
     homepage: BASE,
     enabledByDefault: true,
   },

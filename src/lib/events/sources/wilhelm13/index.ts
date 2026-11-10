@@ -25,6 +25,7 @@ export const wilhelm13: EventSource = {
     cityId: 'oldenburg',
     group: 'Konzert',
     defaultCategory: 'Konzert',
+    concerts: 'Konzert',
     homepage: BASE,
     enabledByDefault: true,
   },

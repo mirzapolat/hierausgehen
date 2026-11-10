@@ -22,6 +22,7 @@ export const backstageSource: EventSource = {
     cityId: 'muenchen',
     group: 'Konzert',
     defaultCategory: 'Konzert',
+    concerts: 'Konzert',
     homepage: `${BASE}/events`,
     enabledByDefault: true,
   },

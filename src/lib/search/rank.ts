@@ -31,7 +31,7 @@ const RELATED_GROUPS: string[][] = [
   ['Ballett', 'Tanz', 'Tanz-Show'],
   ['Theater', 'Kindertheater', 'Performance', 'Show', 'Krippenspiel'],
   ['Show', 'Comedy', 'Late Night Show', 'Tanz-Show', 'Musical'],
-  ['Konzert', 'Klassenkonzerte', 'Prüfungskonzerte', 'Singen', 'Soiree', 'Festival'],
+  ['Konzert', 'Klassik', 'Klassenkonzerte', 'Prüfungskonzerte', 'Singen', 'Soiree', 'Festival'],
   ['Literatur', 'Vortrag', 'Talk-Abend', 'Netzwerk'],
   ['Party', 'Festival'],
   ['Kinder & Familie', 'Kindertheater', 'Kinder-Jugend-Oper', 'Krippenspiel'],
@@ -51,6 +51,8 @@ for (const group of RELATED_GROUPS) {
 export function relatedness(wanted: string, actual: string | undefined): 'same' | 'related' | 'other' {
   if (!actual) return 'other';
   if (wanted === actual) return 'same';
+  // „Konzerte heute" meint auch die klassischen; „Klassik" nur diese.
+  if (wanted === 'Konzert' && actual === 'Klassik') return 'same';
   return RELATED.get(wanted)?.has(actual) ? 'related' : 'other';
 }
 

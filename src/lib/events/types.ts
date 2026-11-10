@@ -118,6 +118,14 @@ export interface SourceDefinition {
    * Wird wie jede Angabe der Quelle über `categories.ts` vereinheitlicht.
    */
   defaultCategory?: string;
+  /**
+   * Was das Haus unter „Konzert“ in der Regel spielt (siehe `classical.ts`):
+   * `Klassik` für Opernhäuser und Hochschulen – dann zählt nur ein Popzeichen
+   * im Titel dagegen –, `Konzert` für Clubs, deren Texte sonst mit Bach und
+   * „klassisch ausgebildet“ in die Klassik rutschen. Ohne Angabe entscheiden
+   * Titel und Beschreibung jedes Termins.
+   */
+  concerts?: 'Klassik' | 'Konzert';
   /** Startseite der Quelle. */
   homepage: string;
   /**

@@ -31,6 +31,7 @@ export const muffatwerk: EventSource = {
     cityId: 'muenchen',
     group: 'Konzert',
     defaultCategory: 'Konzert',
+    concerts: 'Konzert',
     homepage: BASE,
     enabledByDefault: true,
   },

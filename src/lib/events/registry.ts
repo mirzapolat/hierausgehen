@@ -41,6 +41,10 @@ import { muffatwerk } from './sources/muffatwerk/index.ts';
 import { backstageSource } from './sources/backstage/index.ts';
 import { printhouseSource } from './sources/printhouse/index.ts';
 import { roteSonneSource } from './sources/rotesonne/index.ts';
+import { lieberScholliSource } from './sources/lieberscholli/index.ts';
+import { friendsStudiosSource } from './sources/friends-studios/index.ts';
+import { werksviertelMitte } from './sources/werksviertel-mitte/index.ts';
+import { bergson } from './sources/bergson/index.ts';
 
 /**
  * Alle bekannten Quellen. Eine neue Quelle wird ausschliesslich hier
@@ -89,6 +93,10 @@ export const sources: EventSource[] = [
   backstageSource,
   printhouseSource,
   roteSonneSource,
+  lieberScholliSource,
+  friendsStudiosSource,
+  werksviertelMitte,
+  bergson,
 ];
 
 export const sourceById = new Map(sources.map((s) => [s.definition.id, s]));

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Security check...</title>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/altcha/dist/altcha.min.js" crossorigin="anonymous"></script>
+  <script>
+    window.sentryOnLoad = function() {
+      Sentry.init({
+        tracesSampleRate: 1.0,
+        // Generic "Script error." (no message/stack) only happens for cross-origin
+        // scripts we don't control (extensions, in-app-browser trackers). Our own
+        // inline code is same-origin and always reports real errors, so this never
+        // hides anything actionable.
+        //
+        // "window.webkit.messageHandlers" errors (sendDataToNative,
+        // sendPageHideMessage, ...) come from the native bridge script that
+        // Instagram/Facebook's in-app browser injects into every page it loads.
+        // We never reference window.webkit ourselves, so this is always that
+        // injected script failing, not our code.
+        //
+        // "Error invoking <method>: Java object is gone" is the Android
+        // equivalent: Instagram's in-app browser injects a
+        // navigation_performance_logger_android script (iabjs://...) that
+        // talks to a native Java bridge object via various methods
+        // (postMessage, enableDidUserTypeOnKeyboardLogging, ...). If that
+        // object is already garbage-collected (e.g. the WebView was
+        // backgrounded/torn down) when the script calls it, this error
+        // fires. We never register a native bridge of our own, so this is
+        // always that injected script, not our code.
+        ignoreErrors: [
+          /^Script error\.?$/,
+          /webkit\.messageHandlers/,
+          /Error invoking \w+: Java object is gone/,
+        ],
+        // This page is served from every customer subdomain and under a
+        // per-event path (/<eventId>/...). Because our code runs as an inline
+        // <script>, each stack frame's `filename` IS the full page URL, and
+        // the stack trace is the dominant input to Sentry's default grouping.
+        // Left untouched, the *same* error shows up as hundreds of separate
+        // issues — one per subdomain/path. We normalise the URL out of the
+        // stack frames so identical errors collapse into a single issue,
+        // regardless of where the page was served.
+        beforeSend: function (event) {
+          try {
+            var STABLE_URL = 'pow://altcha-v2';
+
+            // Only the stack frames feed the grouping hash, so this is the
+            // one place we must rewrite. request.url is NOT part of grouping,
+            // so we leave it intact — the real URL stays visible per event.
+            var values =
+              (event.exception && event.exception.values) || [];
+            values.forEach(function (value) {
+              var frames = value.stacktrace && value.stacktrace.frames;
+              if (!frames) return;
+              frames.forEach(function (frame) {
+                if (frame.filename) frame.filename = STABLE_URL;
+                if (frame.abs_path) frame.abs_path = STABLE_URL;
+              });
+            });
+
+            // Keep the origin/path searchable as a tag so you can still
+            // filter/facet by where an error happened, even though the stack
+            // frames are normalised. (request.url also still carries it.)
+            if (typeof window !== 'undefined' && window.location) {
+              event.tags = event.tags || {};
+              event.tags['pow.location'] =
+                window.location.hostname + window.location.pathname;
+            }
+
+            // Events we raise ourselves carry a semantic `reason` tag. Group
+            // by that reason (so "verify failed: 503" vs 500 don't split) plus
+            // the exception type (so a network TypeError stays separate from
+            // an HTTP-5xx Error under the same reason).
+            var reason = event.tags && event.tags.reason;
+            if (reason) {
+              var type = values[0] && values[0].type;
+              event.fingerprint = ['pow', 'altcha-v2', reason, type].filter(Boolean);
+            }
+          } catch (e) {
+            // Never let grouping instrumentation break error reporting.
+          }
+          return event;
+        },
+      });
+    };
+  </script>
+  <script src="https://sentry.monitoring.ticketio.run/js-sdk-loader/996dec5b986fdc2603b24e24dd7dc167.min.js" crossorigin="anonymous"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      border: 3px solid transparent;
+      box-sizing: border-box;
+    }
+
+    body.fallback-visible {
+      border-color: #372a7f;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .loader-container,
+    .fallback-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      font-family: sans-serif;
+      padding: clamp(1rem, 5vw, 2rem);
+      text-align: center;
+    }
+
+    .fallback-container {
+      max-width: 560px;
+      margin: 0 auto;
+      color: #333;
+    }
+
+    .fallback-container h1 {
+      font-size: clamp(1.125rem, 3.5vw, 1.5rem);
+      color: #372a7f;
+      margin: 0 0 1rem;
+    }
+
+    .fallback-container p {
+      font-size: clamp(0.875rem, 2.5vw, 1rem);
+      line-height: 1.5;
+      margin: 0.25rem 0;
+    }
+
+    .open-btn {
+      display: inline-block;
+      margin-top: 1.5rem;
+      padding: 0.75rem 1.5rem;
+      background-color: #372a7f;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    }
+
+    .open-btn:hover,
+    .open-btn:focus {
+      background-color: #54e8c4;
+      color: #372a7f;
+    }
+
+    .spinner {
+      margin: clamp(0.5rem, 3vw, 1rem) auto;
+      width: clamp(30px, 12vw, 80px);
+      height: clamp(30px, 12vw, 80px);
+      position: relative;
+      text-align: center;
+
+      -webkit-animation: sk-rotate 2.0s infinite linear;
+      animation: sk-rotate 2.0s infinite linear;
+    }
+
+    .dot1,
+    .dot2 {
+      width: 60%;
+      height: 60%;
+      display: inline-block;
+      position: absolute;
+      top: 0;
+      background-color: #372a7f;
+      border-radius: 100%;
+
+      -webkit-animation: sk-bounce 2.0s infinite ease-in-out;
+      animation: sk-bounce 2.0s infinite ease-in-out;
+    }
+
+    .dot2 {
+      top: auto;
+      bottom: 0;
+      -webkit-animation-delay: -1.0s;
+      animation-delay: -1.0s;
+      background-color: #54e8c4;
+    }
+
+    @-webkit-keyframes sk-rotate {
+      100% {
+        -webkit-transform: rotate(360deg)
+      }
+    }
+
+    @keyframes sk-rotate {
+      100% {
+        transform: rotate(360deg);
+        -webkit-transform: rotate(360deg)
+      }
+    }
+
+    @-webkit-keyframes sk-bounce {
+
+      0%,
+      100% {
+        -webkit-transform: scale(0.0)
+      }
+
+      50% {
+        -webkit-transform: scale(1.0)
+      }
+    }
+
+    @keyframes sk-bounce {
+
+      0%,
+      100% {
+        transform: scale(0.0);
+        -webkit-transform: scale(0.0);
+      }
+
+      50% {
+        transform: scale(1.0);
+        -webkit-transform: scale(1.0);
+      }
+    }
+
+    #status-text {
+      font-size: clamp(0.875rem, 2.5vw, 1.25rem);
+      max-width: 90%;
+      text-align: center;
+      line-height: 1.5;
+      margin-top: clamp(0.5rem, 3vw, 1.5rem);
+      background: linear-gradient(to right,
+          #372a7f 20%,
+          #54e8c4 30%,
+          #372a7f 40%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-size: 500% auto;
+      animation: textShine 2s ease-in infinite alternate;
+    }
+
+    .cookie-icon {
+      margin-bottom: 8px;
+    }
+
+    @keyframes textShine {
+      0% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
+    }
+
+    /* Mobile optimization */
+    @media (max-width: 480px) {
+      .loader-container {
+        padding: 1rem;
+      }
+
+      .spinner {
+        margin: clamp(0.5rem, 3vw, 1rem) auto;
+        width: clamp(30px, 20vw, 96px);
+        height: clamp(30px, 20vw, 960px);
+      }
+
+      #status-text {
+        font-size: 1.25rem;
+      }
+    }
+
+    /* Tablet optimization */
+    @media (min-width: 481px) and (max-width: 768px) {
+      .loader-container {
+        padding: 1.5rem;
+      }
+
+      .spinner {
+        width: clamp(30px, 20vw, 153px);
+        height: clamp(30px, 20vw, 153px);
+      }
+
+      #status-text {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* Large screens */
+    @media (min-width: 769px) {
+      .loader-container {
+        padding: 2rem;
+      }
+
+      #status-text {
+        font-size: 1.25rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="loader-container" id="status-ui">
+    <div class="spinner">
+      <div class="dot1"></div>
+      <div class="dot2"></div>
+    </div>
+    <p id="status-text" data-i18n="statusStarting">Starting security check...</p>
+    <button type="button" id="reload-btn" class="open-btn" data-i18n="reload" hidden>Reload page</button>
+    <button type="button" id="continue-btn" class="open-btn" data-i18n="continueBtn" hidden>Continue</button>
+  </div>
+
+  <div class="fallback-container" id="fallback-ui" hidden>
+    <div class="cookie-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <path fill="#54e8c4" transform="scale(2,2)" d="M8.5 15q.625 0 1.063-.437T10 13.5t-.437-1.062T8.5 12t-1.062.438T7 13.5t.438 1.063T8.5 15m11.975 8.3l-2.95-2.95q-1.2.8-2.587 1.225T12 22q-2.075 0-3.9-.788t-3.175-2.137T2.788 15.9T2 12q0-1.55.425-2.937T3.65 6.475L.675 3.5L2.1 2.075l19.8 19.8zm-.1-5.8L6.5 3.625q1.525-1.05 3.438-1.463t4.137.038q-.225 1.125.15 2.113t1.125 1.662t1.775.925t2.15-.125q-.775 1.725.275 2.95T21.95 11q.2 1.8-.238 3.45t-1.337 3.05" />
+      </svg>
+    </div>
+    <h1 id="fallback-title"></h1>
+    <p id="fallback-p1"></p>
+    <p id="fallback-p2"></p>
+    <a id="open-new-window-btn" class="open-btn" target="_blank" rel="noopener" hidden></a>
+    <button type="button" id="fallback-retry-btn" class="open-btn" hidden></button>
+  </div>
+
+  <div id="altcha-host"></div>
+
+  <script>
+    const CHALLENGE_URL = '/HFANgKfh/altcha/challenge';
+    const VERIFY_URL = '/HFANgKfh/altcha/verify';
+    const COOKIE_TEST_NAME = '__waitio_pow_test';
+
+    const MAX_ATTEMPTS = 3;
+    // Real PoW loops fire several attempts within a few seconds (each solve
+    // is sub-second). Window of 1 min catches every loop while letting a
+    // returning user retry after fixing their browser settings.
+    const LOOP_WINDOW_MS = 30 * 1000;
+    // Per-event key. A shop page embedding several gateway iframes at once
+    // would otherwise share the same counter across events (sessionStorage
+    // is keyed by origin + top-level browsing context, not by iframe), and
+    // a loop on one event would falsely trip the fallback for the others.
+    const ATTEMPTS_KEY = 'waitio_pow_attempts_HFANgKfh';
+    // Healthy verify round-trip is sub-second. 3s comfortably absorbs slow
+    // networks while still feeling responsive when Safari 18 silently swallows
+    // the auto-fired POST.
+    const VERIFY_WATCHDOG_MS = 3 * 1000;
+    // The gateway sits behind an ALB; a rolling deploy or a momentary
+    // health-check gap on one task can return a bare 503 with no
+    // corresponding application error. That's infra noise, not a rejected
+    // solution, so retry a couple of times before giving up.
+    const VERIFY_RETRY_DELAYS_MS = [500, 1500];
+
+    const translations = {
+      en: {
+        title: 'Security check...',
+        statusStarting: 'Starting security check...',
+        reload: 'Reload page',
+        verifying: 'Quick check to make sure tickets go to real fans...',
+        verified: 'Check successful! Redirecting you now.',
+        verifyStuck: 'Redirect is taking longer than expected.',
+        continueBtn: 'Continue',
+        error: 'Oops! Something went wrong. Please reload the page.',
+        // iframe-context fallback (escape hatch available)
+        iframeFallbackTitle: 'Your browser is a bit out of date',
+        iframeFallbackP1: 'A newer cookie feature that the shop needs in embedded views is not yet supported by your browser.',
+        iframeFallbackP2: 'No problem — just open the shop in a new window to continue. Alternatively, you can update your browser to the latest version.',
+        openNewWindow: 'Open shop in new window',
+        // top-level-context fallback (no escape hatch, user must change settings)
+        topLevelFallbackTitle: "We can't store cookies in your browser",
+        topLevelFallbackP1: 'The shop needs to set a small session cookie to let you in. Your current browser settings are blocking this.',
+        topLevelFallbackP2: 'Please allow cookies for this site, exit private/incognito mode, or try a different browser.',
+        tryAgain: 'Try again',
+      },
+      de: {
+        title: 'Sicherheitsprüfung...',
+        statusStarting: 'Sicherheits-Check wird gestartet...',
+        reload: 'Seite neu laden',
+        verifying: 'Kurzer Check, damit die Tickets bei echten Fans landen...',
+        verified: 'Check erfolgreich! Du wirst jetzt weitergeleitet.',
+        verifyStuck: 'Die Weiterleitung dauert länger als erwartet.',
+        continueBtn: 'Weiter',
+        error: 'Ups! Da ist etwas schiefgelaufen. Bitte lade die Seite neu.',
+        iframeFallbackTitle: 'Dein Browser ist leider nicht ganz aktuell',
+        iframeFallbackP1: 'Eine neuere Cookie-Funktion, die der Shop in eingebetteten Ansichten braucht, wird von deinem Browser noch nicht unterstützt.',
+        iframeFallbackP2: 'Kein Problem — öffne den Shop einfach in einem neuen Fenster, dann geht’s direkt weiter. Alternativ kannst du deinen Browser auf die neueste Version aktualisieren.',
+        openNewWindow: 'Shop im neuen Fenster öffnen',
+        topLevelFallbackTitle: 'Cookies können in deinem Browser nicht gespeichert werden',
+        topLevelFallbackP1: 'Der Shop muss ein kleines Session-Cookie setzen, um dich einlassen zu können. Deine aktuellen Browser-Einstellungen blockieren das.',
+        topLevelFallbackP2: 'Bitte erlaube Cookies für diese Seite, beende den Inkognito-/Privatmodus oder probiere einen anderen Browser.',
+        tryAgain: 'Erneut versuchen',
+      },
+      hr: {
+        title: 'Sigurnosna provjera...',
+        statusStarting: 'Pokretanje sigurnosne provjere...',
+        reload: 'Ponovno učitaj stranicu',
+        verifying: 'Kratka provjera kako bi ulaznice završile kod pravih fanova...',
+        verified: 'Provjera uspješna! Sada te preusmjeravamo.',
+        verifyStuck: 'Preusmjeravanje traje duže nego što je očekivano.',
+        continueBtn: 'Nastavi',
+        error: 'Ups! Nešto je pošlo po zlu. Molimo, ponovno učitaj stranicu.',
+        iframeFallbackTitle: 'Tvoj preglednik nije sasvim ažuran',
+        iframeFallbackP1: 'Noviju funkciju kolačića koja je trgovini potrebna u ugrađenim prikazima tvoj preglednik još ne podržava.',
+        iframeFallbackP2: 'Nema problema — jednostavno otvori trgovinu u novom prozoru kako bi nastavio/la. Alternativno, ažuriraj svoj preglednik na najnoviju verziju.',
+        openNewWindow: 'Otvori trgovinu u novom prozoru',
+        topLevelFallbackTitle: 'Ne možemo spremiti kolačiće u tvojem pregledniku',
+        topLevelFallbackP1: 'Trgovini je potreban mali sesijski kolačić kako bi te pustila unutra. Trenutačne postavke tvojeg preglednika to blokiraju.',
+        topLevelFallbackP2: 'Molimo dopusti kolačiće za ovu stranicu, izađi iz privatnog/anonimnog načina rada ili isprobaj drugi preglednik.',
+        tryAgain: 'Pokušaj ponovno',
+      },
+      nl: {
+        title: 'Veiligheidscontrole...',
+        statusStarting: 'Veiligheidscontrole wordt gestart...',
+        reload: 'Pagina opnieuw laden',
+        verifying: 'Korte check, zodat de tickets bij echte fans terechtkomen...',
+        verified: 'Controle geslaagd! Je wordt nu doorgestuurd.',
+        verifyStuck: 'Doorverwijzen duurt langer dan verwacht.',
+        continueBtn: 'Verder',
+        error: 'Oeps! Er ging iets mis. Laad de pagina opnieuw.',
+        iframeFallbackTitle: 'Je browser is helaas niet helemaal up-to-date',
+        iframeFallbackP1: 'Een nieuwere cookiefunctie die de shop in ingesloten weergaven nodig heeft, wordt nog niet door je browser ondersteund.',
+        iframeFallbackP2: 'Geen probleem — open de shop gewoon in een nieuw venster om verder te gaan. Je kunt je browser ook bijwerken naar de nieuwste versie.',
+        openNewWindow: 'Shop in nieuw venster openen',
+        topLevelFallbackTitle: 'We kunnen geen cookies opslaan in je browser',
+        topLevelFallbackP1: 'De shop moet een kleine sessiecookie opslaan om je toe te laten. Je huidige browserinstellingen blokkeren dit.',
+        topLevelFallbackP2: 'Sta cookies toe voor deze site, sluit de privé-/incognitomodus af of probeer een andere browser.',
+        tryAgain: 'Opnieuw proberen',
+      },
+    };
+
+    const lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    const dict = translations[lang] || translations.en;
+    const t = (key) => dict[key] || translations.en[key];
+
+    document.documentElement.lang = translations[lang] ? lang : 'en';
+    document.title = t('title');
+    document.querySelectorAll('[data-i18n]').forEach((el) => {
+      el.textContent = t(el.dataset.i18n);
+    });
+
+    const statusUi = document.querySelector('#status-ui');
+    const statusText = document.querySelector('#status-text');
+    const fallbackUi = document.querySelector('#fallback-ui');
+    const reloadBtn = document.querySelector('#reload-btn');
+    const continueBtn = document.querySelector('#continue-btn');
+
+    reloadBtn.addEventListener('click', () => window.location.reload());
+
+    function showError(message) {
+      statusText.innerText = message;
+      reloadBtn.hidden = false;
+    }
+
+    function withSentry(fn) {
+      if (typeof Sentry === 'undefined') return;
+      Sentry.onLoad(function() {
+        fn(Sentry);
+      });
+    }
+
+    function isInIframe() {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return true;
+      }
+    }
+
+    function hasCookie(name) {
+      return document.cookie
+        .split(';')
+        .some((c) => c.trim().startsWith(name + '='));
+    }
+
+    function safeSpanEnd(span) {
+      if (span && typeof span.end === 'function') {
+        try {
+          span.end();
+        } catch (err) {
+          // This can throw if the span was already ended or if Sentry isn't properly initialized
+          // we do not want to break our flow because of sentry, so we catch and log it to avoid breaking the flow.
+          console.warn('Error ending span:', err);
+        }
+      }
+    }
+
+    // Bumps the per-tab PoW attempt counter. Returns the new count, or null
+    // if sessionStorage is unavailable (a strong signal that this browser
+    // context can't keep state and the user is about to loop forever).
+    //
+    // The counter has a sliding TTL: if the first attempt in the current
+    // window is older than LOOP_WINDOW_MS, we reset. This lets a returning
+    // user (who fixed their browser settings and came back a minute later)
+    // get a fresh chance instead of being stuck on the fallback forever.
+    function bumpAttempt() {
+      try {
+        const now = Date.now();
+        let state = null;
+        try {
+          const raw = sessionStorage.getItem(ATTEMPTS_KEY);
+          if (raw) state = JSON.parse(raw);
+        } catch {
+          // corrupted or legacy value — treat as fresh window
+        }
+        if (
+          !state ||
+          typeof state.firstAt !== 'number' ||
+          now - state.firstAt > LOOP_WINDOW_MS
+        ) {
+          state = {
+            count: 1,
+            firstAt: now
+          };
+        } else {
+          state.count = (state.count || 0) + 1;
+        }
+        sessionStorage.setItem(ATTEMPTS_KEY, JSON.stringify(state));
+        return state.count;
+      } catch {
+        return null;
+      }
+    }
+
+    function clearAttemptCounter() {
+      try {
+        sessionStorage.removeItem(ATTEMPTS_KEY);
+      } catch {
+        // storage is blocked; reloading will hit the storage_blocked path
+        // again, which is fine — the user is told to fix their settings.
+      }
+    }
+
+    // Shows the fallback UI with the right copy + CTA for the current context.
+    // The reason goes into the Sentry message so each trigger gets its own
+    // issue, and stays a tag so it's still filterable/aggregatable.
+    function showFallback(reason) {
+      const inIframe = isInIframe();
+      const titleEl = document.querySelector('#fallback-title');
+      const p1El = document.querySelector('#fallback-p1');
+      const p2El = document.querySelector('#fallback-p2');
+      const newWindowBtn = document.querySelector('#open-new-window-btn');
+      const retryBtn = document.querySelector('#fallback-retry-btn');
+
+      if (inIframe) {
+        titleEl.textContent = t('iframeFallbackTitle');
+        p1El.textContent = t('iframeFallbackP1');
+        p2El.textContent = t('iframeFallbackP2');
+        newWindowBtn.textContent = t('openNewWindow');
+        newWindowBtn.href = window.location.href;
+        newWindowBtn.hidden = false;
+      } else {
+        titleEl.textContent = t('topLevelFallbackTitle');
+        p1El.textContent = t('topLevelFallbackP1');
+        p2El.textContent = t('topLevelFallbackP2');
+        newWindowBtn.hidden = true;
+      }
+
+      // The retry button is shown in both variants: in the top-level case
+      // it's the only CTA; in the iframe case it sits alongside "open in
+      // new window" as the active-recovery option for users who changed
+      // their browser settings and want to try again immediately.
+      retryBtn.textContent = t('tryAgain');
+      retryBtn.onclick = () => {
+        clearAttemptCounter();
+        window.location.reload();
+      };
+      retryBtn.hidden = false;
+
+      statusUi.hidden = true;
+      fallbackUi.hidden = false;
+      document.body.classList.add('fallback-visible');
+
+      withSentry(function(Sentry) {
+        Sentry.captureMessage('pow.fallback_shown: ' + reason, {
+          level: 'info',
+          tags: {
+            feature: 'pow',
+            template: 'v2',
+            reason: reason,
+            context: inIframe ? 'iframe' : 'top_level',
+          },
+        });
+      });
+    }
+
+    // Safari 18 has been observed to leave the auto-fired verify fetch
+    // suspended, likely due to engagement / user-activation gating on
+    // automatic POSTs. Starts a timer when we enter the 'verified' state;
+    // if the verify round-trip hasn't settled in time, surface a button
+    // so the user can re-trigger from a real click context and report to
+    // Sentry so we can quantify the frequency. Returns a settle handle
+    // the caller invokes once the verify promise resolves or rejects.
+    function startVerifyWatchdog(payload) {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        statusText.innerText = t('verifyStuck');
+        continueBtn.hidden = false;
+        continueBtn.onclick = () => {
+          continueBtn.hidden = true;
+          sendPayloadToGateway(payload);
+        };
+        withSentry(function(Sentry) {
+          Sentry.captureMessage('pow.verify_stuck_watchdog', {
+            level: 'warning',
+            tags: {
+              feature: 'pow',
+              template: 'v2',
+              reason: 'verify_stuck',
+            },
+          });
+        });
+      }, VERIFY_WATCHDOG_MS);
+
+      return () => {
+        settled = true;
+        clearTimeout(timer);
+      };
+    }
+
+    function startAltchaWidget() {
+      const host = document.querySelector('#altcha-host');
+      host.innerHTML =
+        '<altcha-widget id="altcha" display="invisible" style="display:none;" auto="onload"' +
+        ' challengeurl="' + CHALLENGE_URL + '"></altcha-widget>';
+      const widget = host.querySelector('#altcha');
+
+      let powSpan = null;
+      const powStartedAt = Date.now();
+      withSentry(function(Sentry) {
+        powSpan = Sentry.startInactiveSpan({
+          name: 'pow.altcha.solve',
+          op: 'pow',
+          startTime: powStartedAt / 1000,
+        });
+      });
+
+      widget.addEventListener('statechange', (ev) => {
+        const {
+          state,
+          payload
+        } = ev.detail;
+
+        if (state === 'verifying') {
+          statusText.innerText = t('verifying');
+        }
+
+        if (state === 'verified') {
+          statusText.innerText = t('verified');
+          const settleWatchdog = startVerifyWatchdog(payload);
+          safeSpanEnd(powSpan);
+          sendPayloadToGateway(payload).finally(settleWatchdog);
+        }
+
+        if (state === 'error') {
+          showError(t('error'));
+          if (powSpan) {
+            if (powSpan.setStatus) powSpan.setStatus({
+              code: 2,
+              message: 'altcha_error'
+            });
+            safeSpanEnd(powSpan);
+          }
+        }
+      });
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    // Retries on 5xx only — a rejected solution (4xx) or a network-level
+    // throw is never retriable here and is left to the caller to handle.
+    async function fetchWithRetry(url, options) {
+      let response;
+      for (let attempt = 0; ; attempt++) {
+        response = await fetch(url, options);
+
+        const isRetriableStatus = response.status >= 500;
+        if (response.ok || !isRetriableStatus || attempt >= VERIFY_RETRY_DELAYS_MS.length) {
+          return response;
+        }
+        await sleep(VERIFY_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+
+    async function sendPayloadToGateway(payload) {
+      try {
+        const response = await fetchWithRetry(VERIFY_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            payload
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`verify failed: ${response.status}`);
+        }
+
+        // just reload the page to continue with the normal flow
+        window.location.reload();
+      } catch (err) {
+        showError(t('error'));
+        // Tab is hidden/closing: fetch was almost certainly aborted by the
+        // browser tearing down the page, not a real backend issue. Skip
+        // reporting to avoid drowning Sentry in user-navigation noise.
+        if (document.visibilityState === 'hidden') {
+          return;
+        }
+        withSentry(function(Sentry) {
+          Sentry.captureException(err, {
+            tags: {
+              feature: 'pow',
+              template: 'v2',
+              reason: 'verify_fetch_failed'
+            },
+          });
+        });
+      }
+    }
+
+    async function init() {
+      // 1) Storage probe + loop counter — universal safety net.
+      //    A throw means the browser can't keep state in this context, which
+      //    is also a strong signal that cookies will be blocked. A count over
+      //    MAX_ATTEMPTS means the user has solved several PoWs in this tab
+      //    without ever getting past the session check — something downstream
+      //    is preventing the session cookie from sticking. Either way: bail.
+      const attempt = bumpAttempt();
+      if (attempt === null) {
+        showFallback('storage_blocked');
+        return;
+      }
+      if (attempt > MAX_ATTEMPTS) {
+        showFallback('loop_detected');
+        return;
+      }
+
+      // 2) Fast-path detector for the most common known failure: cross-site
+      //    iframe with cookies blocked. Catches affected users on attempt 1
+      //    instead of making them wait for the loop counter to trip.
+      if (isInIframe()) {
+        try {
+          await fetchWithRetry(CHALLENGE_URL, {
+            credentials: 'include'
+          });
+        } catch (_err) {
+          // fall through; detection happens via hasCookie() below
+        }
+
+        if (!hasCookie(COOKIE_TEST_NAME)) {
+          showFallback('iframe_cookie_blocked');
+          return;
+        }
+      }
+
+      startAltchaWidget();
+    }
+
+    init();
+  </script>
+</body>
+
+</html>

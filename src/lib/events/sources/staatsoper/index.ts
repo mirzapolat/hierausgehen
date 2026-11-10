@@ -38,6 +38,7 @@ export const staatsoper: EventSource = {
     cityId: 'muenchen',
     group: 'Oper & Ballett',
     defaultCategory: 'Oper & Ballett',
+    concerts: 'Klassik',
     homepage: BASE,
     // Die Staatsoper liefert unter /favicon.ico nichts; dies ist der Stand des
     // versionierten Assets, falls die Erkennung über die Startseite ausfällt.

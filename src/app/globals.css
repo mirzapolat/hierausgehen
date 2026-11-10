@@ -439,8 +439,11 @@ body {
 @keyframes search-header-in {
   from { opacity: 0; transform: translateY(-10px); }
 }
-@keyframes search-sidebar-in {
-  from { opacity: 0; transform: translateX(18px); }
+@keyframes search-dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+}
+@keyframes search-fade-in {
+  from { opacity: 0; }
 }
 @keyframes search-rise {
   from { opacity: 0; transform: translateY(12px); }
@@ -449,14 +452,16 @@ body {
 .search-leave { animation: search-leave 260ms cubic-bezier(0.4, 0, 1, 1) 110ms forwards; }
 .search-header-in { animation: search-header-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .search-rise { animation: search-rise 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-.search-sidebar-in { animation: search-sidebar-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.search-dialog-in { animation: search-dialog-in 220ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.search-fade-in { animation: search-fade-in 200ms ease-out both; }
 
 @media (prefers-reduced-motion: reduce) {
   .search-press,
   .search-leave,
   .search-header-in,
   .search-rise,
-  .search-sidebar-in { animation: none; }
+  .search-dialog-in,
+  .search-fade-in { animation: none; }
 }
 
 /* Der Knopf zum Leeren springt herein, sobald es etwas zu leeren gibt. */

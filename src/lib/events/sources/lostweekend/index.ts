@@ -53,6 +53,7 @@ export const lostweekend: EventSource = {
     cityId: 'muenchen',
     group: 'Club',
     defaultCategory: 'Club',
+    concerts: 'Konzert',
     homepage: BASE,
     enabledByDefault: true,
   },

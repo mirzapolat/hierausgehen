@@ -611,6 +611,7 @@ const terms: Partial<Record<Locale, Record<Term, string>>> = {
     Show: 'Show',
     Comedy: 'Comedy',
     Konzert: 'Concert',
+    Klassik: 'Classical',
     Party: 'Party',
     Festival: 'Festival',
     Kino: 'Cinema',

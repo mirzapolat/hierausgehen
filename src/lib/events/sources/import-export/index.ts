@@ -41,6 +41,7 @@ export const importExport: EventSource = {
     cityId: 'muenchen',
     group: 'Club',
     defaultCategory: 'Konzert',
+    concerts: 'Konzert',
     homepage: BASE,
     enabledByDefault: true,
   },

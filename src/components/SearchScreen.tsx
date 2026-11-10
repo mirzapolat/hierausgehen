@@ -15,6 +15,7 @@ import { addMonths, startOfMonth } from '@/lib/calendar';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import { rememberReturn } from '@/lib/return-path';
 import { DONATE_URL, pageTitle } from '@/lib/site';
+import { track } from '@/lib/analytics';
 import { AvailabilityDot } from './AvailabilityDot';
 import {
   Bookmark,
@@ -170,6 +171,7 @@ export function SearchScreen({
         if (!response.ok) throw new Error(String(response.status));
         const payload = (await response.json()) as SearchPayload;
         if (id !== request.current) return;
+        trackSearch(payload);
         setData(payload);
         setPreview(undefined);
         setDayFilter(undefined);
@@ -226,7 +228,7 @@ export function SearchScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId]);
 
-  // Escape schliesst den Termin rechts (auf dem Telefon das Sheet selbst).
+  // Escape schliesst den Termin-Dialog (auf dem Telefon das Sheet selbst).
   useEffect(() => {
     if (!preview?.event || !wide) return;
     const onKey = (event: KeyboardEvent) => {
@@ -353,7 +355,7 @@ export function SearchScreen({
           <div className="mt-5 flex w-auto justify-center gap-2.5 sm:mt-6 sm:gap-3">
             <Link
               href={calendarHref}
-              data-umami-event="search-open-calendar"
+              onClick={() => trackOpenCalendar(data)}
               className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)]
                          border border-line bg-[var(--raised)] px-4 text-[15px] text-text hover:border-line-strong sm:px-7"
             >
@@ -363,7 +365,6 @@ export function SearchScreen({
             <button
               type="button"
               onClick={() => submit()}
-              data-umami-event="search-submit"
               className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)]
                          bg-[var(--accent)] px-4 text-[15px] font-medium text-white hover:opacity-90 sm:px-8"
             >
@@ -478,6 +479,7 @@ export function SearchScreen({
               <p className="mt-1.5 text-[13px] text-muted">{t('searchNoResultsHint')}</p>
               <Link
                 href={calendarHref}
+                onClick={() => trackOpenCalendar(data)}
                 className="mt-5 inline-flex h-9 items-center gap-2 rounded-[var(--radius-md)] border border-line px-4 text-[13px]
                            text-text hover:border-line-strong"
               >
@@ -505,11 +507,11 @@ export function SearchScreen({
         </div>
 
         {/* Desktop: rechts der Kalender mit genau diesen Treffern; ein Klick
-            – hier oder in der Liste – öffnet daneben die Seitenleiste mit dem
-            Termin, wie im Kalender. */}
+            – hier oder in der Liste – öffnet den Termin als Dialog in der
+            Mitte. Die Suche bleibt dahinter stehen, kein Sprung in den Kalender. */}
         {wide && (
           <div className="relative hidden h-full min-h-0 lg:flex">
-            {/* Ein Klick irgendwo in den Kalender schliesst den Termin rechts.
+            {/* Ein Klick irgendwo in den Kalender schliesst den offenen Termin.
                 Termine selbst halten ihren Klick an (`MonthDayCell`) und öffnen
                 stattdessen ihren eigenen. */}
             <section
@@ -528,21 +530,15 @@ export function SearchScreen({
                 />
               )}
             </section>
-            {/* Liegt über dem Kalender, nicht daneben: der Kalender behält
-                seine Breite, die Seitenleiste ist ein Overlay mit Schatten. */}
-            {shown && preview?.event && (
-              <aside
-                key={preview.event.id}
-                className="search-sidebar-in absolute inset-y-0 right-0 z-20 w-[380px] max-w-full border-l border-line
-                           xl:w-[420px]"
-                style={{ boxShadow: 'var(--shadow-overlay)' }}
-              >
-                <DetailPanel {...detail(shown, preview)} />
-              </aside>
-            )}
           </div>
         )}
       </main>
+
+      {wide && shown && preview?.event && (
+        <EventDialog key={preview.event.id} onClose={() => setPreview(undefined)} closeLabel={t('close')}>
+          <DetailPanel {...detail(shown, preview)} />
+        </EventDialog>
+      )}
 
       {/* Telefon: der Kalender schwebt als Knopf über der Liste – dort gibt es
           keine Vorschau daneben. Solange ein Termin offen ist, tritt er zurück. */}
@@ -551,6 +547,7 @@ export function SearchScreen({
         <div className="pointer-events-none fixed inset-x-0 bottom-[max(16px,env(safe-area-inset-bottom))] z-30 flex justify-center">
           <Link
             href={calendarHref}
+            onClick={() => trackOpenCalendar(data)}
             className="search-rise pointer-events-auto flex h-11 items-center gap-2 rounded-full bg-[var(--accent)] px-5
                        text-[14px] font-medium text-white"
             style={{ boxShadow: 'var(--shadow-overlay)', animationDelay: '250ms' }}
@@ -571,6 +568,39 @@ export function SearchScreen({
           revealPerformances={0}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Der Termin als Dialog in der Mitte – Desktop. Escape schliesst ihn über den
+ * Tastendruck der Suche, ein Klick daneben hier.
+ */
+function EventDialog({ onClose, closeLabel, children }: { onClose: () => void; closeLabel: string; children: ReactNode }) {
+  const panel = useRef<HTMLDivElement>(null);
+  // Der Fokus gehört dem Dialog, damit Tab und Screenreader dort beginnen.
+  useEffect(() => panel.current?.focus({ preventScroll: true }), []);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-6">
+      <button
+        type="button"
+        aria-label={closeLabel}
+        onClick={onClose}
+        className="search-fade-in absolute inset-0"
+        style={{ background: 'var(--overlay)' }}
+      />
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        className="search-dialog-in relative flex h-[min(760px,calc(100dvh-3rem))] w-full max-w-[560px] flex-col overflow-hidden
+                   rounded-[var(--radius-lg)] border border-line outline-none"
+        style={{ boxShadow: 'var(--shadow-overlay)' }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
@@ -754,6 +784,7 @@ function Toolbar({
         </div>
         <Link
           href={calendarHref}
+          onClick={() => trackOpenCalendar(data)}
           className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 text-[12px] text-accent
                      hover:bg-[var(--chrome)]"
         >
@@ -869,8 +900,8 @@ function ResultRow({
     >
       <Link
         href={eventLink(data.cityId, event, day)}
-        data-umami-event="search-result"
         onClick={(e) => {
+          track('search-result', { source: event.sourceId, category: event.category, rank: rankBucket(index) });
           if (!onPreview || e.metaKey || e.ctrlKey || e.shiftKey) return;
           e.preventDefault();
           onPreview(event);
@@ -1087,6 +1118,40 @@ function CalendarPreview({
 }
 
 /** Ein Treffer öffnet den Termin im Kalender – mit Detailansicht. */
+/* ------------------------------- Zählung ------------------------------- */
+
+// Gezählt wird über `track()` statt `data-umami-event`: auf einem `<Link>`
+// fängt das Umami-Skript den Klick ab und lädt die Seite neu – die Vorschau
+// rechts käme nie zum Zug. Die Anfrage selbst wird nie mitgeschickt, nur
+// grobe Stufen und welche Angaben erkannt wurden.
+
+function trackSearch(payload: SearchPayload) {
+  const parsed = payload.parsed;
+  const facets = [
+    parsed.date && 'date',
+    parsed.times && 'time',
+    parsed.categories && 'category',
+    parsed.price && 'price',
+    parsed.tickets && 'tickets',
+    parsed.kids && 'kids',
+  ].filter(Boolean);
+  const count = payload.hits.length;
+  track('search', {
+    city: payload.cityId,
+    mode: payload.mode,
+    results: count === 0 ? '0' : count <= 5 ? '1-5' : count <= 20 ? '6-20' : '21+',
+    facets: facets.length ? facets.join(',') : 'none',
+  });
+}
+
+function trackOpenCalendar(data: SearchPayload | undefined) {
+  track('search-open-calendar', { query: data?.query.trim() ? 1 : 0 });
+}
+
+function rankBucket(index: number): string {
+  return index < 3 ? String(index + 1) : index < 10 ? '4-10' : '11+';
+}
+
 function eventLink(cityId: string, event: Pick<CalendarEvent, 'id'>, day: string): string {
   const params = new URLSearchParams({ city: cityId, view: 'month', date: day, event: event.id });
   return `/calendar?${params}`;

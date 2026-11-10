@@ -37,6 +37,7 @@ export const CATEGORIES = [
   'Show',
   'Comedy',
   'Konzert',
+  'Klassik',
   'Party',
   'Festival',
   'Kino',
@@ -97,7 +98,17 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Spielzeiteröffnung',
   ],
   Performance: ['Performances'],
-  Show: ['Show & Revue', 'Revue', 'Varieté', 'Varieteé', 'Zirkus', 'Bunter Abend', 'Lip Sync Battle'],
+  Show: [
+    // Werksviertel-Mitte: Comedy, Abende mit Programm – die Form, nicht die Gattung.
+    'Unterhaltung',
+    'Show & Revue',
+    'Revue',
+    'Varieté',
+    'Varieteé',
+    'Zirkus',
+    'Bunter Abend',
+    'Lip Sync Battle',
+  ],
   Comedy: [
     'Kabarett',
     'Kabarett & Comedy',
@@ -119,10 +130,6 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Konzert-Show',
     'Mitsingkonzert',
     'Tribute-Konzert',
-    'Sinfoniekonzert',
-    'Kammerkonzert',
-    'Liederabend',
-    'Klassik',
     'Jazz',
     'Weltmusik',
     'Chor',
@@ -136,11 +143,32 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Offenes Singen',
     // Wortlaut des Royal Conservatoire: es benennt die Sparte, nicht die Form.
     'Music',
-    'Classical Music',
     'Contemporary Music',
     'Contemporary Music And Performance',
     'Traditional Music',
     'Junior Conservatoire',
+    // Bergson: „Moods“ der Abende.
+    'Pop',
+    'Volksmusik',
+  ],
+  // Orchester, Kammermusik, Lied – getrennt vom übrigen Konzert. Die meisten
+  // Häuser schreiben nur „Konzert“; dann entscheidet `classical.ts`.
+  Klassik: [
+    'Klassische Musik',
+    'Klassisches Konzert',
+    'Klassische Konzerte',
+    'Classical',
+    'Classical Music',
+    'Sinfoniekonzert',
+    'Symphoniekonzert',
+    'Orchesterkonzert',
+    'Kammerkonzert',
+    'Kammermusik',
+    'Klavierabend',
+    'Liederabend',
+    'Arienabend',
+    'Akademiekonzert',
+    'Oratorium',
   ],
   Party: [
     // Muffatwerk, Backstage („Feiern“), Printhouse (Genre statt Form).
@@ -177,6 +205,8 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Live-Hörspiel',
     'Hörspiel',
     'Poetry',
+    // Bergson.
+    'Wort',
   ],
   Vortrag: [
     'Vortrag & Konferenz',
@@ -202,6 +232,8 @@ const SYNONYMS: Record<EventCategory, string[]> = {
     'Theatervermittlung',
     // zakk: Vorträge, Gespräche und Workshops der Rubrik.
     'Politik & Gesellschaft',
+    // Bergson: Gespräche und Workshops.
+    'Akademie',
   ],
   Netzwerk: ['Networking', 'Vernetzung', 'Austausch'],
   Ausstellung: ['Ausstellungen', 'Installation', 'Exhibition'],
@@ -229,7 +261,7 @@ const SYNONYMS: Record<EventCategory, string[]> = {
   ],
   Kulinarik: ['Essen', 'Küche', 'Kochen'],
   Wettbewerb: ['Wettbewerbe', 'Preisverleihung'],
-  Sport: ['Fussball', 'Public Viewing', 'Fussball Live im Backstage'],
+  Sport: ['Yoga', 'Fussball', 'Public Viewing', 'Fussball Live im Backstage'],
   Markt: ['Märkte', 'Flohmarkt', 'Designmarkt'],
   // "Other" ist der Auffangkorb der Trafalgar-Plattform für alles, was in
   // keine ihrer Gattungen passt – dasselbe, was hier "Sonstiges" heisst.

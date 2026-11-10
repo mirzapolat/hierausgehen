@@ -1,5 +1,6 @@
 import type { CalendarEvent, EventPerformance, SourceDefinition } from './types.ts';
 import { FALLBACK_CATEGORY, normalizeCategory } from './categories.ts';
+import { concertKind } from './classical.ts';
 import { comparable, seriesKey } from './series.ts';
 import { clean } from './text.ts';
 
@@ -68,12 +69,17 @@ function eventCategory(
   definition?: SourceDefinition,
 ): { name: string; label?: string } {
   const raw = clean(event.categoryLabel ?? event.category ?? '');
-  const name =
+  const general =
     normalizeCategory(raw) ??
     normalizeCategory(definition?.defaultCategory) ??
     normalizeCategory(definition?.group) ??
     FALLBACK_CATEGORY;
-  return { name, label: raw && raw !== name ? raw : undefined };
+  // „Konzert“ sagt nicht, ob Orchester oder Band – das klärt `classical.ts`.
+  // Ein Wortlaut, der schon „Klassik“ ist, bleibt unberührt.
+  const name = general === 'Konzert' ? concertKind(event, raw || undefined, definition) : general;
+  // „Konzert“ als Wortlaut an einem Klassikabend fügt nichts hinzu.
+  const redundant = !raw || raw === name || raw === 'Konzert';
+  return { name, label: redundant ? undefined : raw };
 }
 
 export function dedupeEvents(events: CalendarEvent[]): CalendarEvent[] {
