@@ -130,7 +130,7 @@ const SYNONYM_GROUPS: string[][] = [
   ['gitarre', 'guitar'],
   ['weihnacht', 'weihnachten', 'christmas', 'xmas', 'advent', 'weihnachtlich'],
   ['kirche', 'church'],
-  ['lustig', 'witzig', 'funny', 'komisch', 'humor', 'humour', 'komoedie', 'comedy'],
+  ['lustig', 'witzig', 'funny', 'komisch', 'humor', 'humour', 'komoedie', 'comedy', 'lachen'],
   ['romantisch', 'romantic', 'romantik', 'romance'],
   ['liebe', 'love', 'liebesgeschichte'],
   ['party', 'feiern', 'clubbing', 'club'],

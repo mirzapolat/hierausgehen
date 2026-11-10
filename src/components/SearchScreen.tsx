@@ -17,6 +17,7 @@ import { rememberReturn } from '@/lib/return-path';
 import { DONATE_URL, pageTitle } from '@/lib/site';
 import { track } from '@/lib/analytics';
 import { AvailabilityDot } from './AvailabilityDot';
+import { ScribbleHint } from './ScribbleHint';
 import {
   Bookmark,
   Calendar,
@@ -353,15 +354,18 @@ export function SearchScreen({
           {/* Zwei kompakte Wege: im Kalender stöbern oder suchen. Die Farbe
               und die rechte Position tragen die primäre Aktion „Suchen". */}
           <div className="mt-5 flex w-auto justify-center gap-2.5 sm:mt-6 sm:gap-3">
-            <Link
-              href={calendarHref}
-              onClick={() => trackOpenCalendar(data)}
-              className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)]
-                         border border-line bg-[var(--raised)] px-4 text-[15px] text-text hover:border-line-strong sm:px-7"
-            >
-              <Calendar className="h-[18px] w-[18px] text-muted" />
-              {t('searchOpenCalendar')}
-            </Link>
+            <div className="relative">
+              <Link
+                href={calendarHref}
+                onClick={() => trackOpenCalendar(data)}
+                className="flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)]
+                           border border-line bg-[var(--raised)] px-4 text-[15px] text-text hover:border-line-strong sm:px-7"
+              >
+                <Calendar className="h-[18px] w-[18px] text-muted" />
+                {t('searchOpenCalendar')}
+              </Link>
+              <ScribbleHint text={t('searchCalendarHint')} />
+            </div>
             <button
               type="button"
               onClick={() => submit()}
@@ -455,7 +459,6 @@ export function SearchScreen({
             <Toolbar
               data={shown}
               loading={loading}
-              calendarHref={calendarHref}
               onReplace={replaceQuery}
               dayFilter={dayFilter}
               shownCount={visibleHits.length}
@@ -692,7 +695,6 @@ function SearchField({
 function Toolbar({
   data,
   loading,
-  calendarHref,
   onReplace,
   dayFilter,
   shownCount,
@@ -702,7 +704,6 @@ function Toolbar({
 }: {
   data: SearchPayload;
   loading: boolean;
-  calendarHref: string;
   onReplace: (query: string) => void;
   dayFilter?: string;
   shownCount: number;
@@ -782,15 +783,6 @@ function Toolbar({
             </button>
           ))}
         </div>
-        <Link
-          href={calendarHref}
-          onClick={() => trackOpenCalendar(data)}
-          className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2 py-1 text-[12px] text-accent
-                     hover:bg-[var(--chrome)]"
-        >
-          <Calendar className="h-3.5 w-3.5" />
-          {t('searchOpenCalendar')}
-        </Link>
       </div>
 
       {data.relaxed.length > 0 && data.hits.length > 0 && (

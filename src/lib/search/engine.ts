@@ -161,7 +161,10 @@ function run(
   active: Set<Facet>,
   options: SearchOptions,
 ): { result: Omit<SearchResult, 'relaxed'>; textUnknown: boolean } {
-  const textMode = active.has('text') && parsed.words.length > 0;
+  // Nur Stimmungswörter („was Lustiges") sind kein Suchtext, den ein Termin
+  // enthalten muss: dann wird gestöbert, und Bedeutung und Art ordnen.
+  const moods = new Set(parsed.moods);
+  const textMode = active.has('text') && parsed.words.some((word) => !moods.has(word));
   const z = options.similarity ? zScores(options.similarity) : undefined;
   const useSemantic = !!z && (textMode || !!parsed.vague);
 
@@ -214,6 +217,19 @@ function run(
               .slice(0, open ? Infinity : 150)
           : [];
       for (const [docIndex] of semanticOnly) candidates.set(docIndex, { lexical: 0, semantic: 0, coverage: 0 });
+      // Ausdrücklich genannte Art („moderne Kunst Ausstellung"): jede
+      // Produktion dieser Art kommt in Frage, auch ohne die Wörter – die
+      // Bedeutung ordnet sie. Sonst gewinnt das Konzert, in dessen Text
+      // zufällig „Kunst" steht, gegen jede Ausstellung. Nur wenn die
+      // Wortsuche unsicher ist – „Theater mit Simon Rattle" sucht Rattle.
+      if (alpha >= 0.3 && active.has('category') && parsed.categories) {
+        index.docs.forEach((doc, docIndex) => {
+          if (candidates.has(docIndex)) return;
+          if (categoryFit(parsed.categories!.values, doc.representative.category, true) === 1) {
+            candidates.set(docIndex, { lexical: 0, semantic: 0, coverage: 0 });
+          }
+        });
+      }
       for (const [docIndex, candidate] of candidates) {
         candidate.semantic = Number.isFinite(z![docIndex]) ? calibrate(z![docIndex]) : 0;
       }
@@ -368,7 +384,7 @@ function fitOf(
     if (value === EXCLUDE) return EXCLUDE;
     fit *= value;
   }
-  fit *= hintFit(parsed.hints, event.category);
+  fit *= hintFit(parsed.hints, event.category, strict);
 
   // „Für Kinder" ohne weitere Suchwörter verlangt Kinderprogramm; mit
   // Suchwörtern rückt es nur nach vorn.
@@ -392,7 +408,21 @@ function fitOf(
   }
 
   if (parsed.evening) fit *= eveningFit(minutes);
+  if (parsed.language) fit *= isEnglish(doc) ? 1 : 0.45;
   return fit;
+}
+
+const ENGLISH = /\b(?:english|englisch|englischsprachig\w*|in english|auf englisch|english[- ]language|english[- ]speaking)\b/i;
+const englishCache = new WeakMap<SearchDoc, boolean>();
+
+/** Steht irgendwo im Text, dass der Abend englisch ist? */
+function isEnglish(doc: SearchDoc): boolean {
+  let value = englishCache.get(doc);
+  if (value === undefined) {
+    value = ENGLISH.test(Object.values(doc.fields).join(' '));
+    englishCache.set(doc, value);
+  }
+  return value;
 }
 
 /* -------------------------------- Prior -------------------------------- */

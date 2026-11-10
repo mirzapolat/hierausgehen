@@ -93,9 +93,10 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html lang="de" className="h-full antialiased" suppressHydrationWarning>
       <head>
-        <Script id="theme-bootstrap" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
+        {/* Bewusst ein schlichtes <script>: steht im Server-HTML, läuft vor dem
+            ersten Malen und wird nur hydriert – `next/script` mit
+            beforeInteractive löst in React 19 eine Konsolenwarnung aus. */}
+        <script id="theme-bootstrap" dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="h-full" suppressHydrationWarning>
         <SettingsProvider>

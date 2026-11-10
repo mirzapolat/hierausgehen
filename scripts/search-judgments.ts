@@ -34,6 +34,8 @@ const head = (e: CalendarEvent) => [e.title, e.subtitle].filter(Boolean).join(' 
 const all = (e: CalendarEvent) => [e.title, e.subtitle, e.categoryLabel, e.description, ...(e.notes ?? [])].join(' ');
 const named = (pattern: RegExp) => (e: CalendarEvent) => (pattern.test(head(e)) ? 3 : pattern.test(all(e)) ? 2 : 0);
 const evening = (e: CalendarEvent, c: Context) => !e.allDay && c.minutes(e) >= 17 * 60;
+// Seit der Trennung klassisch/modern sind Konzerte beides.
+const concert = (e: CalendarEvent) => e.category === 'Konzert' || e.category === 'Klassik';
 const free = (e: CalendarEvent) => priceOf(e).free;
 const unknownPrice = (e: CalendarEvent) => !priceOf(e).free && priceOf(e).min === undefined;
 
@@ -74,7 +76,7 @@ export const judgments: Judgment[] = [
     grade: (e, c) => {
       const [from, to] = nextWeek(c);
       if (c.day(e) < from || c.day(e) > to) return 0;
-      return e.category === 'Konzert' ? 3 : /konzert/i.test(e.category ?? '') ? 1 : 0;
+      return concert(e) ? 3 : /konzert/i.test(e.category ?? '') ? 1 : 0;
     },
   },
   {
@@ -124,7 +126,7 @@ export const judgments: Judgment[] = [
     query: 'konzert unter 15 €',
     kind: 'facet',
     grade: (e) => {
-      if (e.category !== 'Konzert') return 0;
+      if (!concert(e)) return 0;
       const price = priceOf(e);
       return price.free || (price.min !== undefined && price.min <= 15) ? 3 : price.min === undefined ? 1 : 0;
     },
@@ -148,7 +150,7 @@ export const judgments: Judgment[] = [
   {
     query: 'concerts this weekend',
     kind: 'english',
-    grade: (e, c) => (weekendDays(c).includes(c.day(e)) && e.category === 'Konzert' ? 3 : 0),
+    grade: (e, c) => (weekendDays(c).includes(c.day(e)) && concert(e) ? 3 : 0),
   },
   {
     query: 'free exhibitions',
@@ -190,7 +192,7 @@ export const judgments: Judgment[] = [
     query: 'entspannter abend mit guter musik',
     kind: 'vague',
     grade: (e, c) => {
-      if (!evening(e, c) || e.category !== 'Konzert') return 0;
+      if (!evening(e, c) || !concert(e)) return 0;
       return /jazz|akustik|acoustic|kammer|singer|songwriter|klassik|lieder/i.test(all(e)) ? 3 : 2;
     },
   },
@@ -198,7 +200,7 @@ export const judgments: Judgment[] = [
     query: 'klassik mit klavier',
     kind: 'vague',
     grade: (e) => {
-      if (e.category !== 'Konzert') return 0;
+      if (!concert(e)) return 0;
       if (/klavier|piano|pianist/i.test(all(e))) {
         return /klassik|sinfon|symphon|orchester|beethoven|mozart|brahms|schumann|chopin/i.test(all(e)) ? 3 : 2;
       }

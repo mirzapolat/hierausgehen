@@ -8,7 +8,7 @@ import type { PriceFacts } from './document.ts';
  *     score = text^λ × fit × prior
  *
  * `fit` fragt, ob ein Termin zu dem passt, was ausdrücklich verlangt wurde
- * (Zeitraum, Tageszeit, Art, Preis, Karten). Jeder Faktor liegt zwischen 0,3
+ * (Zeitraum, Tageszeit, Art, Preis, Karten). Jeder Faktor liegt zwischen 0,2
  * und 1, oder er schliesst aus (`EXCLUDE`). `prior` ordnet nur, was ohnehin
  * nah beieinanderliegt, und bleibt deshalb zwischen etwa 0,6 und 1.
  *
@@ -62,7 +62,7 @@ export function relatedness(wanted: string, actual: string | undefined): 'same' 
  * Suchwörtern sind sie eine Vorliebe: der Name entscheidet, die Art ordnet.
  */
 export function categoryFit(wanted: string[], actual: string | undefined, strict: boolean): number {
-  let best = strict ? EXCLUDE : 0.3;
+  let best = strict ? EXCLUDE : 0.2;
   for (const category of wanted) {
     const relation = relatedness(category, actual);
     if (relation === 'same') return 1;
@@ -71,10 +71,14 @@ export function categoryFit(wanted: string[], actual: string | undefined, strict
   return best;
 }
 
-/** Arten, auf die ein Suchwort nur deutet („Jazz"): sanfter als genannte. */
-export function hintFit(hints: string[], actual: string | undefined): number {
+/**
+ * Arten, auf die ein Suchwort nur deutet („Jazz"): sanfter als genannte.
+ * Beim Stöbern („was Lustiges am Freitag") gibt es keinen Text, der
+ * entscheidet – dann trägt der Hinweis mehr.
+ */
+export function hintFit(hints: string[], actual: string | undefined, browsing = false): number {
   if (hints.length === 0) return 1;
-  let best = 0.6;
+  let best = browsing ? 0.4 : 0.6;
   for (const category of hints) {
     const relation = relatedness(category, actual);
     if (relation === 'same') return 1;

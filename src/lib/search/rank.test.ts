@@ -16,7 +16,7 @@ test('Genannte Art: verbindlich ohne Suchwörter, Vorliebe mit', () => {
   assert.equal(categoryFit(['Theater'], 'Theater', true), 1);
   assert.equal(categoryFit(['Theater'], 'Kindertheater', true), 0.6);
   assert.equal(categoryFit(['Theater'], 'Konzert', true), EXCLUDE);
-  assert.equal(categoryFit(['Theater'], 'Konzert', false), 0.3);
+  assert.equal(categoryFit(['Theater'], 'Konzert', false), 0.2);
 });
 
 test('Tageszeit: im Fenster 1, knapp daneben fast, weit daneben 0,4', () => {

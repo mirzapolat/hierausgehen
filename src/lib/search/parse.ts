@@ -65,6 +65,11 @@ export interface ParsedQuery {
    */
   vague?: boolean;
   /**
+   * „in English", „auf Englisch": eine Vorliebe, kein Ausschluss – ob ein
+   * Abend englisch ist, steht nur manchmal im Text.
+   */
+  language?: { value: 'en'; spans: Span[] };
+  /**
    * Stimmungswörter unter den Suchwörtern („gemütlich", „lustig"). Sie zählen
    * mit, wenn sie im Text stehen, sind aber keine Pflicht: „gemütlicher Jazz"
    * soll jeden Jazzabend finden, nicht nur die, die sich selbst gemütlich nennen.
@@ -98,9 +103,37 @@ function tokenize(raw: string): Token[] {
     if (!DATE_LIKE.test(w)) w = w.replace(/\.+$/, '');
     if (!w) continue;
     const start = match.index + leading;
+    const parts = splitCompound(trimmed, w);
+    if (parts) {
+      const cut = start + parts.cut;
+      tokens.push({ raw: trimmed.slice(0, parts.cut), w: parts.day, start, end: cut, used: false });
+      tokens.push({ raw: trimmed.slice(parts.cut), w: parts.time, start: cut, end: start + trimmed.length, used: false });
+      continue;
+    }
     tokens.push({ raw: trimmed, w, start, end: start + trimmed.length, used: false });
   }
   return tokens;
+}
+
+const COMPOUND = new RegExp(
+  '^(montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonnabend|sonntag|heute|morgen|uebermorgen)' +
+    '(abends?|nachts?|nachmittags?|vormittags?|morgens?|mittags?|frueh)$',
+);
+
+/**
+ * „Samstagabend", „freitagnachts", „sonntagmorgen": Tag und Tageszeit in
+ * einem Wort. Zwei Tokens daraus, jedes mit seinem Stück der Anfrage – so
+ * entfernt der Chip „Samstag" nur „Samstag" und lässt „abend" stehen.
+ * „-morgen" und „-früh" am Ende sind der Vormittag, nicht der nächste Tag.
+ */
+function splitCompound(raw: string, w: string): { day: string; time: string; cut: number } | undefined {
+  const match = COMPOUND.exec(w);
+  if (!match) return undefined;
+  let cut = 1;
+  while (cut < raw.length && fold(raw.slice(0, cut)) !== match[1]) cut++;
+  if (cut >= raw.length) return undefined;
+  const time = match[2] === 'morgen' || match[2] === 'frueh' ? 'morgens' : match[2];
+  return { day: match[1], time, cut };
 }
 
 /* --------------------------------- Wörter --------------------------------- */
@@ -230,6 +263,12 @@ export function parseQuery(raw: string, context: ParseContext): ParsedQuery {
     structural.push(...spans);
   };
 
+  /** „Sonntag morgen", „heute früh": hinter einem Tag ist „morgen" der Vormittag. */
+  const morningAfter = (j: number) => {
+    const word = at(j);
+    if (word === 'morgen' || word === 'frueh') addTime('day', take(j, 1));
+  };
+
   for (let i = 0; i < tokens.length; i++) {
     const w = at(i);
     if (w === undefined) continue;
@@ -246,7 +285,7 @@ export function parseQuery(raw: string, context: ParseContext): ParsedQuery {
     /* ---- Zeitraum ---- */
     if (w === 'heute' || w === 'today') {
       setDate({ from: today, to: today, kind: 'day' }, take(i, 1));
-      if (next === 'morgen') addTime('day', take(i + 1, 1));
+      morningAfter(i + 1);
       continue;
     }
     if (w === 'tonight') {
@@ -258,6 +297,8 @@ export function parseQuery(raw: string, context: ParseContext): ParsedQuery {
     if (w === 'morgen' || w === 'tomorrow') {
       const day = addDays(today, 1);
       setDate({ from: day, to: day, kind: 'day' }, take(i, 1));
+      // „morgen früh"; „morgen morgen" sagt niemand.
+      if (next === 'frueh') addTime('day', take(i + 1, 1));
       continue;
     }
     if (w === 'uebermorgen' || (w === 'day' && next === 'after' && at(i + 2) === 'tomorrow')) {
@@ -286,6 +327,7 @@ export function parseQuery(raw: string, context: ParseContext): ParsedQuery {
       const withPrefix = prefixed === weekdayWord;
       const day = upcomingWeekday(today, WEEKDAYS[weekdayWord], withPrefix && isNext);
       setDate({ from: day, to: day, kind: 'day' }, take(i, withPrefix ? 2 : 1));
+      morningAfter(i + (withPrefix ? 2 : 1));
       continue;
     }
     const explicit = explicitDay(tokens, i, today);
@@ -369,6 +411,15 @@ export function parseQuery(raw: string, context: ParseContext): ParsedQuery {
       continue;
     }
 
+    /* ---- Sprache ---- */
+    const english = englishPhrase(tokens, i);
+    if (english) {
+      const spans = take(i, english);
+      parsed.language = { value: 'en', spans: [...(parsed.language?.spans ?? []), ...spans] };
+      structural.push(...spans);
+      continue;
+    }
+
     /* ---- Kinder ---- */
     const kidsLead = (w === 'fuer' || w === 'for' || w === 'mit' || w === 'with') && !!next && KIDS.has(next);
     if (KIDS.has(w) || kidsLead) {
@@ -410,6 +461,8 @@ export function parseQuery(raw: string, context: ParseContext): ParsedQuery {
       parsed.categories.spans.push(...spans);
     } else if (category && !parsed.hints.includes(category.value)) {
       parsed.hints.push(category.value);
+    } else if (!category) {
+      for (const value of conceptHints(w)) if (!parsed.hints.includes(value)) parsed.hints.push(value);
     }
   }
 
@@ -519,6 +572,14 @@ function amountAt(tokens: Token[], i: number): { value: number; count: number; c
   return { value, count: following ? 2 : 1, currency: inline || following };
 }
 
+function englishPhrase(tokens: Token[], i: number): number {
+  const w = (k: number) => (tokens[i + k] && !tokens[i + k].used ? tokens[i + k].w : undefined);
+  if ((w(0) === 'in' || w(0) === 'auf') && (w(1) === 'english' || w(1) === 'englisch')) return 2;
+  if (w(0) === 'in' && w(1) === 'englischer' && w(2) === 'sprache') return 3;
+  if (w(0) && /^(?:english|englisch|englischsprachige?[nrs]?|english-speaking|english-language)$/.test(w(0)!)) return 1;
+  return 0;
+}
+
 function ticketPhrase(tokens: Token[], i: number): number {
   const seq = (...expected: string[]) =>
     expected.every((word, k) => tokens[i + k] && !tokens[i + k].used && tokens[i + k].w === word);
@@ -551,6 +612,29 @@ function categoryAt(
   return undefined;
 }
 
+/**
+ * Wörter, die auf eine Art deuten, ohne sie zu nennen: „was zum Lachen" ist
+ * Comedy, „Techno" eine Party, „moderne Kunst" eine Ausstellung. Das Wort
+ * bleibt Suchtext; die Art ordnet nur (`hintFit`). Das Embedding-Modell
+ * kann das allein nicht verlässlich – für Big Band und Techno liegt es
+ * gleich nah.
+ */
+const CONCEPTS: [RegExp, string[]][] = [
+  [/^(?:lustig|witzig|lach|lacher|humor|humour|humorvoll|funny|komisch|komoedie|spassig|heiter|satire|satirisch|kabarett|parodie)/, ['Comedy']],
+  [/^(?:feiern|feier|clubbing|club|clubnacht|techno|house|rave|dj|djs|elektro|electro|electronic|elektronisch|disco|tanzbar)$/, ['Party']],
+  [/^(?:kunst|art|malerei|maler|gemaelde|fotografie|photography|galerie|gallery|museum|skulptur|skulpturen|installation|vernissage)$/, ['Ausstellung']],
+  [/^(?:autor|autorin|roman|buch|buecher|books?|poesie|poetry|gedicht|gedichte|lyrik|poetry-slam|slam)$/, ['Literatur']],
+  [/^(?:sinfoni|symphon|orchester|orchestra|kammermusik|streichquartett|klaviertrio|liederabend|mozart|beethoven|bach|brahms|chopin|schubert|haydn|mahler|bruckner|tschaikowsky|vivaldi)/, ['Klassik']],
+  [/^(?:jazz|rock|pop|band|bands|hiphop|hip-hop|rap|indie|punk|metal|blues|soul|funk|reggae|singer-songwriter|songwriter|livemusik|unplugged|akustik|acoustic)$/, ['Konzert']],
+  [/^(?:zauber|zauberer|magie|magic|magier|akrobatik|akrobaten|zirkus|circus|variete|varieté|artistik)$/, ['Show']],
+  [/^(?:diskussion|podium|podiumsdiskussion|debatte|wissenschaft|science|vortrag)$/, ['Vortrag']],
+];
+
+function conceptHints(word: string): string[] {
+  for (const [pattern, values] of CONCEPTS) if (pattern.test(word)) return values;
+  return [];
+}
+
 /* ---------------------------------- Spans ---------------------------------- */
 
 function mergeSpans(spans: Span[]): Span[] {
@@ -567,7 +651,7 @@ function mergeSpans(spans: Span[]): Span[] {
 /** Der Text ohne diese Stellen – zum Entfernen eines Chips aus der Anfrage. */
 export function removeSpans(raw: string, spans: Span[]): string {
   let out = raw;
-  for (const span of [...spans].sort((a, b) => b.start - a.start)) {
+  for (const span of mergeSpans(spans).reverse()) {
     out = out.slice(0, span.start) + out.slice(span.end);
   }
   return out.replace(/\s{2,}/g, ' ').trim();

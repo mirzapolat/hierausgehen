@@ -25,6 +25,8 @@
   --danger: #b4472e;
   /* Das Herz bei „Unterstützen" – das einzige Rot, das nichts Schlimmes meint. */
   --heart: #e5484d;
+  /* Rote Handschrift auf der Startseite – Randnotiz, keine Warnung. */
+  --scribble: #d93a2b;
   --overlay: rgb(0 0 0 / 0.28);
   --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 32px rgb(0 0 0 / 0.10);
   /* Die Hauptfläche liegt einen Hauch über dem Rahmen – viel leiser als ein Overlay. */
@@ -57,6 +59,7 @@
     --danger: #e0785e;
   --heart: #ff6369;
     --heart: #ff6369;
+    --scribble: #ff6b5e;
     --overlay: rgb(0 0 0 / 0.55);
     --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
   --shadow-float: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 12px rgb(0 0 0 / 0.35);
@@ -79,6 +82,7 @@
   --accent: #5b93e6;
   --accent-soft: #1b2635;
   --danger: #e0785e;
+  --scribble: #ff6b5e;
   --overlay: rgb(0 0 0 / 0.55);
   --shadow-overlay: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 32px rgb(0 0 0 / 0.45);
   --shadow-float: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 12px rgb(0 0 0 / 0.35);
@@ -462,6 +466,45 @@ body {
   .search-rise,
   .search-dialog-in,
   .search-fade-in { animation: none; }
+}
+
+/*
+ * Handgezeichnete Randnotiz unter „Alle Events": erst zieht sich der Pfeil
+ * nach oben, dann die Spitze, dann schreibt sich der Text von links nach
+ * rechts. Danach stupst der Pfeil alle paar Sekunden leicht Richtung Knopf.
+ */
+@keyframes scribble-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes scribble-write {
+  from { clip-path: inset(-20% 100% -20% -5%); }
+  to { clip-path: inset(-20% -5% -20% -5%); }
+}
+@keyframes scribble-nudge {
+  0%, 84%, 100% { transform: translate(0, 0); }
+  90% { transform: translate(0, -4px); }
+  95% { transform: translate(0, 0); }
+}
+.scribble { color: var(--scribble); }
+.scribble-line,
+.scribble-head {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.scribble-line { animation: scribble-draw 650ms cubic-bezier(0.55, 0, 0.3, 1) 700ms forwards; }
+.scribble-head { animation: scribble-draw 220ms ease-out 1320ms forwards; }
+.scribble-text {
+  clip-path: inset(-20% 100% -20% -5%);
+  animation: scribble-write 900ms steps(18, end) 1450ms forwards;
+}
+.scribble-arrow { animation: scribble-nudge 4.5s ease-in-out 2.6s infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .scribble-line,
+  .scribble-head { animation: none; stroke-dashoffset: 0; }
+  .scribble-text { animation: none; clip-path: none; }
+  .scribble-arrow { animation: none; }
 }
 
 /* Der Knopf zum Leeren springt herein, sobald es etwas zu leeren gibt. */

@@ -125,3 +125,55 @@ test('Eine Angabe lässt sich über ihre Stellen aus der Anfrage entfernen', () 
   assert.equal(removeSpans(query, parsed.date!.spans), 'konzerte unter 30 €');
   assert.equal(removeSpans(query, parsed.price!.spans), 'konzerte dieses wochenende');
 });
+
+test('„Samstagabend" in einem Wort ist dasselbe wie „Samstag abend"', () => {
+  for (const query of ['samstagabend', 'Samstag Abend', 'samstagabends', 'am Samstagabend']) {
+    const parsed = parse(query);
+    assert.equal(parsed.date?.from, '2026-11-14', query);
+    assert.deepEqual(parsed.times?.values, ['evening'], query);
+    assert.deepEqual(parsed.words, [], query);
+  }
+  const night = parse('freitagnacht');
+  assert.equal(night.date?.from, '2026-11-13');
+  assert.deepEqual(night.times?.values, ['night']);
+  assert.deepEqual(parse('Sonntagnachmittag').times?.values, ['day']);
+  assert.deepEqual(parse('nächsten samstagabend').words, []);
+});
+
+test('Der Chip „Samstag" entfernt nur den Tag aus „Samstagabend"', () => {
+  const query = 'jazz samstagabend';
+  const parsed = parse(query);
+  assert.equal(removeSpans(query, parsed.date!.spans), 'jazz abend');
+  assert.equal(removeSpans(query, parsed.times!.spans), 'jazz samstag');
+});
+
+test('Hinter einem Tag ist „morgen" der Vormittag, nicht der nächste Tag', () => {
+  for (const query of ['sonntag morgen', 'Sonntagmorgen', 'sonntagfrüh']) {
+    const parsed = parse(query);
+    assert.equal(parsed.date?.from, '2026-11-15', query);
+    assert.deepEqual(parsed.times?.values, ['day'], query);
+  }
+  const early = parse('morgen früh');
+  assert.equal(early.date?.from, '2026-11-13');
+  assert.deepEqual(early.times?.values, ['day']);
+  assert.deepEqual(early.words, []);
+  assert.equal(parse('morgen').times, undefined);
+});
+
+test('„in English" ist eine Vorliebe, kein Suchwort', () => {
+  for (const query of ['stand-up comedy in english', 'comedy auf englisch', 'englischsprachiges theater']) {
+    const parsed = parse(query);
+    assert.equal(parsed.language?.value, 'en', query);
+    assert.deepEqual(parsed.words, [], query);
+  }
+});
+
+test('Wörter, die auf eine Art deuten, ohne sie zu nennen', () => {
+  assert.deepEqual(parse('etwas zum lachen').hints, ['Comedy']);
+  assert.deepEqual(parse('was lustiges').hints, ['Comedy']);
+  assert.deepEqual(parse('techno').hints, ['Party']);
+  assert.deepEqual(parse('moderne kunst').hints, ['Ausstellung']);
+  assert.deepEqual(parse('beethoven').hints, ['Klassik']);
+  // Das Wort bleibt Suchtext.
+  assert.deepEqual(parse('techno').words, ['techno']);
+});
